@@ -37,8 +37,8 @@ To run the CDH Value Dashboard Application locally from source, follow these ste
 
 1. **Clone the Repository**:
     ```bash
-    git clone https://github.com/your-repo/CDHValueDashboard.git
-    cd CDHValueDashboard
+    git clone https://github.com/grishasen/proof_of_value.git
+    cd proof_of_value
     ```
 
 2. **Install Dependencies**:
@@ -88,7 +88,7 @@ Ensure you are in your project directory.
 Run the following Poetry command:
 
 ```bash
-  cd CDHValueDashboard
+  cd proof_of_value
   poetry build
 ```
 
