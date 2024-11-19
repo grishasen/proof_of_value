@@ -26,6 +26,7 @@ def personalization(args: List[Series]) -> pl.Float64:
     A high score indicates good personalization (user's lists of recommendations are different).
     A low score indicates poor personalization (user's lists of recommendations are very similar).
     A model is "personalizing" well if the set of recommendations for each user is different.
+    Inspired by implementation at https://github.com/statisticianinstilettos/recmetrics.git (unfortunately could not use it in polars context)
     Parameters:
     ----------
     args : a 2-elements list of Series with CustomerID and Action Name
@@ -59,6 +60,7 @@ def personalization(args: List[Series]) -> pl.Float64:
 def novelty(args: List[Series]) -> pl.Float64:
     """
     Computes the novelty for a list of recommendations
+    Inspired by implementation at https://github.com/statisticianinstilettos/recmetrics.git (unfortunately could not use it in polars context)
     Parameters
     ----------
     args : a 2-elements list of Series with CustomerID and Action Name
