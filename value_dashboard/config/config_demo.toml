@@ -1,0 +1,408 @@
+[copyright]
+name = "CDH Value Dashboard Application"
+version = "0.1"
+version_date = "2024-07-07"
+
+[ux]
+refresh_dashboard = "false"
+refresh_interval = 180000
+data_profiling = "false"
+data_cache_hours = 8
+chat_with_data = "true"
+
+[ih]
+file_type = "parquet"
+file_pattern = "**/*.parquet"
+ih_group_pattern = "Day=(.*)/"
+hive_partitioning = "false"
+streaming = "false"
+background = "false"
+
+[ih.extensions]
+default_values = { 'ModelType' = 'Engagement', 'PlacementType' = '', 'AppliedModel' = 'Bayesian', 'ProductGroup' = 'N/A', 'ExperimentName' = 'N/A', 'ExperimentGroup' = 'N/A', 'FinalPropensity' = 0.0 }
+filter = """(pl.col("Outcome").is_in(["Pending", "Impression", "Clicked", "Conversion", "NoConversion"]) &
+pl.col("AppliedModel").is_in(["Bayesian", "Gradient boosting"]) &
+pl.col("Channel").is_in(["Web", "Mobile", "Email"]))""" #Global filter across entire IH (for performance)
+columns = """[
+            (pl.when(pl.col("Outcome") == "Conversion").then(pl.lit(np.random.normal(3.5))).otherwise(
+                pl.lit(0))).alias('Revenue')]"""
+
+[holdings]
+file_type = "pega_ds_export" # parquet, pega_ds_export, csv, xlsx
+file_pattern = "**/*.json"
+file_group_pattern = "(.*)"
+hive_partitioning = "false"
+streaming = "false"
+background = "false"
+
+[holdings.extensions]
+default_values = { 'CustomerType' = 'Customers known', 'Channel' = 'Web' }
+filter = """"""
+columns = """[pl.col('PurchasedDate').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").dt.date().alias('PurchasedDateTime')]"""
+
+[metrics]
+global_filters = ["Channel", "Year", "CustomerType"]
+
+[metrics.model_ml_scores]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "AppliedModel"]
+filter = ""
+use_t_digest = "false"
+scores = ["roc_auc", "average_precision", "personalization", "novelty"]
+positive_model_response = ["Clicked"]
+negative_model_response = ["Impression", "Pending"]
+
+[metrics.engagement]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "ExperimentName", "ExperimentGroup", "Issue", "Group", "AppliedModel"]
+filter = ""
+scores = ["CTR", "Lift", "Lift_Z_Score", "Lift_P_Val"]
+positive_model_response = ["Clicked"]
+negative_model_response = ["Impression", "Pending"]
+
+[metrics.conversion]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "ModelType", "Issue", "CustomerType", "ProductGroup"]
+filter = ""
+scores = ["ConversionRate", "Revenue"]
+positive_model_response = ["Conversion"]
+negative_model_response = ["NoConversion"]
+
+[metrics.descriptive]
+group_by = ["Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "Issue", "Group", "AppliedModel", "Outcome"]
+filter = ""
+columns = ["Outcome", "Propensity"]
+scores = ['Count', 'Sum', 'Mean', 'Median', 'Std', 'Var', 'Skew']
+
+[metrics.experiment]
+group_by = ["Year", "Channel", "CustomerType"]
+filter = "(~pl.col('ExperimentName').str.starts_with('NBAHealth'))"
+experiment_name = "ExperimentName"
+experiment_group = "ExperimentGroup"
+scores = ["z_score", "z_p_val", "g_stat", "g_p_val", "chi2_stat", "chi2_p_val", "g_odds_ratio_stat", "g_odds_ratio_ci_low", "g_odds_ratio_ci_high", "chi2_odds_ratio_stat", "chi2_odds_ratio_ci_low", "chi2_odds_ratio_ci_high"]
+positive_model_response = ["Clicked"]
+negative_model_response = ["Impression", "Pending"]
+
+[metrics.clv]
+filter = """pl.col('PurchasedDateTime') > pl.datetime(2016, 12, 31)"""
+group_by = ['ControlGroup']
+scores = ['recency', 'frequency', 'monetary_value', 'tenure', 'lifetime_value']
+order_id_col = "HoldingID"
+customer_id_col = 'CustomerID'
+monetary_value_col = 'OneTimeCost'
+purchase_date_col = 'PurchasedDateTime'
+lifespan = 3
+rfm_segment_config = { "Premium Customer" = ["334", "443", "444", "344", "434", "433", "343", "333"], "Repeat Customer" = ["244", "234", "232", "332", "143", "233", "243", "242"], "Top Spender" = ["424", "414", "144", "314", "324", "124", "224", "423", "413", "133", "323", "313", "134"], "At Risk Customer" = ["422", "223", "212", "122", "222", "132", "322", "312", "412", "123", "214"], "Inactive Customer" = ["411", "111", "113", "114", "112", "211", "311"]}
+
+[reports.polar_bar_overall_ctr]
+metric = "engagement"
+type = "bar_polar"
+description = "[BIZ] Click-through rate (Taxonomy)"
+group_by = ["Issue", "Group"]
+r = "CTR"
+theta = "Group"
+color = "Issue"
+showlegend = "False"
+
+[reports.gauge_channel_placement_ctr]
+metric = "engagement"
+type = "gauge"
+description = "[BIZ] Click-through rate (Channel/Placement)"
+group_by = ["Channel", "Placement"]
+value = "CTR"
+reference = { 'Web_Billboard' = 0.015, 'Web_Carousel' = 0.004, 'Mobile_Billboard' = 0.03, 'Mobile_Carousel' = 0.1 }
+
+
+[reports.treemap_channel_placement_taxonomy_ctr]
+metric = "engagement"
+type = "treemap"
+description = "[BIZ] Click-through rate treemap"
+group_by = ["Channel", "CustomerType", "Placement", "Issue", "Group"]
+color = "CTR"
+
+[reports.heatmap_month_group_ctr]
+metric = "engagement"
+type = "heatmap"
+description = "[BIZ] Monthly CTR Heatmap"
+group_by = ["Month", "Group"]
+color = "CTR"
+x = "Month"
+y = "Group"
+
+[reports.treemap_channel_abgroup_ctr]
+metric = "engagement"
+type = "treemap"
+description = "[EXP] Click-through rate experiments treemap"
+group_by = ["Channel", "CustomerType", "Placement", "ExperimentName", "ExperimentGroup"]
+color = "CTR"
+
+[reports.daily_model_roc_auc_place]
+metric = "model_ml_scores"
+type = "line"
+description = "[ML] Monthly model ROC AUC By Placement"
+group_by = ["Month", "Channel", "Placement", "AppliedModel"]
+x = "Month"
+y = "roc_auc"
+color = "AppliedModel"
+facet_row = "Channel"
+facet_column = "Placement"
+
+[reports.monthly_model_roc_auc]
+metric = "model_ml_scores"
+type = "line"
+description = "[ML] Monthly model ROC AUC"
+group_by = ["Month", "Channel", "CustomerType", "AppliedModel"]
+x = "Month"
+y = "roc_auc"
+color = "AppliedModel"
+facet_row = "Channel"
+facet_column = "CustomerType"
+
+[reports.monthly_average_precision_score]
+metric = "model_ml_scores"
+type = "line"
+description = "[ML] Monthly average precision score"
+group_by = ["Month", "Channel", "CustomerType", "AppliedModel"]
+x = "Month"
+y = "average_precision"
+color = "AppliedModel"
+facet_row = "Channel"
+facet_column = "CustomerType"
+
+[reports.treemap_channel_placement_pers]
+metric = "model_ml_scores"
+type = "treemap"
+description = "[REC] Personalization score"
+group_by = ["Channel", "CustomerType", "Placement", "AppliedModel"]
+color = "personalization"
+
+[reports.treemap_channel_placement_novelty]
+metric = "model_ml_scores"
+type = "treemap"
+description = "[REC] Novelty score"
+group_by = ["Channel", "CustomerType", "Placement", "AppliedModel"]
+color = "novelty"
+
+[reports.daily_ctr]
+metric = "engagement"
+type = "line"
+description = "[ENG] Daily Click Through Rate By Customer Type"
+group_by = ["Day", "Channel", "Quarter", "CustomerType", "AppliedModel"]
+x = "Day"
+y = "CTR"
+color = "AppliedModel"
+facet_row = "Channel"
+facet_column = "CustomerType"
+
+[reports.daily_ctr_by_placement]
+metric = "engagement"
+type = "line"
+description = "[ENG] Daily Click Through Rate By Placement"
+group_by = ["Day", "Channel", "Quarter", "Placement", "AppliedModel"]
+x = "Day"
+y = "CTR"
+color = "AppliedModel"
+facet_row = "Channel"
+facet_column = "Placement"
+
+[reports.monthly_ctr]
+metric = "engagement"
+type = "line"
+description = "[ENG] Monthly Click Through Rate By Customer Type"
+group_by = ["Month", "Quarter", "Channel", "CustomerType", "AppliedModel"]
+x = "Month"
+y = "CTR"
+color = "AppliedModel"
+facet_row = "Channel"
+facet_column = "CustomerType"
+
+[reports.monthly_ctr_place]
+metric = "engagement"
+type = "line"
+description = "[ENG] Monthly Click Through Rate By Placement"
+group_by = ["Month", "Quarter", "Channel", "Placement", "AppliedModel"]
+x = "Month"
+y = "CTR"
+color = "AppliedModel"
+facet_row = "Channel"
+facet_column = "Placement"
+
+[reports] #Can be added without need to change code
+
+[reports.monthly_ctr_place_issue]
+metric = "engagement"
+type = "line"
+description = "[ENG] Monthly CTR By Issue/Placement"
+group_by = ["Month", "Quarter", "Channel", "Placement", "Issue"]
+x = "Month"
+y = "CTR"
+color = "Issue"
+facet_row = "Channel"
+facet_column = "Placement"
+
+[reports.monthly_lift]
+metric = "engagement"
+type = "line"
+description = "[ENG] Monthly Lift vs Random Action"
+group_by = ["Month", "Quarter", "Channel", "CustomerType", "AppliedModel"]
+x = "Month"
+y = "Lift"
+color = "AppliedModel"
+facet_row = "Channel"
+facet_column = "CustomerType"
+
+[reports.monthly_lift_significance]
+metric = "engagement"
+type = "line"
+description = "[ENG] Lift vs Random Action Significance"
+group_by = ["Month", "Quarter", "Channel", "CustomerType", "AppliedModel"]
+x = "Month"
+y = "Lift_Z_Score"
+color = "AppliedModel"
+facet_row = "Channel"
+facet_column = "CustomerType"
+
+[reports.daily_conversion]
+metric = "conversion"
+type = "line"
+description = "[CONV] Daily Conversion Rate"
+group_by = ["Day", "Quarter", "Channel", "ModelType"]
+x = "Day"
+y = "ConversionRate"
+color = "ModelType"
+facet_row = "Channel"
+
+[reports.monthly_conversion]
+metric = "conversion"
+type = "line"
+description = "[CONV] Monthly Conversion Rate"
+group_by = ["Month", "Quarter", "Channel", "ModelType"]
+x = "Month"
+y = "ConversionRate"
+color = "ModelType"
+facet_row = "Channel"
+
+[reports.gauge_channel_model_type_conversion]
+metric = "conversion"
+type = "gauge"
+description = "[CONV] Conversion (Channel/Model Type)"
+group_by = ["Channel", "ModelType"]
+value = "ConversionRate"
+
+[reports.gauge_channel_model_type_conversion.reference]
+Web_Engagement = 0.02
+Web_Conversion = 0.02
+Mobile_Engagement = 0.08
+Mobile_Conversion = 0.08
+
+[reports.monthly_conversion_issue]
+metric = "conversion"
+type = "line"
+description = "[CONV] Monthly Conversion Rate By Issue"
+group_by = ["Month", "Quarter", "Channel", "Issue"]
+x = "Month"
+y = "ConversionRate"
+color = "Issue"
+facet_row = "Channel"
+
+[reports.monthly_conversion_revenue_issue]
+metric = "conversion"
+type = "line"
+description = "[CONV] Monthly Revenue By Issue"
+group_by = ["Month", "Quarter", "Channel", "Issue"]
+x = "Month"
+y = "Revenue"
+color = "Issue"
+facet_row = "Channel"
+
+[reports.monthly_conversion_revenue_product]
+metric = "conversion"
+type = "line"
+description = "[CONV] Monthly Revenue By Product Group"
+group_by = ["Month", "Channel", "Issue", "ProductGroup"]
+x = "Month"
+y = "Revenue"
+color = "ProductGroup"
+facet_row = "Channel"
+facet_column = "Issue"
+
+[reports.describe_dataset_propensity]
+metric = "descriptive"
+type = "line"
+description = "[DESC] Explore Dataset"
+group_by = ["Year", "Quarter", "Month", "Channel", "CustomerType", "Placement", "Issue", "Group", "AppliedModel", "Outcome"]
+x = "Month"
+y = "Propensity"
+score = "Mean"
+color = "Issue"
+facet_row = "Channel"
+facet_column = "CustomerType"
+
+[reports.experiment_z_score]
+metric = "experiment"
+type = "line"
+description = "[EXP] Experiment Significance Z Test"
+group_by = ["ExperimentName"]
+x = "z_score"
+y = "ExperimentName"
+
+[reports.experiment_g_stat]
+metric = "experiment"
+type = "line"
+description = "[EXP] Experiment Significance G Test"
+group_by = ["Channel", "CustomerType", "ExperimentName"]
+x = "g_odds_ratio_stat"
+y = "ExperimentName"
+facet_row = "Channel"
+facet_column = "CustomerType"
+
+[reports.clv_frequency_hist]
+metric = 'clv'
+type = 'histogram'
+description = '[CLV] Recency-Frequency-Money (RFM) analysis'
+group_by = ["ControlGroup"]
+x = 'frequency'
+#facet_row = "ControlGroup"
+color = 'ControlGroup'
+
+[reports.polar_bar_segments]
+metric = 'clv'
+type = 'bar_polar'
+description = '[BIZ] RFM Segmentation'
+group_by = ['rfm_segment']
+r = 'unique_holdings'
+theta = 'rfm_segment'
+color = 'rfm_segment'
+showlegend = 'False'
+
+[reports.exposure]
+metric = 'clv'
+type = 'exposure'
+description = '[BIZ] Customer Exposure'
+group_by = []
+
+[reports.corr]
+metric = 'clv'
+type = 'corr'
+description = '[BIZ] CLV parameters correlation'
+group_by = []
+facet_col = 'rfm_segment'
+x = 'frequency'
+y = 'monetary_value'
+
+[variants]
+name = "Demo"
+description = "This dashboard configuration was designed for demos"
+
+[chat_with_data]
+agent_prompt = """You are a data analysis agent. Your main goal is to help non-technical users to analyze interaction history and product holdings data from Pega Customer Decision Hub application.
+        Data consists of several datasets which contain pre-aggregated data from source (interaction history and product holdings). Aggregations include counts,
+        number of positives and negative responses, t-digest structures. Those datasets should be used to calculate aggregated
+        metrics when answering questions. Questions will require to calculate various metrics like CTR, conversion rates and their
+        differences between various control groups. When calculating CTR and other metrics - sum positives and negatives against
+        desired grouping variables and then calculate ratio of sum(positives)/sum(negatives). Each dataset relates to a certain metric type: engagement,
+        conversion or experiments. Engagement dataset should be used to calculate such metrics as CTR. Conversion dataset used to calculate revenue
+        and conversion rate. Experiment dataset used to calculated and compare difference between control groups of
+        various experiment results. When asked to answer question which suppose doing any calculations - first select appropriate dataset (using one dataset should be enough),
+        then group rows against the requested columns, sum up positives, negatives or counts and then - claculate resulting measurement."""
+[chat_with_data.metric_descriptions]
+engagement = "Measures of user interaction with the product or service. Main KPIs: Click-Through Rate (CTR): The ratio of users who click on an ad to the number of total users who view the ad. Lift: Measures the increase in a desired descriptive in the target group that received the action compared to a control group that received random action."
+conversion = "Measures conversion of a certain business action. Conversion Rate: The percentage of users who take a desired action, such as making a purchase or signing up for a service. Revenue: Revenue aggregations."
+experiment = "Used to calculate various metrics used during A/B testing. Measures difference between test and control group. Main measures are z-score, odds ratio, confidence bands."
