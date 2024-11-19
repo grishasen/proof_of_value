@@ -9,7 +9,8 @@ exclude = [
     "value_dashboard/config"
 ]
 packages = [
-    {include = "*", from="."}
+    {include = "*", from="."},
+    {include = "*", from="value_dashboard"}
 ]
 
 [tool.poetry.dependencies]
