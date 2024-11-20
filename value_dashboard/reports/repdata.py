@@ -264,14 +264,14 @@ def calculate_engagement_scores(ih_analysis: Union[pl.DataFrame, pd.DataFrame],
                 pl.when(pl.col(MODELCONTROLGROUP) == "Control").then(pl.lit(
                     "Control")).otherwise(pl.lit("Test")).alias(MODELCONTROLGROUP)
             ])
-            .group_by(grp_by + [MODELCONTROLGROUP])
+            .group_by(grp_by if MODELCONTROLGROUP in grp_by else grp_by + [MODELCONTROLGROUP])
             .agg(pl.sum("Count").alias("Count"),
                  pl.sum("Negatives").alias("Negatives"),
                  pl.sum("Positives").alias("Positives"))
             .with_columns([
                 (pl.col("Positives") / pl.col("Negatives")).alias("CTR")
             ])
-            .sort(grp_by + [MODELCONTROLGROUP])
+            .sort(grp_by if MODELCONTROLGROUP in grp_by else grp_by + [MODELCONTROLGROUP])
             .group_by(grp_by, maintain_order=True)
             .agg(
                 pl.col("CTR").last().alias("TestCTR"),
@@ -345,10 +345,12 @@ def group_engagement_data(eng_data: Union[pl.DataFrame, pd.DataFrame],
 
     grp_by = config['group_by'] + get_config()["metrics"]["global_filters"]
     grp_by = list(set(grp_by))
+    if not (MODELCONTROLGROUP in grp_by):
+        grp_by = grp_by + [MODELCONTROLGROUP]
     if grp_by:
         data_copy = (
             eng_data
-            .group_by(grp_by + [MODELCONTROLGROUP])
+            .group_by(grp_by)
             .agg(pl.sum("Negatives").alias("Negatives"),
                  pl.sum("Positives").alias("Positives"),
                  pl.sum("Count").alias("Count"))

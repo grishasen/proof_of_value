@@ -213,6 +213,17 @@ color = "AppliedModel"
 facet_row = "Channel"
 facet_column = "CustomerType"
 
+[reports.monthly_model_control_grp_ctr]
+metric = "engagement"
+type = "line"
+description = "[ENG] Monthly CTR By Customer Type vs Random"
+group_by = ["Month", "Quarter", "Channel", "CustomerType", "ModelControlGroup"]
+x = "Month"
+y = "CTR"
+color = "ModelControlGroup"
+facet_row = "Channel"
+facet_column = "CustomerType"
+
 [reports.monthly_ctr_place]
 metric = "engagement"
 type = "line"
