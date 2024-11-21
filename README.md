@@ -439,6 +439,8 @@ functionality of the dashboard.
 The `[chat_with_data]` section used to configure integration with a chatbot for questions on the data and visualizations 
 beyond ad-hoc reports and queries configured for dashboard.
 
+Use `OPENAI_API_KEY` and `OPENAI_API_BASE` environment variables to set integartion with ChatGPT.
+
 #### Properties in section
 
 - **agent_prompt**: description will be used to describe the agent in the chat and to provide more context for the LLM about how to respond to queries.
