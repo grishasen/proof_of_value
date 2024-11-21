@@ -2,10 +2,10 @@ import traceback
 
 import polars as pl
 
-from value_dashboard.metrics.constants import RECURRING_PERIOD, RECURRING_COST
 from value_dashboard.metrics.constants import CLV_MODEL
 from value_dashboard.metrics.constants import CUSTOMER_ID
 from value_dashboard.metrics.constants import PURCHASED_DATE, ONE_TIME_COST, HOLDING_ID
+from value_dashboard.metrics.constants import RECURRING_PERIOD, RECURRING_COST
 from value_dashboard.utils.timer import timed
 
 

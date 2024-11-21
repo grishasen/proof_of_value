@@ -21,8 +21,8 @@ def run(*args):
     sys.argv.append(filename)
     if len(args) > 1:
         try:
-            script_args_index = args.index('--')
-            script_args = args[script_args_index + 1:]
+            script_args_index = args.index("--")
+            script_args = args[script_args_index + 1 :]
             sys.argv.extend(args[1:script_args_index])
             sys.argv.append("""--""")
             sys.argv.extend(script_args)

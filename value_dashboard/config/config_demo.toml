@@ -89,7 +89,7 @@ customer_id_col = 'CustomerID'
 monetary_value_col = 'OneTimeCost'
 purchase_date_col = 'PurchasedDateTime'
 lifespan = 3
-rfm_segment_config = { "Premium Customer" = ["334", "443", "444", "344", "434", "433", "343", "333"], "Repeat Customer" = ["244", "234", "232", "332", "143", "233", "243", "242"], "Top Spender" = ["424", "414", "144", "314", "324", "124", "224", "423", "413", "133", "323", "313", "134"], "At Risk Customer" = ["422", "223", "212", "122", "222", "132", "322", "312", "412", "123", "214"], "Inactive Customer" = ["411", "111", "113", "114", "112", "211", "311"]}
+rfm_segment_config = { "Premium Customer" = ["334", "443", "444", "344", "434", "433", "343", "333"], "Repeat Customer" = ["244", "234", "232", "332", "143", "233", "243", "242"], "Top Spender" = ["424", "414", "144", "314", "324", "124", "224", "423", "413", "133", "323", "313", "134"], "At Risk Customer" = ["422", "223", "212", "122", "222", "132", "322", "312", "412", "123", "214"], "Inactive Customer" = ["411", "111", "113", "114", "112", "211", "311"] }
 
 [reports.polar_bar_overall_ctr]
 metric = "engagement"

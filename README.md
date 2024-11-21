@@ -130,7 +130,9 @@ If application starts as expected, your wheel installation was successful.
 - **vd_app.py**: The main entry point of the application.
 - **value_dashboard/pages/home.py**: Application description.
 - **value_dashboard/pages/data_import.py**: Handles data import functionality.
-- **value_dashboard/pages/engagement_dashboard.py**: Contains the dashboard for data visualization and interaction.
+- **value_dashboard/pages/dashboard.py**: Contains the dashboard for IH data visualization and interaction.
+- **value_dashboard/pages/clv_analysis.py**: Contains the dashboard for Product Holdings data and CLV-related metrics.
+- **value_dashboard/pages/chat_with_data.py**: Chat with your data (enagagement, conversion, experiment).
 - **value_dashboard/pages/toml_editor.py**: Configuration page for customizing application settings.
 - **value_dashboard/metrics/**: Calculation of various metrics supported by the application.
 - **value_dashboard/pipeline/**: Data loading and processing steps.
@@ -429,6 +431,19 @@ functionality of the dashboard.
 
     - **Definition**: The `description` property provides a narrative or context regarding the purpose or target
       audience of this dashboard configuration variant.
+
+---
+
+### Chat With Data
+
+The `[chat_with_data]` section used to configure integration with a chatbot for questions on the data and visualizations 
+beyond ad-hoc reports and queries configured for dashboard.
+
+#### Properties in section
+
+- **agent_prompt**: description will be used to describe the agent in the chat and to provide more context for the LLM about how to respond to queries.
+- **metric_descriptions**: detailed dataset description for the LLM.
+
 
 ## Contributing
 
