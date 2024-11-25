@@ -13,9 +13,10 @@ from value_dashboard.utils.config import get_config
 
 def get_agent(data, llm):
     agent = Agent(
-        data, config={"llm": llm, "verbose": True, "response_parser": StreamlitResponse},
+        data,
+        config={"llm": llm, "verbose": True, "response_parser": StreamlitResponse},
         memory_size=10,
-        description=get_config()["chat_with_data"]["agent_prompt"]
+        description=get_config()["chat_with_data"]["agent_prompt"],
     )
 
     return agent
@@ -66,27 +67,29 @@ with st.sidebar:
     )
 
     # Create llm instance
-    llm = OpenAI(api_token=openai_api_key)
+    llm = OpenAI(api_token=openai_api_key, temperature=0, seed=31)
     llm.api_base = openai_api_base
     if llm:
         metrics_data = load_data()
         metrics_descs = get_config()["chat_with_data"]["metric_descriptions"]
         data_list = []
         for metric in metrics_data.keys():
-            if metric.startswith("eng") | metric.startswith("conv") | metric.startswith("exp"):
+            if (
+                metric.startswith("eng")
+                | metric.startswith("conv")
+                | metric.startswith("exp")
+            ):
                 df = metrics_data[metric].to_pandas()
                 pconnector = PandasConnector(
                     config={"original_df": df},
                     name=metric,
-                    description=metrics_descs[metric]
+                    description=metrics_descs[metric],
                 )
                 data_list.append(pconnector)
         analyst = get_agent(data_list, llm)
 
-
     def clear_chat_history():
         st.session_state.messages = []
-
 
     st.button("Clear chat 🗑️", on_click=clear_chat_history)
 
@@ -97,12 +100,12 @@ def chat_window(analyst):
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            if 'question' in message:
+            if "question" in message:
                 st.markdown(message["question"])
-            elif 'response' in message:
-                st.write(message['response'])
-            elif 'error' in message:
-                st.text(message['error'])
+            elif "response" in message:
+                st.write(message["response"])
+            elif "error" in message:
+                st.text(message["error"])
 
     if prompt := st.chat_input("What would you like to know? "):
         with st.chat_message("user"):
@@ -110,19 +113,22 @@ def chat_window(analyst):
         st.session_state.messages.append({"role": "user", "question": prompt})
 
         try:
-            st.toast('Getting response...')
+            st.toast("Getting response...")
             response = analyst.chat(prompt)
-            st.session_state.messages.append({"role": "assistant", "response": response})
-            st.toast('Getting explanation...')
+            st.session_state.messages.append(
+                {"role": "assistant", "response": response}
+            )
+            st.toast("Getting explanation...")
             explanation = analyst.explain()
 
-            st.write(response)
-            with st.status("Show explanation", expanded=False):
-                st.write(explanation)
-                st.code(analyst.last_code_generated, line_numbers=True)
-            if os.path.exists("exports/charts/temp_chart.png"):
-                st.image("exports/charts/temp_chart.png")
-                os.remove("exports/charts/temp_chart.png")
+            with st.chat_message("assistant"):
+                st.write(response)
+                with st.status("Show explanation", expanded=False):
+                    st.write(explanation)
+                    st.code(analyst.last_code_generated, line_numbers=True)
+                if os.path.exists("exports/charts/temp_chart.png"):
+                    st.image("exports/charts/temp_chart.png")
+                    os.remove("exports/charts/temp_chart.png")
         except Exception as e:
             st.write(e)
             error_message = "⚠️Sorry, Couldn't generate the answer! Please try rephrasing your question!"
