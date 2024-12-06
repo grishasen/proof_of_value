@@ -21,3 +21,4 @@ psutil>=6.0.0
 hvplot>=0.11.0
 lifetimes>=0.11.3
 python-dotenv>=1.0.0
+seaborn>=0.13.2

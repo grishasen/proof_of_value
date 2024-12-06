@@ -38,6 +38,7 @@ psutil = "^6.0.0"
 hvplot = "^0.10.0"
 lifetimes = "^0.11.3"
 pandasai = "^2.3.0"
+seaborn = "^0.13.2"
 
 [tool.poetry.scripts]
 cdhdashboard = "value_dashboard.utils.cli:main"
