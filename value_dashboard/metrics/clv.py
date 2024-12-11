@@ -53,7 +53,7 @@ def clv(holdings: pl.LazyFrame, config: dict, streaming=False, background=False)
                     ]
                 )
                 .drop('lifetime_value')
-                .rename({'lifetime_value_a':'lifetime_value'})
+                .rename({'lifetime_value_a': 'lifetime_value'})
             )
         if background:
             return data_aggr.collect(background=background, streaming=streaming)
@@ -115,7 +115,8 @@ def rfm_summary(holdings_aggr: pl.DataFrame, config: dict):
     """
     customer_id_col = config['customer_id_col'] if 'customer_id_col' in config.keys() else CUSTOMER_ID
     mand_props_grp_by = config['group_by'] + [customer_id_col]
-    rfm_segment_config = config['rfm_segment_config'] if 'rfm_segment_config' in config.keys() else _default_rfm_segment_config
+    rfm_segment_config = config[
+        'rfm_segment_config'] if 'rfm_segment_config' in config.keys() else _default_rfm_segment_config
 
     observation_period_end_ts = holdings_aggr.select(pl.col("MaxPurchasedDate").max()).item()
     time_scaler = 1.0

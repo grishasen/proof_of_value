@@ -216,9 +216,12 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             ih_filter_expr = eval(filter_exp)
             ih = ih.filter(ih_filter_expr)
     try:
+        ml_grp_by = grp_by + ['Outcome', "Propensity"] + [CUSTOMER_ID]
+        if not NAME in ml_grp_by:
+            ml_grp_by = ml_grp_by + [NAME]
         ml_data = (
             ih
-            .select(grp_by + ['Outcome', "Propensity"] + [CUSTOMER_ID, NAME])
+            .select(ml_grp_by)
             .filter(
                 (pl.col("Outcome").is_in(negative_model_response + positive_model_response))
             )
@@ -229,7 +232,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             .filter(pl.any("Outcome_Boolean").over(grp_by))
             .group_by(grp_by)
             .agg([
-                     pl.count().alias('Count'),
+                     pl.len().alias('Count'),
                      pl.map_groups(
                          exprs=[CUSTOMER_ID, NAME],
                          function=personalization,

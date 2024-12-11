@@ -27,7 +27,7 @@ def conversion(ih: pl.LazyFrame, config: dict, streaming=False, background=False
             ])
             .group_by(mand_props_grp_by)
             .agg([
-                pl.count().alias('Count'),
+                pl.len().alias('Count'),
                 pl.sum(REVENUE_PROP_NAME),
                 pl.sum("Outcome_Binary").alias("Positives")
             ])

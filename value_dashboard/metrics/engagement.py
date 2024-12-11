@@ -28,7 +28,7 @@ def engagement(ih: pl.LazyFrame, config: dict, streaming=False, background=False
             .select(mand_props_grp_by + ["Outcome_Binary"])
             .group_by(mand_props_grp_by)
             .agg([
-                pl.count().alias('Count'),
+                pl.len().alias('Count'),
                 pl.sum("Outcome_Binary").alias("Positives")
             ])
             .with_columns([
