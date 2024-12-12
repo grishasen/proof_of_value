@@ -63,8 +63,12 @@ def capitalize(fields: list) -> list:
     ]
     if not isinstance(fields, list):
         fields = [fields]
-    fields = [re.sub("^p([xyz])", "", field) for field in fields]
+    fields_new = [re.sub("^p([xyz])", "", field) for field in fields]
+    seen = set(fields)
+    for i, item in enumerate(fields_new):
+        if item in seen:
+            fields_new[i] = fields[i]
     for word in capitalize_end_words:
-        fields = [re.sub(word, word, field, flags=re.I) for field in fields]
-        fields = [field[:1].upper() + field[1:] for field in fields]
-    return fields
+        fields_new = [re.sub(word, word, field, flags=re.I) for field in fields_new]
+        fields_new = [field[:1].upper() + field[1:] for field in fields_new]
+    return fields_new
