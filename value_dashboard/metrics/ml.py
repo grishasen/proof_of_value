@@ -14,7 +14,7 @@ from scipy.sparse import csr_matrix
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.metrics.pairwise import cosine_similarity
 
-from value_dashboard.metrics.constants import NAME, CUSTOMER_ID
+from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID
 from value_dashboard.utils.polars_utils import df_to_dict, tdigest_pos_neg, merge_tdigests, estimate_quantile
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
@@ -206,6 +206,12 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
     positive_model_response = config['positive_model_response']
     scores = config['scores']
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else False
+    negative_model_response_both_classes = strtobool(config[
+                                                         'negative_model_response_both_classes']) if 'negative_model_response_both_classes' in config.keys() else False
+    if negative_model_response_both_classes:
+        k = 2
+    else:
+        k = 1
     unnest_expr = pl.col("metrics")
     if use_t_digest:
         unnest_expr = pl.col("propensity_tdigest_pos_neg")
@@ -216,7 +222,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             ih_filter_expr = eval(filter_exp)
             ih = ih.filter(ih_filter_expr)
     try:
-        ml_grp_by = grp_by + ['Outcome', "Propensity"] + [CUSTOMER_ID]
+        ml_grp_by = grp_by + ['Outcome', "Propensity"] + [CUSTOMER_ID, INTERACTION_ID]
         if not NAME in ml_grp_by:
             ml_grp_by = ml_grp_by + [NAME]
         ml_data = (
@@ -229,6 +235,8 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
                 pl.when(pl.col('Outcome').is_in(positive_model_response)).
                 then(True).otherwise(False).alias('Outcome_Boolean')
             ])
+            .filter(True if not negative_model_response_both_classes else (
+                    pl.col('Outcome_Boolean') == pl.col('Outcome_Boolean').max().over(INTERACTION_ID, NAME)))
             .filter(pl.any("Outcome_Boolean").over(grp_by))
             .group_by(grp_by)
             .agg([

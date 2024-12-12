@@ -2,6 +2,8 @@ import traceback
 
 import polars as pl
 
+from value_dashboard.metrics.constants import INTERACTION_ID, NAME
+from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
 
@@ -10,6 +12,13 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
     mand_props_grp_by = config['group_by'] + [config['experiment_name']] + [config['experiment_group']]
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
+    negative_model_response_both_classes = strtobool(config[
+                                                         'negative_model_response_both_classes']) if 'negative_model_response_both_classes' in config.keys() else False
+
+    if negative_model_response_both_classes:
+        k = 2
+    else:
+        k = 1
     if "filter" in config.keys():
         filter_exp = config["filter"]
         if filter_exp:
@@ -24,6 +33,8 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
                 pl.when(pl.col('Outcome').is_in(positive_model_response)).
                 then(1).otherwise(0).alias('Outcome_Binary')
             ])
+            .filter(True if not negative_model_response_both_classes else (
+                        pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, NAME)))
             .select(mand_props_grp_by + ["Outcome_Binary"])
             .group_by(mand_props_grp_by)
             .agg([
@@ -31,7 +42,7 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
                 pl.sum("Outcome_Binary").alias("Positives")
             ])
             .with_columns([
-                (pl.col("Count") - pl.col("Positives")).alias("Negatives")
+                (pl.col("Count") - (k * pl.col("Positives"))).alias("Negatives")
             ])
             .filter(
                 (pl.col("Positives") > 0) & (pl.col("Negatives") > 0)

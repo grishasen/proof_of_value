@@ -298,7 +298,7 @@ def calculate_engagement_scores(
                 pl.sum("Negatives").alias("Negatives"),
                 pl.sum("Positives").alias("Positives"),
             )
-            .with_columns([(pl.col("Positives") / pl.col("Negatives")).alias("CTR")])
+            .with_columns([(pl.col("Positives") / (pl.col("Positives") + pl.col("Negatives"))).alias("CTR")])
             .sort(
                 grp_by if MODELCONTROLGROUP in grp_by else grp_by + [MODELCONTROLGROUP]
             )
@@ -318,7 +318,7 @@ def calculate_engagement_scores(
                 (
                     (pl.col("TestCTR") - pl.col("ControlCTR")) / pl.col("ControlCTR")
                 ).alias("Lift"),
-                (pl.col("Positives") / pl.col("Negatives")).alias("CTR"),
+                (pl.col("Positives") / (pl.col("Positives") + pl.col("Negatives"))).alias("CTR"),
             )
             .with_columns(
                 [
@@ -326,7 +326,7 @@ def calculate_engagement_scores(
                         (
                             (
                                 (pl.col("CTR") * (1 - pl.col("CTR")))
-                                / pl.col("Negatives")
+                                / (pl.col("Positives") + pl.col("Negatives"))
                             )
                             ** 0.5
                         )
@@ -390,7 +390,7 @@ def calculate_conversion_scores(
             pl.sum("Revenue").alias("Revenue"),
         )
         .with_columns(
-            [(pl.col("Positives") / pl.col("Negatives")).alias("ConversionRate")]
+            [(pl.col("Positives") / (pl.col("Positives") + pl.col("Negatives"))).alias("ConversionRate")]
         )
         .with_columns(
             [
@@ -398,7 +398,7 @@ def calculate_conversion_scores(
                     (
                         (
                             (pl.col("ConversionRate") * (1 - pl.col("ConversionRate")))
-                            / pl.col("Negatives")
+                            / (pl.col("Positives") + pl.col("Negatives"))
                         )
                         ** 0.5
                     )

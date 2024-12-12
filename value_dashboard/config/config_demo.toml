@@ -50,6 +50,7 @@ use_t_digest = "false"
 scores = ["roc_auc", "average_precision", "personalization", "novelty"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
+negative_model_response_both_classes = "true"
 
 [metrics.engagement]
 group_by = ["Day", "Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "ExperimentName", "ExperimentGroup", "Issue", "Group", "AppliedModel"]
@@ -57,6 +58,7 @@ filter = ""
 scores = ["CTR", "Lift", "Lift_Z_Score", "Lift_P_Val"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
+negative_model_response_both_classes = "true"
 
 [metrics.conversion]
 group_by = ["Day", "Month", "Year", "Quarter", "Channel", "ModelType", "Issue", "CustomerType", "ProductGroup"]
@@ -64,6 +66,7 @@ filter = ""
 scores = ["ConversionRate", "Revenue"]
 positive_model_response = ["Conversion"]
 negative_model_response = ["NoConversion"]
+negative_model_response_both_classes = "false"
 
 [metrics.descriptive]
 group_by = ["Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "Issue", "Group", "AppliedModel", "Outcome"]
@@ -79,6 +82,7 @@ experiment_group = "ExperimentGroup"
 scores = ["z_score", "z_p_val", "g_stat", "g_p_val", "chi2_stat", "chi2_p_val", "g_odds_ratio_stat", "g_odds_ratio_ci_low", "g_odds_ratio_ci_high", "chi2_odds_ratio_stat", "chi2_odds_ratio_ci_low", "chi2_odds_ratio_ci_high"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
+negative_model_response_both_classes = "true"
 
 [metrics.clv]
 filter = """pl.col('PurchasedDateTime') > pl.datetime(2016, 12, 31)"""

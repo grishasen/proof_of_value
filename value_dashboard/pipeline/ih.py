@@ -156,7 +156,6 @@ def read_file_group(files: typing.Iterable,
 
         logger.debug(f"Data unpacking and load: {(time.time() - start) * 10 ** 3:.03f}ms")
 
-        ih = ih.drop(["pyWorkID", "WorkID", "pyRevenue", "pyCategory"], strict=False)
         dframe_columns = ih.collect_schema().names()
         cols = capitalize(dframe_columns)
         ih = ih.rename(dict(map(lambda i, j: (i, j), dframe_columns, cols)))

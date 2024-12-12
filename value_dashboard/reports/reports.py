@@ -1279,7 +1279,7 @@ def engagement_ctr_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame],
         .agg(pl.sum("Negatives").alias("Negatives"),
              pl.sum("Positives").alias("Positives"))
         .with_columns([
-            (pl.col("Positives") / pl.col("Negatives")).alias("CTR")
+            (pl.col("Positives") / (pl.col("Positives") + pl.col("Negatives"))).alias("CTR")
         ])
         .sort(grp_by)
     )
@@ -1328,7 +1328,7 @@ def conversion_rate_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame]
         .agg(pl.sum("Negatives").alias("Negatives"),
              pl.sum("Positives").alias("Positives"))
         .with_columns([
-            (pl.col("Positives") / pl.col("Negatives")).alias("ConversionRate")
+            (pl.col("Positives") / (pl.col("Positives") + pl.col("Negatives"))).alias("ConversionRate")
         ])
         .sort(grp_by)
     )

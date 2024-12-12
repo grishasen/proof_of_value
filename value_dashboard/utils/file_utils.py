@@ -63,9 +63,9 @@ def read_dataset_export(file_name, src_folder=".",
                 if not os.path.exists(json_file):
                     raise Exception(f"Dataset zipfile {zip_file} does not have \"data.json\"")
                 if lazy:
-                    multi_line_json = pl.scan_ndjson(json_file)
+                    multi_line_json = pl.scan_ndjson(json_file, infer_schema_length=10000)
                 else:
-                    multi_line_json = pl.read_ndjson(json_file)
+                    multi_line_json = pl.read_ndjson(json_file, infer_schema_length=10000)
                     os.remove(json_file)
 
     if json_file is None:
