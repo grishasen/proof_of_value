@@ -1,6 +1,6 @@
-import math
 from typing import Union
 
+import math
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -242,7 +242,6 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
-    # color_discrete_sequence = ["#3498db", "#2ecc71", "#f1c40f", "#e74c3c", "#9b59b6", "#1abc9c", "#f39c12", "#d35400"]
     if len(ih_analysis[config['x']].unique()) < 25:
         fig = px.bar(ih_analysis,
                      x=config['x'],
@@ -251,10 +250,7 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      facet_col=config['facet_column'] if 'facet_column' in config.keys() else None,
                      facet_row=config['facet_row'],
                      barmode="group",
-                     # color_discrete_sequence=color_discrete_sequence,
                      title=config['description'],
-                     # category_orders={
-                     #    config['color']: sorted(ih_analysis[config['color']].unique(), reverse=True)},
                      custom_data=[config['color']]
                      )
         fig.update_layout(
@@ -282,7 +278,6 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
             ih_analysis,
             x=config['x'],
             y=config['y'],
-            # color_discrete_sequence=color_discrete_sequence,
             color=config['color'],
             title=config['description'],
             facet_row=config['facet_row'] if 'facet_row' in config.keys() else None,
@@ -590,7 +585,6 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
-    # ih_analysis = format_dates(ih_analysis)
 
     if facet_row:
         height = max(640, 350 * len(ih_analysis[facet_row].unique()))
@@ -611,7 +605,6 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      facet_row=facet_row,
                      barmode="group",
                      title=title,
-                     # category_orders={xplot_col: sorted(ih_analysis[xplot_col].unique(), reverse=True)},
                      log_y=xplot_y_bool
                      )
         fig.update_layout(
@@ -816,7 +809,6 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
                 name=color,
                 x=[x_value],
                 mean=[mean],
-                # sd=[sd],
                 lowerfence=[lowerfence],
                 notchspan=[notchspan],
                 upperfence=[upperfence],
@@ -883,8 +875,6 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      barmode="group",
                      title=config['description'],
                      custom_data=[config['color']],
-                     # category_orders={
-                     #    config['color']: sorted(ih_analysis[config['color']].unique(), reverse=True)}
                      )
         fig.update_layout(
             updatemenus=[
@@ -1203,8 +1193,7 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      facet_row=facet_row,
                      log_y=xplot_y_bool,
                      barmode="group",
-                     title=config['description'],
-                     # category_orders={xplot_col: sorted(ih_analysis[xplot_col].unique())}
+                     title=config['description']
                      )
         fig.update_xaxes(tickfont=dict(size=10))
         fig.update_yaxes(tickformat=',.2f')
@@ -1248,8 +1237,6 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             hovermode="x unified",
             autosize=True,
             minreducedheight=640,
-            # showlegend=False,
-            # width=1400,
             height=640
         )
         fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
@@ -1283,9 +1270,10 @@ def engagement_ctr_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame],
         ])
         .sort(grp_by)
     )
+
+    average = data_copy.select(((pl.col("Positives") + pl.col("Negatives")).dot(pl.col("CTR"))) / (
+        (pl.col("Positives") + pl.col("Negatives"))).sum()).item()
     data_copy = data_copy.to_pandas()
-    average = data_copy["CTR"].mean()
-    # st.write("###### Click-through rate with delta from average")
     num_metrics = data_copy.shape[0]
     dims = st.session_state['dashboard_dims']
     if dims:
@@ -1332,9 +1320,9 @@ def conversion_rate_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame]
         ])
         .sort(grp_by)
     )
+    average = data_copy.select(((pl.col("Positives") + pl.col("Negatives")).dot(pl.col("ConversionRate"))) / (
+        (pl.col("Positives") + pl.col("Negatives"))).sum()).item()
     data_copy = data_copy.to_pandas()
-    average = data_copy["ConversionRate"].mean()
-    # st.write("###### Conversion Rate with delta from average")
     num_metrics = data_copy.shape[0]
     dims = st.session_state['dashboard_dims']
     if dims:
@@ -1376,16 +1364,13 @@ def eng_conv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
                        theta=config["theta"],
                        color=config["color"],
                        barmode="group",
-                       # category_orders={config['color']: sorted(ih_analysis[config['color']].unique())},
                        template=template,
                        title=config['description'],
-                       # color_discrete_sequence= px.colors.sequential.Viridis_r
                        )
     fig.update_polars(radialaxis_tickformat=',.2%')
     fig.update_layout(
         polar_hole=0.25,
         height=700,
-        # width=1400,
         margin=dict(b=25, t=50, l=0, r=0),
         showlegend=strtobool(config["showlegend"])
     )

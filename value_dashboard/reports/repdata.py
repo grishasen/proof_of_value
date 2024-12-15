@@ -460,38 +460,6 @@ def group_descriptive_data(
 ) -> pl.DataFrame:
     if isinstance(data, pd.DataFrame):
         data = pl.from_pandas(data)
-    # TODO: merge t-digests
-    """ # Uses another t-digest implementation, slow
-    m_config = get_config()["metrics"][config['metric']]
-    columns = m_config['columns']
-    schema = data.schema
-    categorical_cols = [col for col, dtype in schema.items() if not dtype.is_numeric()]
-    columns = list(set(columns) - set(categorical_cols))
-    grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
-
-    copy_data = (
-        data
-        .group_by(grp_by)
-        .agg(
-            [
-                (cs.ends_with('Count').sum()).name.suffix("_a"),
-                (cs.ends_with('Sum').sum()).name.suffix("_a"),
-                pl.col(grp_by).first().name.suffix("_a")
-            ] +
-            [pl.map_groups(
-                exprs=[f"{c}_tdigest"],
-                function=tdigest_merge,
-                return_dtype=pl.Struct,
-                returns_scalar=True
-            ).alias(f"{c}_tdigest_a") for c in columns
-             ]
-        )
-        .select(cs.ends_with("_a"))
-        .rename(lambda column_name: column_name.removesuffix('_a'))
-        # .select(~cs.ends_with("tdigest"))
-        .sort(grp_by, descending=False)
-    )
-    """
     return data
 
 
@@ -782,18 +750,4 @@ def calculate_clv_scores(
     exp_data = exp_data.filter(pl.col(customer_id_col).is_not_null())
     if "x" in config.keys():
         exp_data = exp_data.sort(config["x"], descending=True)
-    # grp_by = config['group_by']
-    # if grp_by:
-    #     exp_data = (
-    #         exp_data
-    #         .group_by(grp_by)
-    #         .agg(
-    #             pl.sum("Count").alias("Count"),
-    #             pl.sum("lifetime_value").alias("lifetime_value"),
-    #             pl.sum("unique_holdings").alias("unique_holdings"),
-    #             pl.mean("monetary_value").alias("monetary_value")
-    #         )
-    #         .sort(grp_by)
-    #     )
-    # print(exp_data)
     return exp_data
