@@ -34,8 +34,10 @@ def conversion(ih: pl.LazyFrame, config: dict, streaming=False, background=False
                 pl.when(pl.col('Outcome').is_in(positive_model_response)).
                 then(1).otherwise(0).alias('Outcome_Binary')
             ])
-            .filter(True if not negative_model_response_both_classes else (
-                        pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, NAME)))
+            .filter(True if not negative_model_response_both_classes
+                    else (
+                    pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, NAME))
+                    )
             .group_by(mand_props_grp_by)
             .agg([
                 pl.len().alias('Count'),

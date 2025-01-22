@@ -24,7 +24,6 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
     try:
         ih_analysis = (
             ih
-            .select(list(set(mand_props_grp_by + columns)))
             .group_by(mand_props_grp_by)
             .agg(
                 (

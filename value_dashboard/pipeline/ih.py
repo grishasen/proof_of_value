@@ -104,11 +104,10 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
         i = i + 1
         progress_bar.progress(i / size, text=f"Processing: {key}")
         ih_group = read_file_group(files, filetype, streaming, config, hive_partitioning)
-
         if ih_group is None:
             continue
-
         collect_ih_metrics_data(loop, ih_group, mdata, streaming, background, config)
+
         if (i > 31) & (i % 31 == 1):
             ram_mb = process.memory_info().rss / (1024 * 1024)
             logger.debug(f"RSS = {ram_mb:.2f} MB")
@@ -146,6 +145,8 @@ def read_file_group(files: typing.Iterable,
                     hive_partitioning: bool) -> LazyFrame | None:
     ih_list = []
     start: float = time.time()
+    add_columns = config["ih"]["extensions"]["columns"]
+    global_ih_filter = config["ih"]["extensions"]["filter"]
     for file in files:
         if filetype == 'parquet':
             ih = pl.scan_parquet(file, cache=False, hive_partitioning=hive_partitioning, allow_missing_columns=True)
@@ -159,7 +160,10 @@ def read_file_group(files: typing.Iterable,
         dframe_columns = ih.collect_schema().names()
         cols = capitalize(dframe_columns)
         ih = ih.rename(dict(map(lambda i, j: (i, j), dframe_columns, cols)))
-        ih.collect_schema()
+
+        if global_ih_filter:
+            ih_filter_expr = eval(global_ih_filter)
+            ih = ih.filter(ih_filter_expr)
 
         if 'default_values' in config["ih"]["extensions"].keys():
             default_values = config["ih"]["extensions"]["default_values"]
@@ -168,11 +172,6 @@ def read_file_group(files: typing.Iterable,
                     ih = ih.with_columns(pl.lit(default_values.get(new_col)).alias(new_col))
                 else:
                     ih = ih.with_columns(pl.col(new_col).fill_null(default_values.get(new_col)))
-
-        global_ih_filter = config["ih"]["extensions"]["filter"]
-        if global_ih_filter:
-            ih_filter_expr = eval(global_ih_filter)
-            ih = ih.filter(ih_filter_expr)
 
         ih = (
             ih
@@ -189,18 +188,16 @@ def read_file_group(files: typing.Iterable,
                         str)).alias("Quarter")
                 ]
             )
+            .drop(["FactID", "Label", "UpdateDateTime", "OutcomeTime", "DecisionTime", "OutcomeDateTime"], strict=False)
         )
         ih_list.append(ih)
 
     if not ih_list:
         return
     ih_group = pl.concat(ih_list, how="diagonal")
-
-    add_columns = config["ih"]["extensions"]["columns"]
     if add_columns:
         add_columns_expr = eval(add_columns)
         ih_group = ih_group.with_columns(add_columns_expr)
-
     ih_group = ih_group.collect(streaming=streaming).lazy()
     logger.debug(f"Pre-processing: {(time.time() - start) * 10 ** 3:.03f}ms")
     return ih_group

@@ -24,7 +24,7 @@ logger = get_logger(__name__, logging.DEBUG)
 
 @timed
 def calculate_reports_data(
-    grouped_rep_data: Union[pd.DataFrame, pl.DataFrame], params: dict
+        grouped_rep_data: Union[pd.DataFrame, pl.DataFrame], params: dict
 ) -> pl.DataFrame:
     report_data = None
     if params["metric"].startswith("engagement"):
@@ -44,7 +44,7 @@ def calculate_reports_data(
 
 @timed
 def group_model_ml_scores_data(
-    model_roc_auc_data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        model_roc_auc_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(model_roc_auc_data, pd.DataFrame):
         model_roc_auc_data = pl.from_pandas(model_roc_auc_data)
@@ -112,16 +112,16 @@ def group_model_ml_scores_data(
 
 @timed
 def group_experiment_data(
-    exp_data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        exp_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(exp_data, pd.DataFrame):
         exp_data = pl.from_pandas(exp_data)
 
     m_config = get_config()["metrics"][config["metric"]]
     grp_by = (
-        get_config()["metrics"]["global_filters"]
-        + config["group_by"]
-        + [m_config["experiment_name"]]
+            get_config()["metrics"]["global_filters"]
+            + config["group_by"]
+            + [m_config["experiment_name"]]
     )
 
     grp_by = list(set(grp_by))
@@ -142,7 +142,7 @@ def group_experiment_data(
 
 
 def calculate_experiment_scores(
-    exp_data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        exp_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(exp_data, pd.DataFrame):
         exp_data = pl.from_pandas(exp_data)
@@ -207,7 +207,7 @@ def calculate_experiment_scores(
 
 
 def calculate_model_ml_scores(
-    model_roc_auc_data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        model_roc_auc_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(model_roc_auc_data, pd.DataFrame):
         model_roc_auc_data = pl.from_pandas(model_roc_auc_data)
@@ -261,7 +261,7 @@ def calculate_model_ml_scores(
 
 
 def calculate_engagement_scores(
-    ih_analysis: Union[pl.DataFrame, pd.DataFrame], config: dict
+        ih_analysis: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(ih_analysis, pd.DataFrame):
         ih_analysis = pl.from_pandas(ih_analysis)
@@ -316,7 +316,7 @@ def calculate_engagement_scores(
             )
             .with_columns(
                 (
-                    (pl.col("TestCTR") - pl.col("ControlCTR")) / pl.col("ControlCTR")
+                        (pl.col("TestCTR") - pl.col("ControlCTR")) / pl.col("ControlCTR")
                 ).alias("Lift"),
                 (pl.col("Positives") / (pl.col("Positives") + pl.col("Negatives"))).alias("CTR"),
             )
@@ -324,11 +324,11 @@ def calculate_engagement_scores(
                 [
                     (
                         (
-                            (
-                                (pl.col("CTR") * (1 - pl.col("CTR")))
-                                / (pl.col("Positives") + pl.col("Negatives"))
-                            )
-                            ** 0.5
+                                (
+                                        (pl.col("CTR") * (1 - pl.col("CTR")))
+                                        / (pl.col("Positives") + pl.col("Negatives"))
+                                )
+                                ** 0.5
                         )
                     ).alias("StdErr"),
                     pl.col("Lift").replace({np.inf: 0.0}),
@@ -374,7 +374,7 @@ def calculate_engagement_scores(
 
 
 def calculate_conversion_scores(
-    ih_analysis: Union[pl.DataFrame, pd.DataFrame], config: dict
+        ih_analysis: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(ih_analysis, pd.DataFrame):
         ih_analysis = pl.from_pandas(ih_analysis)
@@ -396,11 +396,11 @@ def calculate_conversion_scores(
             [
                 (
                     (
-                        (
-                            (pl.col("ConversionRate") * (1 - pl.col("ConversionRate")))
-                            / (pl.col("Positives") + pl.col("Negatives"))
-                        )
-                        ** 0.5
+                            (
+                                    (pl.col("ConversionRate") * (1 - pl.col("ConversionRate")))
+                                    / (pl.col("Positives") + pl.col("Negatives"))
+                            )
+                            ** 0.5
                     )
                 ).alias("StdErr")
             ]
@@ -413,7 +413,7 @@ def calculate_conversion_scores(
 
 @timed
 def group_engagement_data(
-    eng_data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        eng_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(eng_data, pd.DataFrame):
         eng_data = pl.from_pandas(eng_data)
@@ -434,7 +434,7 @@ def group_engagement_data(
 
 @timed
 def group_conversion_data(
-    conv_data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        conv_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(conv_data, pd.DataFrame):
         conv_data = pl.from_pandas(conv_data)
@@ -456,7 +456,7 @@ def group_conversion_data(
 
 @timed
 def group_descriptive_data(
-    data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(data, pd.DataFrame):
         data = pl.from_pandas(data)
@@ -465,7 +465,7 @@ def group_descriptive_data(
 
 @st.cache_data(show_spinner=False, ttl=timedelta(seconds=120), max_entries=25)
 def calculate_descriptive_scores(
-    data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(data, pd.DataFrame):
         data = pl.from_pandas(data)
@@ -508,8 +508,8 @@ def calculate_descriptive_scores(
         + [
             # n_i * (mean_i - grp_mean)^2
             (
-                pl.col(f"{c}_Count")
-                * (pl.col(f"{c}_Mean") - pl.col(f"{c}_GroupMean")) ** 2
+                    pl.col(f"{c}_Count")
+                    * (pl.col(f"{c}_Mean") - pl.col(f"{c}_GroupMean")) ** 2
             ).alias(f"{c}_n_mean_diff_sq")
             for c in num_columns
         ]
@@ -584,14 +584,14 @@ def calculate_descriptive_scores(
                 )
                 + [
                     pl.col(f"{c}_n_minus1_variance")
-                    .sum()
-                    .alias(f"{c}_sum_n_minus1_variance_tmp_a")
+                .sum()
+                .alias(f"{c}_sum_n_minus1_variance_tmp_a")
                     for c in num_columns
                 ]
                 + [
                     pl.col(f"{c}_n_mean_diff_sq")
-                    .sum()
-                    .alias(f"{c}_sum_n_mean_diff_sq_tmp_a")
+                .sum()
+                .alias(f"{c}_sum_n_mean_diff_sq_tmp_a")
                     for c in num_columns
                 ]
             )
@@ -600,11 +600,11 @@ def calculate_descriptive_scores(
             .with_columns(
                 [
                     (
-                        (
-                            pl.col(f"{c}_sum_n_minus1_variance_tmp")
-                            + pl.col(f"{c}_sum_n_mean_diff_sq_tmp")
-                        )
-                        / (pl.col(f"{c}_Count") - 1)
+                            (
+                                    pl.col(f"{c}_sum_n_minus1_variance_tmp")
+                                    + pl.col(f"{c}_sum_n_mean_diff_sq_tmp")
+                            )
+                            / (pl.col(f"{c}_Count") - 1)
                     ).alias(f"{c}_Var")
                     for c in num_columns
                 ]
@@ -630,14 +630,14 @@ def calculate_descriptive_scores(
             ]
             + [
                 pl.col(f"{c}_n_minus1_variance")
-                .sum()
-                .alias(f"{c}_sum_n_minus1_variance_tmp_a")
+            .sum()
+            .alias(f"{c}_sum_n_minus1_variance_tmp_a")
                 for c in num_columns
             ]
             + [
                 pl.col(f"{c}_n_mean_diff_sq")
-                .sum()
-                .alias(f"{c}_sum_n_mean_diff_sq_tmp_a")
+            .sum()
+            .alias(f"{c}_sum_n_mean_diff_sq_tmp_a")
                 for c in num_columns
             ]
             + (
@@ -704,12 +704,12 @@ def calculate_descriptive_scores(
             .with_columns(
                 [
                     (
-                        (
-                            pl.col(f"{c}_p75")
-                            + pl.col(f"{c}_p25")
-                            - 2 * pl.col(f"{c}_Median")
-                        )
-                        / (pl.col(f"{c}_p75") - pl.col(f"{c}_p25"))
+                            (
+                                    pl.col(f"{c}_p75")
+                                    + pl.col(f"{c}_p25")
+                                    - 2 * pl.col(f"{c}_Median")
+                            )
+                            / (pl.col(f"{c}_p75") - pl.col(f"{c}_p25"))
                     ).alias(f"{c}_Skew")
                     for c in num_columns
                 ]
@@ -717,11 +717,11 @@ def calculate_descriptive_scores(
             .with_columns(
                 [
                     (
-                        (
-                            pl.col(f"{c}_sum_n_minus1_variance_tmp")
-                            + pl.col(f"{c}_sum_n_mean_diff_sq_tmp")
-                        )
-                        / (pl.col(f"{c}_Count") - 1)
+                            (
+                                    pl.col(f"{c}_sum_n_minus1_variance_tmp")
+                                    + pl.col(f"{c}_sum_n_mean_diff_sq_tmp")
+                            )
+                            / (pl.col(f"{c}_Count") - 1)
                     ).alias(f"{c}_Var")
                     for c in num_columns
                 ]
@@ -737,7 +737,7 @@ def calculate_descriptive_scores(
 
 
 def calculate_clv_scores(
-    exp_data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        exp_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
     if isinstance(exp_data, pd.DataFrame):
         exp_data = pl.from_pandas(exp_data)

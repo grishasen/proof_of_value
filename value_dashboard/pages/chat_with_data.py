@@ -75,9 +75,9 @@ with st.sidebar:
         data_list = []
         for metric in metrics_data.keys():
             if (
-                metric.startswith("eng")
-                | metric.startswith("conv")
-                | metric.startswith("exp")
+                    metric.startswith("eng")
+                    | metric.startswith("conv")
+                    | metric.startswith("exp")
             ):
                 df = metrics_data[metric].to_pandas()
                 pconnector = PandasConnector(
@@ -88,8 +88,10 @@ with st.sidebar:
                 data_list.append(pconnector)
         analyst = get_agent(data_list, llm)
 
+
     def clear_chat_history():
         st.session_state.messages = []
+
 
     st.button("Clear chat 🗑️", on_click=clear_chat_history)
 

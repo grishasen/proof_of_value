@@ -222,12 +222,8 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             ih_filter_expr = eval(filter_exp)
             ih = ih.filter(ih_filter_expr)
     try:
-        ml_grp_by = grp_by + ['Outcome', "Propensity"] + [CUSTOMER_ID, INTERACTION_ID]
-        if not NAME in ml_grp_by:
-            ml_grp_by = ml_grp_by + [NAME]
         ml_data = (
             ih
-            .select(ml_grp_by)
             .filter(
                 (pl.col("Outcome").is_in(negative_model_response + positive_model_response))
             )

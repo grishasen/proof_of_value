@@ -247,7 +247,7 @@ with conf:
     st.subheader(
         "Variants Section",
         help="Provides metadata and contextual information about the dashboard configuration. "
-        "This section is informational and does not directly impact the functionality of the dashboard.",
+             "This section is informational and does not directly impact the functionality of the dashboard.",
     )
     config["variants"] = display_dict(
         "variants", config.get("variants", {}), read_only=False

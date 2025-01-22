@@ -38,6 +38,7 @@ def ih_metrics_avail() -> bool:
             return True
     return False
 
+
 def chat_with_data() -> bool:
     ux = get_config()["ux"]
     if "chat_with_data" in ux.keys():
