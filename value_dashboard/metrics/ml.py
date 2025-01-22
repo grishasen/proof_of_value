@@ -5,7 +5,6 @@ from typing import List
 import numpy as np
 import polars as pl
 import polars_ds as pds
-import polars_ds.sample_and_split as pds_sample_split
 from polars import Series
 from polars import selectors as cs
 from polars_ds import weighted_mean
@@ -15,7 +14,7 @@ from sklearn.feature_extraction import FeatureHasher
 from sklearn.metrics.pairwise import cosine_similarity
 
 from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID
-from value_dashboard.utils.polars_utils import df_to_dict, tdigest_pos_neg, merge_tdigests, estimate_quantile
+from value_dashboard.utils.polars_utils import tdigest_pos_neg, merge_tdigests, estimate_quantile
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
@@ -37,9 +36,14 @@ def personalization(args: List[Series]) -> pl.Float64:
     if len(args) < 2:
         return 0.0
     df = pl.DataFrame(args)
-    n_features = df.n_unique(subset=["column_1"])
-    h = FeatureHasher(n_features=n_features, input_type="string")
-    df = pds_sample_split.sample(df, 10000)
+    height = df.height
+    if height < 5000:
+        pass
+    elif height < 10000:
+        df = df.slice(round(height / 2))
+    else:
+        df = df.slice(round(height / 2), 5000)
+    h = FeatureHasher(input_type="string")
     df = (
         df
         .group_by(["column_0"])
@@ -86,36 +90,25 @@ def novelty(args: List[Series]) -> pl.Float64:
     if len(args) < 2:
         return 0.0
     df = pl.DataFrame(args)
+    height = df.height
+    if height < 5000:
+        pass
+    elif height < 10000:
+        df = df.slice(round(height / 2))
+    else:
+        df = df.slice(round(height / 2), 5000)
     u = df.n_unique(subset=["column_0"])
-    pop = df_to_dict(
-        df
-        .group_by(["column_1"])
-        .agg(
-            [pl.count().alias('Counts')]
-        ),
-        "column_1",
-        "Counts"
-    )
-    df = pds_sample_split.sample(df, 10000)
     df = (
         df
-        .group_by(["column_0"])
-        .agg([
-            pl.col("column_1").alias("ActionNames"),
-            pl.count().alias('Length'),
-        ])
+        .with_columns(pl.col("column_1").count().over("column_1").alias("Counts"))
+        .with_columns(
+            (-(pl.col("Counts") / u).log(base=2)).alias("self_information")
+        )
     )
-    predicted = df.get_column("ActionNames").to_list()
-    n = df.get_column("Length").median()
-    mean_self_information = []
-    k = 0
-    for sublist in predicted:
-        self_information = 0
-        k += 1
-        for i in sublist:
-            self_information += np.sum(-np.log2(pop[i] / u))
-        mean_self_information.append(self_information / n)
-    novelty_score = sum(mean_self_information) / k
+    n = df.group_by("column_0").agg(pl.count().alias("Length")).get_column("Length").median()
+
+    total_self_info = df["self_information"].sum()
+    novelty_score = total_self_info / (u * n)
     return novelty_score
 
 
