@@ -37,17 +37,19 @@ def tdigest_pos_neg(args: List[Series]) -> Series:
     -------
         The t-digest structure.
     """
-    df = pl.DataFrame(args)
-    tdigest_pos_df = df.filter(pl.col('column_0') == True)
-    if tdigest_pos_df.shape[0] > 0:
-        tdigest_pos = TDigest.compute(tdigest_pos_df.select('column_1').to_series().to_numpy(),
+    # df = pl.DataFrame(args)
+    outcomes = args[0]
+    props = args[1]
+    tdigest_pos_df = props.filter(outcomes)
+    if len(tdigest_pos_df) > 0:
+        tdigest_pos = TDigest.compute(tdigest_pos_df.to_numpy(),
                                       compression=T_DIGEST_COMPRESSION)
     else:
         tdigest_pos = TDigest.compute(0.0, compression=T_DIGEST_COMPRESSION)
 
-    tdigest_neg_df = df.filter(pl.col('column_0') == False)
-    if tdigest_neg_df.shape[0] > 0:
-        tdigest_neg = TDigest.compute(tdigest_neg_df.select('column_1').to_series().to_numpy(),
+    tdigest_neg_df = props.filter(outcomes.not_())
+    if len(tdigest_neg_df) > 0:
+        tdigest_neg = TDigest.compute(tdigest_neg_df.to_numpy(),
                                       compression=T_DIGEST_COMPRESSION)
     else:
         tdigest_neg = TDigest.compute(0.0, compression=T_DIGEST_COMPRESSION)
@@ -75,9 +77,8 @@ def tdigest(args: List[Series]) -> Series:
     -------
         The t-digest structure.
     """
-    df = pl.DataFrame(args)
-    if df.shape[0] > 0:
-        tdigest = TDigest.compute(df.select('column_0').to_series().to_numpy(), compression=T_DIGEST_COMPRESSION)
+    if len(args) > 0:
+        tdigest = TDigest.compute(args[0].to_numpy(), compression=T_DIGEST_COMPRESSION)
     else:
         tdigest = TDigest.compute(0.0, compression=T_DIGEST_COMPRESSION)
     return Series(
@@ -100,10 +101,9 @@ def merge_tdigests(args: List[Series]) -> pl.Struct:
     -------
         The t-digest structure.
     """
-    df = pl.DataFrame(args)
     tdigests = []
-    for row in df.iter_rows():
-        tdigests.append(TDigest.of_centroids(np.array(row[0]['tdigest']), compression=T_DIGEST_COMPRESSION))
+    for row in args[0]:
+        tdigests.append(TDigest.of_centroids(np.array(row['tdigest']), compression=T_DIGEST_COMPRESSION))
     tdigest = TDigest.combine(tdigests)
     tdigest.force_merge()
     return Series(
@@ -127,10 +127,9 @@ def estimate_quantile(args: List[Series], quantile: float) -> pl.Struct:
         The t-digest structure.
     """
     # logger.debug("start estimate_quantile: " + str(quantile))
-    df = pl.DataFrame(args)
     tdigests = []
-    for row in df.iter_rows():
-        tdigests.append(TDigest.of_centroids(np.array(row[0]['tdigest']), compression=T_DIGEST_COMPRESSION))
+    for row in args[0]:
+        tdigests.append(TDigest.of_centroids(np.array(row['tdigest']), compression=T_DIGEST_COMPRESSION))
     tdigest = TDigest.combine(tdigests)
     tdigest.force_merge()
     inv_cdf = tdigest.inverse_cdf(quantile=quantile)
