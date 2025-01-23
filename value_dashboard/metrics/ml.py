@@ -35,7 +35,7 @@ def personalization(args: List[Series]) -> pl.Float64:
     """
     if len(args) < 2:
         return 0.0
-    df = pl.DataFrame(args)
+    df = pl.DataFrame(args, schema=[CUSTOMER_ID, INTERACTION_ID, NAME])
     height = df.height
     if height < 5000:
         pass
@@ -46,9 +46,9 @@ def personalization(args: List[Series]) -> pl.Float64:
     h = FeatureHasher(input_type="string")
     df = (
         df
-        .group_by(["column_0"])
+        .group_by([CUSTOMER_ID])
         .agg([
-            pl.col("column_1").alias("ActionNames")
+            pl.col(NAME).alias("ActionNames")
         ])
     )
     predicted = df.get_column("ActionNames").to_list()
@@ -89,7 +89,7 @@ def novelty(args: List[Series]) -> pl.Float64:
 
     if len(args) < 2:
         return 0.0
-    df = pl.DataFrame(args)
+    df = pl.DataFrame(args, schema=[CUSTOMER_ID, INTERACTION_ID, NAME])
     height = df.height
     if height < 5000:
         pass
@@ -97,16 +97,19 @@ def novelty(args: List[Series]) -> pl.Float64:
         df = df.slice(round(height / 2))
     else:
         df = df.slice(round(height / 2), 5000)
-    u = df.n_unique(subset=["column_0"])
+    u = df.n_unique(subset=[CUSTOMER_ID])
     df = (
         df
-        .with_columns(pl.col("column_1").count().over("column_1").alias("Counts"))
+        .with_columns(pl.col(NAME).count().over(NAME).alias("ActionCounts"))
         .with_columns(
-            (-(pl.col("Counts") / u).log(base=2)).alias("self_information")
+            (-(pl.col("ActionCounts") / u).log(base=2)).alias("self_information")
         )
     )
-    n = df.group_by("column_0").agg(pl.count().alias("Length")).get_column("Length").median()
-
+    n = (df
+         .group_by([INTERACTION_ID])
+         .agg(pl.len().alias("RecLength"))
+         .get_column("RecLength").max()
+         )
     total_self_info = df["self_information"].sum()
     novelty_score = total_self_info / (u * n)
     return novelty_score
@@ -231,13 +234,13 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             .agg([
                      pl.len().alias('Count'),
                      pl.map_groups(
-                         exprs=[CUSTOMER_ID, NAME],
+                         exprs=[CUSTOMER_ID, INTERACTION_ID, NAME],
                          function=personalization,
                          return_dtype=pl.Float64,
                          returns_scalar=True
                      ).alias("personalization"),
                      pl.map_groups(
-                         exprs=[CUSTOMER_ID, NAME],
+                         exprs=[CUSTOMER_ID, INTERACTION_ID, NAME],
                          function=novelty,
                          return_dtype=pl.Float64,
                          returns_scalar=True
