@@ -162,10 +162,6 @@ def read_file_group(files: typing.Iterable,
         cols = capitalize(dframe_columns)
         ih = ih.rename(dict(map(lambda i, j: (i, j), dframe_columns, cols)))
 
-        if global_ih_filter:
-            ih_filter_expr = eval(global_ih_filter)
-            ih = ih.filter(ih_filter_expr)
-
         if 'default_values' in config["ih"]["extensions"].keys():
             default_values = config["ih"]["extensions"]["default_values"]
             for new_col in default_values.keys():
@@ -173,6 +169,10 @@ def read_file_group(files: typing.Iterable,
                     ih = ih.with_columns(pl.lit(default_values.get(new_col)).alias(new_col))
                 else:
                     ih = ih.with_columns(pl.col(new_col).fill_null(default_values.get(new_col)))
+
+        if global_ih_filter:
+            ih_filter_expr = eval(global_ih_filter)
+            ih = ih.filter(ih_filter_expr)
 
         ih = (
             ih
@@ -189,7 +189,9 @@ def read_file_group(files: typing.Iterable,
                         str)).alias("Quarter")
                 ]
             )
-            .drop(["FactID", "Label", "UpdateDateTime", "OutcomeTime", "DecisionTime", "OutcomeDateTime"], strict=False)
+            .drop(["FactID", "Label", "UpdateDateTime", "OutcomeTime", "DecisionTime",
+                   "OutcomeDateTime", "StreamPartition", "EvaluationCriteria", "Organization",
+                   "Unit", "Division", "Component", "ApplicationVersion", "Strategy"], strict=False)
             .unique(subset=[INTERACTION_ID, NAME, RANK, OUTCOME])
         )
         ih_list.append(ih)
