@@ -1,6 +1,7 @@
 RECURRING_COST = "RecurringCost"
 RECURRING_PERIOD = "RecurringPeriod"
 NAME = "Name"
+RANK = "Rank"
 CUSTOMER_ID = "SubjectID"
 OUTCOME = "Outcome"
 MODELCONTROLGROUP = "ModelControlGroup"

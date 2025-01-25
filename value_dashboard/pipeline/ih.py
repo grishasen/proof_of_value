@@ -16,6 +16,7 @@ import psutil
 import streamlit as st
 from polars import LazyFrame
 
+from value_dashboard.metrics.constants import INTERACTION_ID, NAME, RANK, OUTCOME
 from value_dashboard.pipeline.datatools import collect_ih_metrics_data, collect_reports_data
 from value_dashboard.pipeline.datatools import compact_data
 from value_dashboard.utils.config import get_config
@@ -189,6 +190,7 @@ def read_file_group(files: typing.Iterable,
                 ]
             )
             .drop(["FactID", "Label", "UpdateDateTime", "OutcomeTime", "DecisionTime", "OutcomeDateTime"], strict=False)
+            .unique(subset=[INTERACTION_ID, NAME, RANK, OUTCOME])
         )
         ih_list.append(ih)
 

@@ -13,7 +13,7 @@ from scipy.sparse import csr_matrix
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.metrics.pairwise import cosine_similarity
 
-from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID
+from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME
 from value_dashboard.utils.polars_utils import tdigest_pos_neg, merge_tdigests, estimate_quantile
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
@@ -204,10 +204,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else False
     negative_model_response_both_classes = strtobool(config[
                                                          'negative_model_response_both_classes']) if 'negative_model_response_both_classes' in config.keys() else False
-    if negative_model_response_both_classes:
-        k = 2
-    else:
-        k = 1
+
     unnest_expr = pl.col("metrics")
     if use_t_digest:
         unnest_expr = pl.col("propensity_tdigest_pos_neg")
@@ -221,15 +218,14 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
         ml_data = (
             ih
             .filter(
-                (pl.col("Outcome").is_in(negative_model_response + positive_model_response))
+                (pl.col(OUTCOME).is_in(negative_model_response + positive_model_response))
             )
             .with_columns([
-                pl.when(pl.col('Outcome').is_in(positive_model_response)).
+                pl.when(pl.col(OUTCOME).is_in(positive_model_response)).
                 then(True).otherwise(False).alias('Outcome_Boolean')
             ])
-            .filter(True if not negative_model_response_both_classes else (
-                    pl.col('Outcome_Boolean') == pl.col('Outcome_Boolean').max().over(INTERACTION_ID, NAME)))
             .filter(pl.any("Outcome_Boolean").over(grp_by))
+            .filter(pl.col('Outcome_Boolean') == pl.col('Outcome_Boolean').max().over(INTERACTION_ID, NAME, RANK))
             .group_by(grp_by)
             .agg([
                      pl.len().alias('Count'),

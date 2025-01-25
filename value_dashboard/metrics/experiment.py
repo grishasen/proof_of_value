@@ -2,7 +2,7 @@ import traceback
 
 import polars as pl
 
-from value_dashboard.metrics.constants import INTERACTION_ID, NAME
+from value_dashboard.metrics.constants import INTERACTION_ID, NAME, OUTCOME, RANK
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
@@ -15,10 +15,6 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
     negative_model_response_both_classes = strtobool(config[
                                                          'negative_model_response_both_classes']) if 'negative_model_response_both_classes' in config.keys() else False
 
-    if negative_model_response_both_classes:
-        k = 2
-    else:
-        k = 1
     if "filter" in config.keys():
         filter_exp = config["filter"]
         if filter_exp:
@@ -27,21 +23,20 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
     try:
         ih_analysis = (
             ih.filter(
-                (pl.col("Outcome").is_in(negative_model_response + positive_model_response))
+                (pl.col(OUTCOME).is_in(negative_model_response + positive_model_response))
             )
             .with_columns([
-                pl.when(pl.col('Outcome').is_in(positive_model_response)).
+                pl.when(pl.col(OUTCOME).is_in(positive_model_response)).
                 then(1).otherwise(0).alias('Outcome_Binary')
             ])
-            .filter(True if not negative_model_response_both_classes else (
-                    pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, NAME)))
+            .filter(pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, NAME, RANK))
             .group_by(mand_props_grp_by)
             .agg([
                 pl.len().alias('Count'),
                 pl.sum("Outcome_Binary").alias("Positives")
             ])
             .with_columns([
-                (pl.col("Count") - (k * pl.col("Positives"))).alias("Negatives")
+                (pl.col("Count") - (pl.col("Positives"))).alias("Negatives")
             ])
             .filter(
                 (pl.col("Positives") > 0) | (pl.col("Negatives") > 0)
