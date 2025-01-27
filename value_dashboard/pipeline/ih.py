@@ -162,13 +162,16 @@ def read_file_group(files: typing.Iterable,
         cols = capitalize(dframe_columns)
         ih = ih.rename(dict(map(lambda i, j: (i, j), dframe_columns, cols)))
 
+        with_cols_list = []
         if 'default_values' in config["ih"]["extensions"].keys():
             default_values = config["ih"]["extensions"]["default_values"]
             for new_col in default_values.keys():
                 if new_col not in cols:
-                    ih = ih.with_columns(pl.lit(default_values.get(new_col)).alias(new_col))
+                    with_cols_list.append(pl.lit(default_values.get(new_col)).alias(new_col))
                 else:
-                    ih = ih.with_columns(pl.col(new_col).fill_null(default_values.get(new_col)))
+                    with_cols_list.append(pl.col(new_col).fill_null(default_values.get(new_col)))
+        if with_cols_list:
+            ih = ih.with_columns(with_cols_list)
 
         if global_ih_filter:
             ih_filter_expr = eval(global_ih_filter)

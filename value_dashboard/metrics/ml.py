@@ -9,7 +9,6 @@ from polars import Series
 from polars import selectors as cs
 from polars_ds import weighted_mean
 from scipy.interpolate import interp1d
-from scipy.sparse import csr_matrix
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -35,7 +34,7 @@ def personalization(args: List[Series]) -> pl.Float64:
     """
     if len(args) < 2:
         return 0.0
-    df = pl.DataFrame(args, schema=[CUSTOMER_ID, INTERACTION_ID, NAME])
+    df = pl.DataFrame(args, schema=[CUSTOMER_ID, NAME])
     height = df.height
     if height < 5000:
         pass
@@ -43,7 +42,7 @@ def personalization(args: List[Series]) -> pl.Float64:
         df = df.slice(round(height / 2))
     else:
         df = df.slice(round(height / 2), 5000)
-    h = FeatureHasher(input_type="string")
+    h = FeatureHasher(input_type="string", n_features=2 ** 16)
     df = (
         df
         .group_by([CUSTOMER_ID])
@@ -51,8 +50,9 @@ def personalization(args: List[Series]) -> pl.Float64:
             pl.col(NAME).alias("ActionNames")
         ])
     )
+
     predicted = df.get_column("ActionNames").to_list()
-    rec_matrix_sparse = csr_matrix(h.transform(predicted))
+    rec_matrix_sparse = h.transform(predicted)
     similarity = cosine_similarity(X=rec_matrix_sparse, dense_output=False)
     dim = similarity.shape[0]
     if dim == 1:
@@ -98,21 +98,24 @@ def novelty(args: List[Series]) -> pl.Float64:
     else:
         df = df.slice(round(height / 2), 5000)
     u = df.n_unique(subset=[CUSTOMER_ID])
-    df = (
-        df
-        .with_columns(pl.col(NAME).count().over(NAME).alias("ActionCounts"))
-        .with_columns(
-            (-(pl.col("ActionCounts") / u).log(base=2)).alias("self_information")
-        )
+    item_counts = (
+        df.group_by(NAME)
+        .agg(pl.len().alias("ActionCount"))
     )
-    n = (df
-         .group_by([INTERACTION_ID])
-         .agg(pl.len().alias("RecLength"))
-         .get_column("RecLength").max()
-         )
-    total_self_info = df["self_information"].sum()
+    item_counts = item_counts.with_columns(
+        (
+                pl.col("ActionCount")
+                * -((pl.col("ActionCount") / u).log(base=2))
+        ).alias("total_self_info")
+    )
+    total_self_info = item_counts.select(pl.col("total_self_info").sum()).item()
+    rec_lengths = (
+        df.group_by(INTERACTION_ID)
+        .agg(pl.len().alias("RecLength"))
+    )
+    n = rec_lengths.select(pl.col("RecLength").max()).item()
     novelty_score = total_self_info / (u * n)
-    return novelty_score
+    return float(novelty_score)
 
 
 def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
@@ -230,7 +233,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             .agg([
                      pl.len().alias('Count'),
                      pl.map_groups(
-                         exprs=[CUSTOMER_ID, INTERACTION_ID, NAME],
+                         exprs=[CUSTOMER_ID, NAME],
                          function=personalization,
                          return_dtype=pl.Float64,
                          returns_scalar=True

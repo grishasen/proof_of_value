@@ -30,7 +30,6 @@ def engagement(ih: pl.LazyFrame, config: dict, streaming=False, background=False
                 then(1).otherwise(0).alias('Outcome_Binary')
             ])
             .filter(pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, NAME, RANK))
-
             .group_by(mand_props_grp_by)
             .agg([
                 pl.len().alias('Count'),
