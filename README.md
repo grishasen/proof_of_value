@@ -30,7 +30,7 @@ To run the CDH Value Dashboard Application locally from source, follow these ste
 
 ### Prerequisites
 
-- Python 3.11 or higher
+- Python 3.12
 - Required Python libraries (can be installed via `requirements.txt`)
 
 ### Steps
