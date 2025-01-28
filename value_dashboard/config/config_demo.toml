@@ -50,7 +50,6 @@ use_t_digest = "false"
 scores = ["roc_auc", "average_precision", "personalization", "novelty"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
-negative_model_response_both_classes = "true"
 
 [metrics.engagement]
 group_by = ["Day", "Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "ExperimentName", "ExperimentGroup", "Issue", "Group", "AppliedModel"]
@@ -58,7 +57,6 @@ filter = ""
 scores = ["CTR", "Lift", "Lift_Z_Score", "Lift_P_Val"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
-negative_model_response_both_classes = "true"
 
 [metrics.conversion]
 group_by = ["Day", "Month", "Year", "Quarter", "Channel", "ModelType", "Issue", "CustomerType", "ProductGroup"]
@@ -66,7 +64,6 @@ filter = ""
 scores = ["ConversionRate", "Revenue"]
 positive_model_response = ["Conversion"]
 negative_model_response = ["NoConversion"]
-negative_model_response_both_classes = "false"
 
 [metrics.descriptive]
 group_by = ["Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "Issue", "Group", "AppliedModel", "Outcome"]
@@ -82,7 +79,6 @@ experiment_group = "ExperimentGroup"
 scores = ["z_score", "z_p_val", "g_stat", "g_p_val", "chi2_stat", "chi2_p_val", "g_odds_ratio_stat", "g_odds_ratio_ci_low", "g_odds_ratio_ci_high", "chi2_odds_ratio_stat", "chi2_odds_ratio_ci_low", "chi2_odds_ratio_ci_high"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
-negative_model_response_both_classes = "true"
 
 [metrics.clv]
 filter = """pl.col('PurchasedDateTime') > pl.datetime(2016, 12, 31)"""
@@ -92,8 +88,12 @@ order_id_col = "HoldingID"
 customer_id_col = 'CustomerID'
 monetary_value_col = 'OneTimeCost'
 purchase_date_col = 'PurchasedDateTime'
+model = 'non-contractual' #contractual, non-contractual
+recurring_period = 'RecurringPeriod' #only for model = 'contractual'
+recurring_cost = 'RecurringCost' #only for model = 'contractual'
 lifespan = 3
 rfm_segment_config = { "Premium Customer" = ["334", "443", "444", "344", "434", "433", "343", "333"], "Repeat Customer" = ["244", "234", "232", "332", "143", "233", "243", "242"], "Top Spender" = ["424", "414", "144", "314", "324", "124", "224", "423", "413", "133", "323", "313", "134"], "At Risk Customer" = ["422", "223", "212", "122", "222", "132", "322", "312", "412", "123", "214"], "Inactive Customer" = ["411", "111", "113", "114", "112", "211", "311"] }
+
 
 [reports.polar_bar_overall_ctr]
 metric = "engagement"
@@ -214,17 +214,6 @@ group_by = ["Month", "Quarter", "Channel", "CustomerType", "AppliedModel"]
 x = "Month"
 y = "CTR"
 color = "AppliedModel"
-facet_row = "Channel"
-facet_column = "CustomerType"
-
-[reports.monthly_model_control_grp_ctr]
-metric = "engagement"
-type = "line"
-description = "[ENG] Monthly CTR By Customer Type vs Random"
-group_by = ["Month", "Quarter", "Channel", "CustomerType", "ModelControlGroup"]
-x = "Month"
-y = "CTR"
-color = "ModelControlGroup"
 facet_row = "Channel"
 facet_column = "CustomerType"
 
@@ -377,6 +366,15 @@ x = 'frequency'
 #facet_row = "ControlGroup"
 color = 'ControlGroup'
 
+#[reports.heatmap_frequency_recency]
+#metric = 'clv'
+#type = 'heatmap'
+#description = '[CLV] Frequency/Recency Matrix'
+#group_by = []
+#color = 'count'
+#x = 'frequency'
+#y = 'recency'
+
 [reports.polar_bar_segments]
 metric = 'clv'
 type = 'bar_polar'
@@ -398,7 +396,6 @@ metric = 'clv'
 type = 'corr'
 description = '[BIZ] CLV parameters correlation'
 group_by = []
-facet_col = 'rfm_segment'
 x = 'frequency'
 y = 'monetary_value'
 
@@ -421,3 +418,4 @@ agent_prompt = """You are a data analysis agent. Your main goal is to help non-t
 engagement = "Measures of user interaction with the product or service. Main KPIs: Click-Through Rate (CTR): The ratio of users who click on an ad to the number of total users who view the ad. Lift: Measures the increase in a desired descriptive in the target group that received the action compared to a control group that received random action."
 conversion = "Measures conversion of a certain business action. Conversion Rate: The percentage of users who take a desired action, such as making a purchase or signing up for a service. Revenue: Revenue aggregations."
 experiment = "Used to calculate various metrics used during A/B testing. Measures difference between test and control group. Main measures are z-score, odds ratio, confidence bands."
+
