@@ -21,3 +21,4 @@ hvplot>=0.10.0
 python-dotenv>=1.0.0
 pandasai>=3.0.0b2
 pandasai-openai
+kaleido
