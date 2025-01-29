@@ -56,6 +56,10 @@ with st.sidebar:
         api_key_input if api_key_input else os.environ.get("OPENAI_API_KEY")
     )
 
+    if not openai_api_key:
+        st.error("Please configure API key.")
+        st.stop()
+
     # Create llm instance
     llm = OpenAI(
         api_token=openai_api_key,

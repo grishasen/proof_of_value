@@ -37,9 +37,10 @@ tomlkit = "^0.13.2"
 psutil = "^6.1.1"
 hvplot = "^0.11.0"
 pandasai = {version = "^3.0.0b2", optional = true}
+kaleido = {version = "*", optional = true}
 
 [tool.poetry.extras]
-chat = ["pandasai"]
+chat = ["pandasai", "kaleido"]
 
 [tool.poetry.scripts]
 cdhdashboard = "value_dashboard.utils.cli:main"

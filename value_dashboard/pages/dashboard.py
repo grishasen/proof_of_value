@@ -3,8 +3,6 @@ import time
 from collections import defaultdict, OrderedDict
 
 import pandas as pd
-import plotly.express as px
-import plotly.io as pio
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 from streamlit_dimensions import st_dimensions
@@ -19,8 +17,6 @@ from value_dashboard.utils.config import get_config
 from value_dashboard.utils.st_utils import highlight_and_format, format_dates
 from value_dashboard.utils.string_utils import strtobool
 
-pio.templates.default = "plotly_white"
-px.defaults.template = "plotly_white"
 pd.options.styler.format.thousands = ','
 pd.options.styler.format.na_rep = 'background-color: lightgrey;'
 pd.options.styler.format.precision = 5

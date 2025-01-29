@@ -413,7 +413,7 @@ agent_prompt = """You are a data analysis agent. Your main goal is to help non-t
         conversion or experiments. Engagement dataset should be used to calculate such metrics as CTR. Conversion dataset used to calculate revenue
         and conversion rate. Experiment dataset used to calculated and compare difference between control groups of
         various experiment results. When asked to answer question which suppose doing any calculations - first select appropriate dataset (using one dataset should be enough),
-        then group rows against the requested columns, sum up positives, negatives or counts and then - claculate resulting measurement."""
+        then group rows against the requested columns, sum up positives, negatives or counts and then - claculate resulting measurement. When plotting use appropriate Plotly chart."""
 [chat_with_data.metric_descriptions]
 engagement = "Measures of user interaction with the product or service. Main KPIs: Click-Through Rate (CTR): The ratio of users who click on an ad to the number of total users who view the ad. Lift: Measures the increase in a desired descriptive in the target group that received the action compared to a control group that received random action."
 conversion = "Measures conversion of a certain business action. Conversion Rate: The percentage of users who take a desired action, such as making a purchase or signing up for a service. Revenue: Revenue aggregations."
