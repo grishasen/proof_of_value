@@ -14,31 +14,29 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">3.10,<3.13"
-numpy = ">1.26.1, <2.0.0"
-polars = "^1.9.0"
-polars-ds = "^0.6.0"
+python = ">3.10,<3.12"
+numpy = ">1.23.1, <2.0.0"
+polars = "^1.16.0"
+polars-ds = "^0.7.0"
 pytdigest = "^0.1.4"
-pandas = "^1.5.3"
-plotly = "^5.24.1"
-streamlit = "^1.39.0"
+pandas = "^2.2.0"
+plotly = "^6.0.0"
+streamlit = "^1.41.1"
 scikit-learn = "^1.5.1"
-scipy = "^1.14.1"
+scipy = "^1.10.1"
 st-pages = "^1.0.1"
 st-theme = "^1.2.3"
 streamlit-dynamic-filters = "^0.1.9"
-streamlit-option-menu = "^0.3.13"
+streamlit-option-menu = "^0.4.0"
 streamlit-dimensions = "^0.0.1"
 streamlit-autorefresh = "^1.0.1"
 streamlit-tags = "^1.2.8"
-streamlit-sortables = "^0.2.0"
+streamlit-sortables = "^0.3.1"
 pillow = "^10.4.0"
 tomlkit = "^0.13.2"
-psutil = "^6.0.0"
-hvplot = "^0.10.0"
-lifetimes = "^0.11.3"
-pandasai = {version = "^2.3.0", optional = true}
-seaborn = "^0.13.2"
+psutil = "^6.1.1"
+hvplot = "^0.11.0"
+pandasai = {version = "^3.0.0b2", optional = true}
 
 [tool.poetry.extras]
 chat = ["pandasai"]

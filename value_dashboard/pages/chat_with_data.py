@@ -1,20 +1,23 @@
+import base64
 import os
+from io import BytesIO
 
+import pandasai as pai
 import streamlit as st
+from PIL import Image
 from dotenv import load_dotenv
 from pandasai import Agent
-from pandasai.connectors import PandasConnector
-from pandasai.llm import OpenAI
-from pandasai.responses import StreamlitResponse
+from pandasai.core.response import ChartResponse, DataFrameResponse
+from pandasai_openai import OpenAI
 
 from value_dashboard.pipeline.ih import load_data
 from value_dashboard.utils.config import get_config
 
 
-def get_agent(data, llm):
+def get_agent(data, llm) -> Agent:
     agent = Agent(
         data,
-        config={"llm": llm, "verbose": True, "response_parser": StreamlitResponse},
+        config={"llm": llm, "verbose": True},
         memory_size=10,
         description=get_config()["chat_with_data"]["agent_prompt"],
     )
@@ -30,16 +33,6 @@ if "data_loaded" not in st.session_state:
 
 # Sidebar for API Key settings
 with st.sidebar:
-    st.header(
-        "Set your API Key",
-        help="You can get it from [OpenAI](https://platform.openai.com/account/api-keys/).",
-    )
-    # Get API base from input or environment variable
-    api_base_input = st.text_input(
-        "Enter API Base (Leave empty to use environment variable)",
-        value=os.environ.get("OPENAI_API_BASE"),
-    )
-
     # Get API key from input or environment variable
     api_key_input = st.text_input(
         "Enter API Key (Leave empty to use environment variable)",
@@ -59,16 +52,15 @@ with st.sidebar:
     )
 
     # Set OpenAI API key
-    openai_api_base = (
-        api_base_input if api_base_input else os.environ.get("OPENAI_API_BASE")
-    )
     openai_api_key = (
         api_key_input if api_key_input else os.environ.get("OPENAI_API_KEY")
     )
 
     # Create llm instance
-    llm = OpenAI(api_token=openai_api_key, temperature=0, seed=31)
-    llm.api_base = openai_api_base
+    llm = OpenAI(
+        api_token=openai_api_key,
+        temperature=0.5
+    )
     if llm:
         metrics_data = load_data()
         metrics_descs = get_config()["chat_with_data"]["metric_descriptions"]
@@ -79,13 +71,12 @@ with st.sidebar:
                     | metric.startswith("conv")
                     | metric.startswith("exp")
             ):
-                df = metrics_data[metric].to_pandas()
-                pconnector = PandasConnector(
-                    config={"original_df": df},
+                df = pai.DataFrame(
+                    metrics_data[metric].to_pandas(),
                     name=metric,
-                    description=metrics_descs[metric],
+                    description=metrics_descs[metric]
                 )
-                data_list.append(pconnector)
+                data_list.append(df)
         analyst = get_agent(data_list, llm)
 
 
@@ -96,18 +87,27 @@ with st.sidebar:
     st.button("Clear chat 🗑️", on_click=clear_chat_history)
 
 
+def print_response(message):
+    if "question" in message:
+        st.markdown(message["question"])
+    elif "response" in message:
+        if message["type"] == 'img':
+            st.image(Image.open(BytesIO(base64.b64decode(message["response"]))))
+        elif message["type"] == 'data':
+            st.dataframe(message["response"]['value'])
+        else:
+            st.write(message["response"])
+    elif "error" in message:
+        st.text(message["error"])
+
+
 def chat_window(analyst):
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            if "question" in message:
-                st.markdown(message["question"])
-            elif "response" in message:
-                st.write(message["response"])
-            elif "error" in message:
-                st.text(message["error"])
+            print_response(message)
 
     if prompt := st.chat_input("What would you like to know? "):
         with st.chat_message("user"):
@@ -117,19 +117,30 @@ def chat_window(analyst):
         try:
             st.toast("Getting response...")
             response = analyst.chat(prompt)
-            st.session_state.messages.append(
-                {"role": "assistant", "response": response}
-            )
-            st.toast("Getting explanation...")
-            explanation = analyst.explain()
+            saved_resp = ''
+            resp_type = 'str'
+            if isinstance(response, ChartResponse):
+                saved_resp = response.get_base64_image()
+                resp_type = 'img'
+            elif isinstance(response, DataFrameResponse):
+                saved_resp = response.to_dict()
+                resp_type = 'data'
+            else:
+                saved_resp = response
+                resp_type = 'str'
+
+            last_msg = {
+                "role": "assistant",
+                "response": saved_resp,
+                "type": resp_type
+            }
+            st.session_state.messages.append(last_msg)
 
             with st.chat_message("assistant"):
-                st.write(response)
+                print_response(last_msg)
                 with st.status("Show explanation", expanded=False):
-                    st.write(explanation)
-                    st.code(analyst.last_code_generated, line_numbers=True)
+                    st.code(analyst.last_generated_code, line_numbers=True)
                 if os.path.exists("exports/charts/temp_chart.png"):
-                    st.image("exports/charts/temp_chart.png")
                     os.remove("exports/charts/temp_chart.png")
         except Exception as e:
             st.write(e)

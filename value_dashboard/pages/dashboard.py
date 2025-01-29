@@ -133,7 +133,7 @@ if data_profiling:
 
 if col_order_on:
     column_order = sort_items(items=column_order, header="Columns order: ")
-st.dataframe(format_dates(filtered_rep_data).applymap(highlight_and_format),
+st.dataframe(format_dates(filtered_rep_data).map(highlight_and_format),
              use_container_width=True,
              column_order=column_order,
              height=640)
