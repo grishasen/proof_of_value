@@ -63,7 +63,8 @@ with st.sidebar:
     # Create llm instance
     llm = OpenAI(
         api_token=openai_api_key,
-        temperature=0.5
+        temperature=0,
+        model="gpt-4o"
     )
     if llm:
         metrics_data = load_data()
@@ -82,10 +83,12 @@ with st.sidebar:
                 )
                 data_list.append(df)
         analyst = get_agent(data_list, llm)
+        analyst.start_new_conversation()
 
 
     def clear_chat_history():
         st.session_state.messages = []
+        analyst.start_new_conversation()
 
 
     st.button("Clear chat 🗑️", on_click=clear_chat_history)
@@ -106,8 +109,10 @@ def print_response(message):
 
 
 def chat_window(analyst):
+    new_chat = False
     if "messages" not in st.session_state:
         st.session_state.messages = []
+        new_chat = True
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -120,7 +125,7 @@ def chat_window(analyst):
 
         try:
             st.toast("Getting response...")
-            response = analyst.chat(prompt)
+            response = analyst.chat(prompt) if new_chat else analyst.follow_up(prompt)
             saved_resp = ''
             resp_type = 'str'
             if isinstance(response, ChartResponse):
