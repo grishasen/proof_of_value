@@ -3,6 +3,7 @@ import os
 from io import BytesIO
 
 import pandasai as pai
+import plotly.io as pio
 import streamlit as st
 from PIL import Image
 from dotenv import load_dotenv
@@ -12,6 +13,10 @@ from pandasai_openai import OpenAI
 
 from value_dashboard.pipeline.ih import load_data
 from value_dashboard.utils.config import get_config
+
+pio.kaleido.scope.default_format = "jpeg"
+pio.kaleido.scope.default_scale = 2
+pio.kaleido.scope.default_height = 640
 
 
 def get_agent(data, llm) -> Agent:
