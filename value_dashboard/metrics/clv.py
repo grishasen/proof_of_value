@@ -19,10 +19,11 @@ def clv(holdings: pl.LazyFrame, config: dict, streaming=False, background=False)
     recurring_period_col = config['recurring_period'] if 'recurring_period' in config.keys() else RECURRING_PERIOD
     recurring_cost_col = config['recurring_cost'] if 'recurring_cost' in config.keys() else RECURRING_COST
     mand_props_grp_by = config['group_by'] + [customer_id_col]
+
     if "filter" in config.keys():
         filter_exp = config["filter"]
-        if filter_exp:
-            holdings = holdings.filter(eval(filter_exp))
+        holdings = holdings.filter(filter_exp)
+
     holdings = holdings.with_columns(pl.col(monetary_value_col).cast(pl.Float64))
     try:
         data_aggr = (

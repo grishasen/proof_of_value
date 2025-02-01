@@ -73,6 +73,31 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
         hive_partitioning = strtobool(config['ih']['hive_partitioning'])
     logger.debug("Use hive partitioning: " + str(hive_partitioning))
 
+    add_columns = config["ih"]["extensions"]["columns"]
+    global_ih_filter = config["ih"]["extensions"]["filter"]
+
+    if global_ih_filter:
+        ih_filter_expr = eval(global_ih_filter)
+    else:
+        ih_filter_expr = True
+
+    if add_columns:
+        add_columns_expr = eval(add_columns)
+    else:
+        add_columns_expr = []
+
+    metrics = config["metrics"]
+    for metric in metrics:
+        params = metrics[metric]
+        if isinstance(params, dict):
+            if "filter" in params.keys():
+                filter_exp_cmp = params["filter"]
+                if isinstance(filter_exp_cmp, str):
+                    if filter_exp_cmp:
+                        params["filter"] = eval(filter_exp_cmp)
+                    else:
+                        params["filter"] = True
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     process = psutil.Process(os.getpid())
@@ -104,7 +129,15 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
         start = time.time()
         i = i + 1
         progress_bar.progress(i / size, text=f"Processing: {key}")
-        ih_group = read_file_group(files, filetype, streaming, config, hive_partitioning)
+        ih_group = read_file_group(
+            files,
+            filetype,
+            streaming,
+            config,
+            hive_partitioning,
+            add_columns_expr,
+            ih_filter_expr
+        )
         if ih_group is None:
             continue
         collect_ih_metrics_data(loop, ih_group, mdata, streaming, background, config)
@@ -143,11 +176,12 @@ def read_file_group(files: typing.Iterable,
                     filetype: str,
                     streaming: bool,
                     config: dict,
-                    hive_partitioning: bool) -> LazyFrame | None:
+                    hive_partitioning: bool,
+                    add_columns_expr: typing.Any,
+                    ih_filter_expr: typing.Any
+                    ) -> LazyFrame | None:
     ih_list = []
     start: float = time.time()
-    add_columns = config["ih"]["extensions"]["columns"]
-    global_ih_filter = config["ih"]["extensions"]["filter"]
     for file in files:
         if filetype == 'parquet':
             ih = pl.scan_parquet(file, cache=False, hive_partitioning=hive_partitioning, allow_missing_columns=True)
@@ -159,23 +193,22 @@ def read_file_group(files: typing.Iterable,
         logger.debug(f"Data unpacking and load: {(time.time() - start) * 10 ** 3:.03f}ms")
 
         dframe_columns = ih.collect_schema().names()
-        cols = capitalize(dframe_columns)
-        ih = ih.rename(dict(map(lambda i, j: (i, j), dframe_columns, cols)))
+        capitalized = capitalize(dframe_columns)
+        rename_map = dict(zip(dframe_columns, capitalized))
+        ih = ih.rename(rename_map)
 
         with_cols_list = []
         if 'default_values' in config["ih"]["extensions"].keys():
             default_values = config["ih"]["extensions"]["default_values"]
             for new_col in default_values.keys():
-                if new_col not in cols:
+                if new_col not in capitalized:
                     with_cols_list.append(pl.lit(default_values.get(new_col)).alias(new_col))
                 else:
                     with_cols_list.append(pl.col(new_col).fill_null(default_values.get(new_col)))
         if with_cols_list:
             ih = ih.with_columns(with_cols_list)
 
-        if global_ih_filter:
-            ih_filter_expr = eval(global_ih_filter)
-            ih = ih.filter(ih_filter_expr)
+        ih = ih.filter(ih_filter_expr)
 
         ih = (
             ih
@@ -202,9 +235,9 @@ def read_file_group(files: typing.Iterable,
     if not ih_list:
         return
     ih_group = pl.concat(ih_list, how="diagonal")
-    if add_columns:
-        add_columns_expr = eval(add_columns)
+    if add_columns_expr:
         ih_group = ih_group.with_columns(add_columns_expr)
+
     ih_group = ih_group.collect(streaming=streaming).lazy()
     logger.debug(f"Pre-processing: {(time.time() - start) * 10 ** 3:.03f}ms")
     return ih_group

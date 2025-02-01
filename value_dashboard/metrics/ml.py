@@ -203,10 +203,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
     grp_by = config['group_by']
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
-    scores = config['scores']
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else False
-    negative_model_response_both_classes = strtobool(config[
-                                                         'negative_model_response_both_classes']) if 'negative_model_response_both_classes' in config.keys() else False
 
     unnest_expr = pl.col("metrics")
     if use_t_digest:
@@ -214,9 +211,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
 
     if "filter" in config.keys():
         filter_exp = config["filter"]
-        if filter_exp:
-            ih_filter_expr = eval(filter_exp)
-            ih = ih.filter(ih_filter_expr)
+        ih = ih.filter(filter_exp)
     try:
         ml_data = (
             ih

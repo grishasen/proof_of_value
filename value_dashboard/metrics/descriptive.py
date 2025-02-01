@@ -18,9 +18,8 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
     num_columns = [col for col in columns if col in ih.select(cs.numeric()).collect_schema().names()]
     if "filter" in config.keys():
         filter_exp = config["filter"]
-        if filter_exp:
-            ih_filter_expr = eval(filter_exp)
-            ih = ih.filter(ih_filter_expr)
+        ih = ih.filter(filter_exp)
+
     try:
         ih_analysis = (
             ih

@@ -121,6 +121,18 @@ def load_holdings_data() -> typing.Dict[str, pl.DataFrame]:
         hive_partitioning = strtobool(config['holdings']['hive_partitioning'])
     logger.debug("Use hive partitioning: " + str(hive_partitioning))
 
+    metrics = config["metrics"]
+    for metric in metrics:
+        params = metrics[metric]
+        if isinstance(params, dict):
+            if "filter" in params.keys():
+                filter_exp_cmp = params["filter"]
+                if isinstance(filter_exp_cmp, str):
+                    if filter_exp_cmp:
+                        params["filter"] = eval(filter_exp_cmp)
+                    else:
+                        params["filter"] = True
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 

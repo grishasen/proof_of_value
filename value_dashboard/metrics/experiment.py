@@ -3,7 +3,6 @@ import traceback
 import polars as pl
 
 from value_dashboard.metrics.constants import INTERACTION_ID, NAME, OUTCOME, RANK
-from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
 
@@ -12,14 +11,11 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
     mand_props_grp_by = config['group_by'] + [config['experiment_name']] + [config['experiment_group']]
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
-    negative_model_response_both_classes = strtobool(config[
-                                                         'negative_model_response_both_classes']) if 'negative_model_response_both_classes' in config.keys() else False
 
     if "filter" in config.keys():
         filter_exp = config["filter"]
-        if filter_exp:
-            ih_filter_expr = eval(filter_exp)
-            ih = ih.filter(ih_filter_expr)
+        ih = ih.filter(filter_exp)
+
     try:
         ih_analysis = (
             ih.filter(
