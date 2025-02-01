@@ -1,7 +1,7 @@
-numpy<2.0.0
-plotly>=5.24.1
-polars>=1.9.0
-polars_ds>=0.6.0
+numpy
+plotly>=6.0.0
+polars>=1.21.0
+polars_ds>=0.7.0
 pytdigest>=0.1.4
 scikit-learn>=1.5.2
 scipy>=1.0.0

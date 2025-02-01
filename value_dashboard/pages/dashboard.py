@@ -132,4 +132,5 @@ if col_order_on:
 st.dataframe(format_dates(filtered_rep_data).map(highlight_and_format),
              use_container_width=True,
              column_order=column_order,
-             height=640)
+             height=640,
+             hide_index=True)

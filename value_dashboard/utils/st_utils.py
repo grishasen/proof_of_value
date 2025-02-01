@@ -34,15 +34,8 @@ def highlight_and_format(val):
                 bg = 'background-color: darkgrey;'
         return bg
     elif isinstance(val, (int, float)):
-        def_color = 'black'
-        theme = st.session_state['theme']
-        if theme is None:
-            def_color = 'black'
-        else:
-            if theme['base'] == 'dark':
-                def_color = 'white'
-        color = 'red' if val < 0 else def_color
-        return f'color: {color};'
+        color = f'color: red;' if val < 0 else ''
+        return color
     else:
         return ''
 
@@ -54,11 +47,10 @@ def align_column_types(df: pd.DataFrame):
 def format_dates(df: pd.DataFrame):
     for col in df.columns:
         if 'Month' == col:
-            df['Month'] = pd.to_datetime(df['Month'])
-            # df['Month'] = df["Month"].dt.strftime("%b %Y")
+            df['Month'] = pd.to_datetime(df['Month'], format='mixed')
         if 'Day' == col:
             df['Day'] = df["Day"].dt.strftime("%Y-%m-%d")
-    df = df.style.format({'Month': '{:%b %Y}'})
+    df = df.style.format({'Month': '{:%b %Y}'}).background_gradient(cmap='YlGn')
     return df
 
 
