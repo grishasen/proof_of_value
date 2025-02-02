@@ -9,15 +9,10 @@ from polars import DataFrame
 
 from value_dashboard.metrics.clv import clv
 from value_dashboard.metrics.conversion import compact_conversion_data
-from value_dashboard.metrics.conversion import conversion
 from value_dashboard.metrics.descriptive import compact_descriptive_data
-from value_dashboard.metrics.descriptive import descriptive
 from value_dashboard.metrics.engagement import compact_engagement_data
-from value_dashboard.metrics.engagement import engagement
 from value_dashboard.metrics.experiment import compact_experiment_data
-from value_dashboard.metrics.experiment import experiment
 from value_dashboard.metrics.ml import compact_model_ml_scores_data
-from value_dashboard.metrics.ml import model_ml_scores
 from value_dashboard.reports.repdata import group_model_ml_scores_data, group_experiment_data, group_engagement_data, \
     group_conversion_data, group_descriptive_data
 from value_dashboard.utils.config import get_config
@@ -46,21 +41,17 @@ def collect_ih_metrics_data(loop, ih: pl.DataFrame | pl.LazyFrame,
                             ],
                             streaming: bool,
                             background: bool,
-                            config: dict):
+                            config: dict,
+                            metric_coroutines_map: dict):
     metrics = config["metrics"]
     coroutines = []
-    for metric in metrics:
+    for metric in metric_coroutines_map.keys():
         params = metrics[metric]
-        if metric.startswith("engagement"):
-            coroutines.append(data_collection_async(ih, params, metric, streaming, background, engagement))
-        if metric.startswith("model_ml_scores"):
-            coroutines.append(data_collection_async(ih, params, metric, streaming, background, model_ml_scores))
-        if metric.startswith("conversion"):
-            coroutines.append(data_collection_async(ih, params, metric, streaming, background, conversion))
-        if metric.startswith("descriptive"):
-            coroutines.append(data_collection_async(ih, params, metric, streaming, background, descriptive))
-        if metric.startswith("experiment"):
-            coroutines.append(data_collection_async(ih, params, metric, streaming, background, experiment))
+        coroutines.append(
+            data_collection_async(
+                ih, params, metric, streaming, background, metric_coroutines_map.get(metric)
+            )
+        )
     process_metrics_coroutines(coroutines, loop, mdata, streaming)
 
 

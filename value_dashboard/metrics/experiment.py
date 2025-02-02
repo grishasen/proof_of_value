@@ -12,9 +12,8 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
 
-    if "filter" in config.keys():
-        filter_exp = config["filter"]
-        ih = ih.filter(filter_exp)
+    if "filter" in config:
+        ih = ih.filter(config["filter"])
 
     try:
         ih_analysis = (
@@ -31,12 +30,10 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
                 pl.len().alias('Count'),
                 pl.sum("Outcome_Binary").alias("Positives")
             ])
+            .filter(pl.col("Count") > 0)
             .with_columns([
                 (pl.col("Count") - (pl.col("Positives"))).alias("Negatives")
             ])
-            .filter(
-                (pl.col("Positives") > 0) | (pl.col("Negatives") > 0)
-            )
         )
         if background:
             return ih_analysis.collect(background=background, streaming=streaming)

@@ -17,6 +17,11 @@ import streamlit as st
 from polars import LazyFrame
 
 from value_dashboard.metrics.constants import INTERACTION_ID, NAME, RANK, OUTCOME
+from value_dashboard.metrics.conversion import conversion
+from value_dashboard.metrics.descriptive import descriptive
+from value_dashboard.metrics.engagement import engagement
+from value_dashboard.metrics.experiment import experiment
+from value_dashboard.metrics.ml import model_ml_scores
 from value_dashboard.pipeline.datatools import collect_ih_metrics_data, collect_reports_data
 from value_dashboard.pipeline.datatools import compact_data
 from value_dashboard.utils.config import get_config
@@ -98,6 +103,19 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
                     else:
                         params["filter"] = True
 
+    metric_coroutines_map = {}
+    for metric in metrics:
+        if metric.startswith("engagement"):
+            metric_coroutines_map[metric] = engagement
+        if metric.startswith("model_ml_scores"):
+            metric_coroutines_map[metric] = model_ml_scores
+        if metric.startswith("conversion"):
+            metric_coroutines_map[metric] = conversion
+        if metric.startswith("descriptive"):
+            metric_coroutines_map[metric] = descriptive
+        if metric.startswith("experiment"):
+            metric_coroutines_map[metric] = experiment
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     process = psutil.Process(os.getpid())
@@ -140,7 +158,7 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
         )
         if ih_group is None:
             continue
-        collect_ih_metrics_data(loop, ih_group, mdata, streaming, background, config)
+        collect_ih_metrics_data(loop, ih_group, mdata, streaming, background, config, metric_coroutines_map)
 
         if (i > 31) & (i % 31 == 1):
             ram_mb = process.memory_info().rss / (1024 * 1024)

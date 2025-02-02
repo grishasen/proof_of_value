@@ -13,9 +13,9 @@ def conversion(ih: pl.LazyFrame, config: dict, streaming=False, background=False
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
 
-    if "filter" in config.keys():
-        filter_exp = config["filter"]
-        ih = ih.filter(filter_exp)
+    if "filter" in config:
+        ih = ih.filter(config["filter"])
+
     try:
         ih_analysis = (
             ih.filter(

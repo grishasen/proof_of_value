@@ -16,47 +16,41 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
     columns = config['columns']
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else False
     num_columns = [col for col in columns if col in ih.select(cs.numeric()).collect_schema().names()]
-    if "filter" in config.keys():
-        filter_exp = config["filter"]
-        ih = ih.filter(filter_exp)
+
+    if "filter" in config:
+        ih = ih.filter(config["filter"])
+
+    num_selector = cs.numeric() & cs.by_name(columns, require_all=True)
+    common_aggs = [
+        pl.col(columns).count().name.suffix('_Count'),
+        num_selector.sum().name.suffix('_Sum'),
+        num_selector.mean().name.suffix('_Mean'),
+        num_selector.var().name.suffix('_Var')
+    ]
+    if use_t_digest:
+        t_digest_aggs = [
+            pl.map_groups(
+                exprs=[f"{c}"],
+                function=tdigest,
+                return_dtype=pl.Struct,
+                returns_scalar=True
+            ).alias(f"{c}_tdigest")
+            for c in num_columns
+        ]
+        agg_exprs = common_aggs + t_digest_aggs
+    else:
+        extra_aggs = [
+            num_selector.median().name.suffix('_Median'),
+            num_selector.skew().name.suffix('_Skew'),
+            num_selector.quantile(0.25).name.suffix('_p25'),
+            num_selector.quantile(0.75).name.suffix('_p75'),
+            num_selector.quantile(0.90).name.suffix('_p90'),
+            num_selector.quantile(0.95).name.suffix('_p95')
+        ]
+        agg_exprs = common_aggs + extra_aggs
 
     try:
-        ih_analysis = (
-            ih
-            .group_by(mand_props_grp_by)
-            .agg(
-                (
-                    ([
-                         pl.col(columns).count().name.suffix('_Count'),
-                         (cs.numeric() & cs.by_name(columns, require_all=True)).sum().name.suffix('_Sum'),
-                         (cs.numeric() & cs.by_name(columns, require_all=True)).mean().name.suffix('_Mean'),
-                         (cs.numeric() & cs.by_name(columns, require_all=True)).var().name.suffix('_Var')
-                     ]
-                     +
-                     [
-                         pl.map_groups(
-                             exprs=[f"{c}"],
-                             function=tdigest,
-                             return_dtype=pl.Struct,
-                             returns_scalar=True).alias(f"{c}_tdigest") for c in num_columns
-                     ]
-                     ) if use_t_digest else []
-                )
-                +
-                ([
-                     pl.col(columns).count().name.suffix('_Count'),
-                     (cs.numeric() & cs.by_name(columns, require_all=True)).sum().name.suffix('_Sum'),
-                     (cs.numeric() & cs.by_name(columns, require_all=True)).mean().name.suffix('_Mean'),
-                     (cs.numeric() & cs.by_name(columns, require_all=True)).var().name.suffix('_Var'),
-                     (cs.numeric() & cs.by_name(columns, require_all=True)).median().name.suffix('_Median'),
-                     (cs.numeric() & cs.by_name(columns, require_all=True)).skew().name.suffix('_Skew'),
-                     (cs.numeric() & cs.by_name(columns, require_all=True)).quantile(0.25).name.suffix('_p25'),
-                     (cs.numeric() & cs.by_name(columns, require_all=True)).quantile(0.75).name.suffix('_p75'),
-                     (cs.numeric() & cs.by_name(columns, require_all=True)).quantile(0.90).name.suffix('_p90'),
-                     (cs.numeric() & cs.by_name(columns, require_all=True)).quantile(0.95).name.suffix('_p95')
-                 ] if not use_t_digest else [])
-            )
-        )
+        ih_analysis = ih.group_by(mand_props_grp_by).agg(agg_exprs)
         if background:
             return ih_analysis.collect(background=background, streaming=streaming)
         else:
@@ -78,10 +72,7 @@ def compact_descriptive_data(data: pl.DataFrame,
     grouped_mean = (
         data
         .group_by(grp_by)
-        .agg(
-            [
-                pl.col(grp_by).first().name.suffix("_a")
-            ]
+        .agg([pl.col(grp_by).first().name.suffix("_a")]
             +
             [
                 weighted_mean(pl.col(f'{c}_Mean'), pl.col(f'{c}_Count')).alias(f'{c}_GroupMean_a') for c in
@@ -91,131 +82,78 @@ def compact_descriptive_data(data: pl.DataFrame,
         .select(cs.ends_with("_a"))
         .rename(lambda column_name: column_name.removesuffix('_a'))
     )
+
     copy_data = data.join(grouped_mean, on=grp_by)
+
     copy_data = copy_data.with_columns(
-        [
-            # (n_i - 1) * variance_i
-            ((pl.col(f'{c}_Count') - 1) * pl.col(f'{c}_Var')).alias(f'{c}_n_minus1_variance') for c in num_columns
-        ]
-        +
-        [
-            # n_i * (mean_i - grp_mean)^2
-            (pl.col(f'{c}_Count') * (pl.col(f'{c}_Mean') - pl.col(f'{c}_GroupMean')) ** 2).alias(
-                f'{c}_n_mean_diff_sq')
+        [((pl.col(f'{c}_Count') - 1) * pl.col(f'{c}_Var')).alias(f'{c}_n_minus1_variance')
+         for c in num_columns] +
+        [(pl.col(f'{c}_Count') * (pl.col(f'{c}_Mean') - pl.col(f'{c}_GroupMean')) ** 2)
+        .alias(f'{c}_n_mean_diff_sq')
+         for c in num_columns]
+    )
+
+    common_aggs = [
+        (cs.ends_with('Count').sum()).name.suffix("_a"),
+        (cs.ends_with('Sum').sum()).name.suffix("_a"),
+        pl.col(grp_by).first().name.suffix("_a")
+    ]
+
+    mean_aggs = [
+        weighted_mean(pl.col(f'{c}_Mean'), pl.col(f'{c}_Count')).alias(f'{c}_Mean_a')
+        for c in num_columns
+    ]
+
+    if not use_t_digest:
+        extra_aggs = (
+                [weighted_mean(pl.col(f'{c}_Median'), pl.col(f'{c}_Count')).alias(f'{c}_Median_a')
+                 for c in num_columns] +
+                [weighted_mean(pl.col(f'{c}_Skew'), pl.col(f'{c}_Count')).alias(f'{c}_Skew_a')
+                 for c in num_columns]
+        )
+        if 'p25' in scores:
+            extra_aggs += [weighted_mean(pl.col(f'{c}_p25'), pl.col(f'{c}_Count')).alias(f'{c}_p25_a')
+                           for c in num_columns]
+        if 'p75' in scores:
+            extra_aggs += [weighted_mean(pl.col(f'{c}_p75'), pl.col(f'{c}_Count')).alias(f'{c}_p75_a')
+                           for c in num_columns]
+        if 'p95' in scores:
+            extra_aggs += [weighted_mean(pl.col(f'{c}_p95'), pl.col(f'{c}_Count')).alias(f'{c}_p95_a')
+                           for c in num_columns]
+        if 'p90' in scores:
+            extra_aggs += [weighted_mean(pl.col(f'{c}_p90'), pl.col(f'{c}_Count')).alias(f'{c}_p90_a')
+                           for c in num_columns]
+    else:
+        extra_aggs = [
+            pl.map_groups(
+                exprs=[f"{c}_tdigest"],
+                function=merge_tdigests,
+                return_dtype=pl.Struct,
+                returns_scalar=True
+            ).alias(f"{c}_tdigest_a")
             for c in num_columns
         ]
-    )
-    if not use_t_digest:
-        copy_data = (
-            copy_data
-            .group_by(grp_by)
-            .agg(
-                [
-                    (cs.ends_with('Count').sum()).name.suffix("_a"),
-                    (cs.ends_with('Sum').sum()).name.suffix("_a"),
-                    pl.col(grp_by).first().name.suffix("_a")
-                ]
-                +
-                [
-                    weighted_mean(pl.col(f'{c}_Mean'), pl.col(f'{c}_Count')).alias(f'{c}_Mean_a') for c in num_columns
-                ]
-                +
-                [
-                    weighted_mean(pl.col(f'{c}_Median'), pl.col(f'{c}_Count')).alias(f'{c}_Median_a') for c in
-                    num_columns
-                ]
-                +
-                [
-                    weighted_mean(pl.col(f'{c}_Skew'), pl.col(f'{c}_Count')).alias(f'{c}_Skew_a') for c in num_columns
-                ]
-                +
-                (
-                    [
-                        weighted_mean(pl.col(f'{c}_p25'), pl.col(f'{c}_Count')).alias(f'{c}_p25_a') for c in num_columns
-                    ] if 'p25' in scores else []
-                )
-                +
-                (
-                    [
-                        weighted_mean(pl.col(f'{c}_p75'), pl.col(f'{c}_Count')).alias(f'{c}_p75_a') for c in num_columns
-                    ] if 'p75' in scores else []
-                )
-                +
-                (
-                    [
-                        weighted_mean(pl.col(f'{c}_p95'), pl.col(f'{c}_Count')).alias(f'{c}_p95_a') for c in num_columns
-                    ] if 'p95' in scores else []
-                )
-                +
-                (
-                    [
-                        weighted_mean(pl.col(f'{c}_p90'), pl.col(f'{c}_Count')).alias(f'{c}_p90_a') for c in num_columns
-                    ] if 'p90' in scores else []
-                )
-                +
-                [
-                    pl.col(f'{c}_n_minus1_variance').sum().alias(f'{c}_sum_n_minus1_variance_tmp_a') for c in
-                    num_columns
-                ]
-                +
-                [
-                    pl.col(f'{c}_n_mean_diff_sq').sum().alias(f'{c}_sum_n_mean_diff_sq_tmp_a') for c in num_columns
-                ]
-            )
-            .select(cs.ends_with("_a"))
-            .rename(lambda column_name: column_name.removesuffix('_a'))
-            .with_columns(
-                [
-                    ((pl.col(f'{c}_sum_n_minus1_variance_tmp') + pl.col(f'{c}_sum_n_mean_diff_sq_tmp')) / (
-                            pl.col(f'{c}_Count') - 1))
-                    .alias(f'{c}_Var') for c in num_columns
-                ]
-            )
-            .select(~cs.ends_with("_tmp"))
-        )
-    else:
-        copy_data = (
-            copy_data
-            .group_by(grp_by)
-            .agg(
-                [
-                    (cs.ends_with('Count').sum()).name.suffix("_a"),
-                    (cs.ends_with('Sum').sum()).name.suffix("_a"),
-                    pl.col(grp_by).first().name.suffix("_a")
-                ]
-                +
-                [
-                    weighted_mean(pl.col(f'{c}_Mean'), pl.col(f'{c}_Count')).alias(f'{c}_Mean_a') for c in num_columns
-                ]
-                +
-                [
-                    pl.map_groups(
-                        exprs=[f"{c}_tdigest"],
-                        function=merge_tdigests,
-                        return_dtype=pl.Struct,
-                        returns_scalar=True
-                    ).alias(f"{c}_tdigest_a") for c in num_columns
-                ]
-                +
-                [
-                    pl.col(f'{c}_n_minus1_variance').sum().alias(f'{c}_sum_n_minus1_variance_tmp_a') for c in
-                    num_columns
-                ]
-                +
-                [
-                    pl.col(f'{c}_n_mean_diff_sq').sum().alias(f'{c}_sum_n_mean_diff_sq_tmp_a') for c in num_columns
-                ]
-            )
-            .select(cs.ends_with("_a"))
-            .rename(lambda column_name: column_name.removesuffix('_a'))
-            .with_columns(
-                [
-                    ((pl.col(f'{c}_sum_n_minus1_variance_tmp') + pl.col(f'{c}_sum_n_mean_diff_sq_tmp')) / (
-                            pl.col(f'{c}_Count') - 1))
-                    .alias(f'{c}_Var') for c in num_columns
-                ]
-            )
-            .select(~cs.ends_with("_tmp"))
-        )
 
-    return copy_data
+    tail_aggs = (
+            [pl.col(f'{c}_n_minus1_variance').sum().alias(f'{c}_sum_n_minus1_variance_tmp_a')
+             for c in num_columns] +
+            [pl.col(f'{c}_n_mean_diff_sq').sum().alias(f'{c}_sum_n_mean_diff_sq_tmp_a')
+             for c in num_columns]
+    )
+
+    agg_list = common_aggs + mean_aggs + extra_aggs + tail_aggs
+    result = (
+        copy_data
+        .group_by(grp_by)
+        .agg(agg_list)
+        .select(cs.ends_with("_a"))
+        .rename(lambda col: col.removesuffix('_a'))
+        .with_columns([
+            ((pl.col(f'{c}_sum_n_minus1_variance_tmp') + pl.col(f'{c}_sum_n_mean_diff_sq_tmp'))
+             / (pl.col(f'{c}_Count') - 1)).alias(f'{c}_Var')
+            for c in num_columns
+        ])
+        .select(~cs.ends_with("_tmp"))
+    )
+
+    return result

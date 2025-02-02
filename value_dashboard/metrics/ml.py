@@ -209,9 +209,38 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
     if use_t_digest:
         unnest_expr = pl.col("propensity_tdigest_pos_neg")
 
-    if "filter" in config.keys():
-        filter_exp = config["filter"]
-        ih = ih.filter(filter_exp)
+    if "filter" in config:
+        ih = ih.filter(config["filter"])
+
+    common_aggs = [
+        pl.len().alias('Count'),
+        pl.map_groups(
+            exprs=[CUSTOMER_ID, NAME],
+            function=personalization,
+            return_dtype=pl.Float64,
+            returns_scalar=True
+        ).alias("personalization"),
+        pl.map_groups(
+            exprs=[CUSTOMER_ID, INTERACTION_ID, NAME],
+            function=novelty,
+            return_dtype=pl.Float64,
+            returns_scalar=True
+        ).alias("novelty")
+    ]
+    if use_t_digest:
+        t_digest_aggs = [pl.map_groups(
+            exprs=["Outcome_Boolean", "Propensity"],
+            function=tdigest_pos_neg,
+            return_dtype=pl.Struct,
+            returns_scalar=True).alias("propensity_tdigest_pos_neg")]
+        agg_exprs = common_aggs + t_digest_aggs
+    else:
+        extra_aggs = [pds.query_binary_metrics(
+            "Outcome_Boolean",
+            "Propensity",
+            threshold=0).alias("metrics")]
+        agg_exprs = common_aggs + extra_aggs
+
     try:
         ml_data = (
             ih
@@ -225,35 +254,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             .filter(pl.any("Outcome_Boolean").over(grp_by))
             .filter(pl.col('Outcome_Boolean') == pl.col('Outcome_Boolean').max().over(INTERACTION_ID, NAME, RANK))
             .group_by(grp_by)
-            .agg([
-                     pl.len().alias('Count'),
-                     pl.map_groups(
-                         exprs=[CUSTOMER_ID, NAME],
-                         function=personalization,
-                         return_dtype=pl.Float64,
-                         returns_scalar=True
-                     ).alias("personalization"),
-                     pl.map_groups(
-                         exprs=[CUSTOMER_ID, INTERACTION_ID, NAME],
-                         function=novelty,
-                         return_dtype=pl.Float64,
-                         returns_scalar=True
-                     ).alias("novelty")
-                 ]
-                 +
-                 ([pl.map_groups(
-                     exprs=["Outcome_Boolean", "Propensity"],
-                     function=tdigest_pos_neg,
-                     return_dtype=pl.Struct,
-                     returns_scalar=True).alias("propensity_tdigest_pos_neg")] if use_t_digest else []
-                  )
-                 +
-                 ([pds.query_binary_metrics(
-                     "Outcome_Boolean",
-                     "Propensity",
-                     threshold=0).alias("metrics")] if not use_t_digest else []
-                  )
-                 )
+            .agg(agg_exprs)
             .unnest([unnest_expr])
         )
         if background:

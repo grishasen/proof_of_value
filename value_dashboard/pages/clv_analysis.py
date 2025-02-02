@@ -124,7 +124,7 @@ with c3:
     download_clv_dataset(filtered_rep_data)
 if col_order_on:
     column_order = sort_items(items=column_order, header="Columns order: ")
-st.dataframe(format_dates(filtered_rep_data.head(300)).applymap(highlight_and_format),
+st.dataframe(format_dates(filtered_rep_data.head(300)).map(highlight_and_format),
              use_container_width=True,
              column_order=column_order,
              height=640)
