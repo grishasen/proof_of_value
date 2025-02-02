@@ -37,6 +37,8 @@ if 'data_cache_hours' in get_config()['ux'].keys():
     data_cache_hours = get_config()['ux']['data_cache_hours']
 logger.debug(f"Data will be cached for {data_cache_hours} hours.")
 logger.debug(f"Numpy version {np.__version__}.")
+logger.debug(f"Polars {pl.build_info()}.")
+logger.debug(f"Polars threads: {pl.thread_pool_size()}.")
 
 
 @timed
