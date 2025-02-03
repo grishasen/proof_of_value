@@ -19,9 +19,9 @@ streaming = "false"
 background = "false"
 
 [ih.extensions]
-default_values = { 'ModelType' = 'Engagement', 'PlacementType' = '', 'AppliedModel' = 'Bayesian', 'ProductGroup' = 'N/A', 'ExperimentName' = 'N/A', 'ExperimentGroup' = 'N/A', 'FinalPropensity' = 0.0 }
+default_values = { 'ModelType' = 'Engagement', 'PlacementType' = '', 'ModelCategory' = 'Bayesian', 'Product' = 'N/A', 'ExperimentName' = 'N/A', 'ExperimentGroup' = 'N/A', 'FinalPropensity' = 0.0 }
 filter = """(pl.col("Outcome").is_in(["Pending", "Impression", "Clicked", "Conversion", "NoConversion"]) &
-pl.col("AppliedModel").is_in(["Bayesian", "Gradient boosting"]) &
+pl.col("ModelCategory").is_in(["Bayesian", "Gradient boosting"]) &
 pl.col("Channel").is_in(["Web", "Mobile", "Email"]))""" #Global filter across entire IH (for performance)
 columns = """[
             (pl.when(pl.col("Outcome") == "Conversion").then(pl.lit(np.random.normal(3.5))).otherwise(
@@ -44,32 +44,33 @@ columns = """[pl.col('PurchasedDate').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.
 global_filters = ["Channel", "Year", "CustomerType"]
 
 [metrics.model_ml_scores]
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "AppliedModel"]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "ModelCategory"]
 filter = ""
-use_t_digest = "false"
+use_t_digest = "true"
 scores = ["roc_auc", "average_precision", "personalization", "novelty"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
 
 [metrics.engagement]
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "ExperimentName", "ExperimentGroup", "Issue", "Group", "AppliedModel"]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "HoldOutActionGroup", "CustomerType", "Placement", "ExperimentName", "ExperimentGroup", "Issue", "Group", "ModelCategory"]
 filter = ""
 scores = ["CTR", "Lift", "Lift_Z_Score", "Lift_P_Val"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
 
 [metrics.conversion]
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "ModelType", "Issue", "CustomerType", "ProductGroup"]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "ModelType", "Issue", "CustomerType", "Product"]
 filter = ""
 scores = ["ConversionRate", "Revenue"]
 positive_model_response = ["Conversion"]
 negative_model_response = ["NoConversion"]
 
 [metrics.descriptive]
-group_by = ["Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "Issue", "Group", "AppliedModel", "Outcome"]
-filter = ""
-columns = ["Outcome", "Propensity"]
-scores = ['Count', 'Sum', 'Mean', 'Median', 'Std', 'Var', 'Skew']
+group_by = ["Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "Issue", "Group", "ModelCategory", "Outcome"]
+filter = """"""
+use_t_digest = "true"
+columns = ['Outcome', 'Propensity', 'FinalPropensity', 'Priority']
+scores = ['Count', 'Sum', 'Mean', 'Median', 'p25', 'p75', 'p90', 'p95', 'Std', 'Var', 'Skew']
 
 [metrics.experiment]
 group_by = ["Year", "Channel", "CustomerType"]
@@ -111,7 +112,7 @@ type = "gauge"
 description = "[BIZ] Click-through rate (Channel/Placement)"
 group_by = ["Channel", "Placement"]
 value = "CTR"
-reference = { 'Web_Billboard' = 0.015, 'Web_Carousel' = 0.004, 'Mobile_Billboard' = 0.03, 'Mobile_Carousel' = 0.1 }
+reference = { 'Web_Leaderboard' = 0.015, 'Web_Skyscrapper' = 0.004, 'Mobile_Leaderboard' = 0.03, 'Mobile_Skyscrapper' = 0.1 }
 
 
 [reports.treemap_channel_placement_taxonomy_ctr]
@@ -141,10 +142,10 @@ color = "CTR"
 metric = "model_ml_scores"
 type = "line"
 description = "[ML] Monthly model ROC AUC By Placement"
-group_by = ["Month", "Channel", "Placement", "AppliedModel"]
+group_by = ["Month", "Channel", "Placement", "ModelCategory"]
 x = "Month"
 y = "roc_auc"
-color = "AppliedModel"
+color = "ModelCategory"
 facet_row = "Channel"
 facet_column = "Placement"
 
@@ -152,10 +153,10 @@ facet_column = "Placement"
 metric = "model_ml_scores"
 type = "line"
 description = "[ML] Monthly model ROC AUC"
-group_by = ["Month", "Channel", "CustomerType", "AppliedModel"]
+group_by = ["Month", "Channel", "CustomerType", "ModelCategory"]
 x = "Month"
 y = "roc_auc"
-color = "AppliedModel"
+color = "ModelCategory"
 facet_row = "Channel"
 facet_column = "CustomerType"
 
@@ -163,10 +164,10 @@ facet_column = "CustomerType"
 metric = "model_ml_scores"
 type = "line"
 description = "[ML] Monthly average precision score"
-group_by = ["Month", "Channel", "CustomerType", "AppliedModel"]
+group_by = ["Month", "Channel", "CustomerType", "ModelCategory"]
 x = "Month"
 y = "average_precision"
-color = "AppliedModel"
+color = "ModelCategory"
 facet_row = "Channel"
 facet_column = "CustomerType"
 
@@ -174,24 +175,24 @@ facet_column = "CustomerType"
 metric = "model_ml_scores"
 type = "treemap"
 description = "[REC] Personalization score"
-group_by = ["Channel", "CustomerType", "Placement", "AppliedModel"]
+group_by = ["Channel", "CustomerType", "Placement", "ModelCategory"]
 color = "personalization"
 
 [reports.treemap_channel_placement_novelty]
 metric = "model_ml_scores"
 type = "treemap"
 description = "[REC] Novelty score"
-group_by = ["Channel", "CustomerType", "Placement", "AppliedModel"]
+group_by = ["Channel", "CustomerType", "Placement", "ModelCategory"]
 color = "novelty"
 
 [reports.daily_ctr]
 metric = "engagement"
 type = "line"
 description = "[ENG] Daily Click Through Rate By Customer Type"
-group_by = ["Day", "Channel", "Quarter", "CustomerType", "AppliedModel"]
+group_by = ["Day", "Channel", "Quarter", "CustomerType", "ModelCategory"]
 x = "Day"
 y = "CTR"
-color = "AppliedModel"
+color = "ModelCategory"
 facet_row = "Channel"
 facet_column = "CustomerType"
 
@@ -199,10 +200,10 @@ facet_column = "CustomerType"
 metric = "engagement"
 type = "line"
 description = "[ENG] Daily Click Through Rate By Placement"
-group_by = ["Day", "Channel", "Quarter", "Placement", "AppliedModel"]
+group_by = ["Day", "Channel", "Quarter", "Placement", "ModelCategory"]
 x = "Day"
 y = "CTR"
-color = "AppliedModel"
+color = "ModelCategory"
 facet_row = "Channel"
 facet_column = "Placement"
 
@@ -210,10 +211,10 @@ facet_column = "Placement"
 metric = "engagement"
 type = "line"
 description = "[ENG] Monthly Click Through Rate By Customer Type"
-group_by = ["Month", "Quarter", "Channel", "CustomerType", "AppliedModel"]
+group_by = ["Month", "Quarter", "Channel", "CustomerType", "ModelCategory"]
 x = "Month"
 y = "CTR"
-color = "AppliedModel"
+color = "ModelCategory"
 facet_row = "Channel"
 facet_column = "CustomerType"
 
@@ -221,12 +222,23 @@ facet_column = "CustomerType"
 metric = "engagement"
 type = "line"
 description = "[ENG] Monthly Click Through Rate By Placement"
-group_by = ["Month", "Quarter", "Channel", "Placement", "AppliedModel"]
+group_by = ["Month", "Quarter", "Channel", "Placement", "ModelCategory"]
 x = "Month"
 y = "CTR"
-color = "AppliedModel"
+color = "ModelCategory"
 facet_row = "Channel"
 facet_column = "Placement"
+
+[reports.daily_ctr_def_banner]
+metric = 'engagement'
+type = 'line'
+description = '[ENG] CDH Click Through Rate vs Hold-Out'
+group_by = ['Day', 'Channel', 'Month', 'Quarter', 'CustomerType', 'HoldOutActionGroup']
+x = 'Day'
+y = 'CTR'
+color = "HoldOutActionGroup"
+facet_row = "Channel"
+facet_column = "CustomerType"
 
 [reports] #Can be added without need to change code
 
@@ -245,10 +257,10 @@ facet_column = "Placement"
 metric = "engagement"
 type = "line"
 description = "[ENG] Monthly Lift vs Random Action"
-group_by = ["Month", "Quarter", "Channel", "CustomerType", "AppliedModel"]
+group_by = ["Month", "Quarter", "Channel", "CustomerType", "ModelCategory"]
 x = "Month"
 y = "Lift"
-color = "AppliedModel"
+color = "ModelCategory"
 facet_row = "Channel"
 facet_column = "CustomerType"
 
@@ -256,10 +268,10 @@ facet_column = "CustomerType"
 metric = "engagement"
 type = "line"
 description = "[ENG] Lift vs Random Action Significance"
-group_by = ["Month", "Quarter", "Channel", "CustomerType", "AppliedModel"]
+group_by = ["Month", "Quarter", "Channel", "CustomerType", "ModelCategory"]
 x = "Month"
 y = "Lift_Z_Score"
-color = "AppliedModel"
+color = "ModelCategory"
 facet_row = "Channel"
 facet_column = "CustomerType"
 
@@ -309,9 +321,9 @@ facet_row = "Channel"
 [reports.monthly_conversion_revenue_issue]
 metric = "conversion"
 type = "line"
-description = "[CONV] Monthly Revenue By Issue"
-group_by = ["Month", "Quarter", "Channel", "Issue"]
-x = "Month"
+description = "[CONV] Quarterly Revenue By Issue"
+group_by = ["Month", "Quarter", "Year", "Channel", "Issue"]
+x = "Quarter"
 y = "Revenue"
 color = "Issue"
 facet_row = "Channel"
@@ -319,23 +331,34 @@ facet_row = "Channel"
 [reports.monthly_conversion_revenue_product]
 metric = "conversion"
 type = "line"
-description = "[CONV] Monthly Revenue By Product Group"
-group_by = ["Month", "Channel", "Issue", "ProductGroup"]
-x = "Month"
+description = "[CONV] Quarterly Revenue By Product"
+group_by = ["Month", "Quarter", "Year", "Channel", "Issue", "Product"]
+x = "Quarter"
 y = "Revenue"
-color = "ProductGroup"
+color = "Product"
 facet_row = "Channel"
 facet_column = "Issue"
 
 [reports.describe_dataset_propensity]
-metric = "descriptive"
-type = "line"
-description = "[DESC] Explore Dataset"
-group_by = ["Year", "Quarter", "Month", "Channel", "CustomerType", "Placement", "Issue", "Group", "AppliedModel", "Outcome"]
-x = "Month"
-y = "Propensity"
-score = "Mean"
-color = "Issue"
+metric = 'descriptive'
+type = 'line'
+description = '[DESC] Univariate analysis'
+group_by = ['Month', 'Year', 'Quarter', 'Channel', 'CustomerType', 'Placement', 'Issue', 'Group', 'AppliedModel', 'Outcome']
+x = 'Year'
+y = 'Propensity'
+score = 'Mean'
+color = 'Issue'
+facet_row = "Channel"
+facet_column = "CustomerType"
+
+[reports.describe_dataset_boxplot]
+metric = 'descriptive'
+type = 'boxplot'
+description = '[DESC] Univariate analysis: Quartiles'
+group_by = ['Month', 'Year', 'Quarter', 'Channel', 'CustomerType', 'Placement', 'Issue', 'Group', 'ModelCategory', 'Outcome']
+x = 'Year'
+y = 'Propensity'
+color = 'Issue'
 facet_row = "Channel"
 facet_column = "CustomerType"
 
