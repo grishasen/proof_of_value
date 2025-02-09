@@ -161,6 +161,7 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
         if ih_group is None:
             continue
         collect_ih_metrics_data(loop, ih_group, mdata, streaming, background, config, metric_coroutines_map)
+        del ih_group
 
         if (i > 31) & (i % 31 == 1):
             ram_mb = process.memory_info().rss / (1024 * 1024)
