@@ -8,7 +8,6 @@ from streamlit_autorefresh import st_autorefresh
 from streamlit_dimensions import st_dimensions
 from streamlit_dynamic_filters import DynamicFilters
 from streamlit_option_menu import option_menu
-from streamlit_sortables import sort_items
 from streamlit_theme import st_theme
 
 from value_dashboard.pipeline.ih import get_reports_data
@@ -118,7 +117,7 @@ cols = list(set(filtered_rep_data.columns.tolist()) - set(grp_by))
 column_order = grp_by + sorted(cols)
 c1, c2 = st.columns([0.7, 0.3], vertical_alignment="center")
 c1.write("#### 🗃 Data Overview")
-col_order_on = c2.toggle("Reorder columns", value=False, help="Change dataframe table columns order.")
+# col_order_on = c2.toggle("Reorder columns", value=False, help="Change dataframe table columns order.")
 if data_profiling:
     def click_button():
         explorer = hv.explorer(filtered_rep_data)
@@ -127,10 +126,11 @@ if data_profiling:
 
     st.button(f"""📋 Exploratory Data Analysis""", on_click=click_button, type='secondary')
 
-if col_order_on:
-    column_order = sort_items(items=column_order, header="Columns order: ")
-st.dataframe(format_dates(filtered_rep_data).map(highlight_and_format),
-             use_container_width=True,
-             column_order=column_order,
-             height=640,
-             hide_index=True)
+# if col_order_on:
+#    column_order = sort_items(items=column_order, header="Columns order: ")
+st.data_editor(format_dates(filtered_rep_data).map(highlight_and_format),
+               use_container_width=True,
+               column_order=column_order,
+               height=640,
+               hide_index=True,
+               disabled=True)

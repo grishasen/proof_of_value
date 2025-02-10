@@ -9,7 +9,6 @@ import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 from streamlit_dimensions import st_dimensions
 from streamlit_option_menu import option_menu
-from streamlit_sortables import sort_items
 from streamlit_theme import st_theme
 
 from value_dashboard.pipeline.holdings import get_reports_data
@@ -119,12 +118,12 @@ cols = list(set(filtered_rep_data.columns.tolist()) - set(grp_by))
 column_order = grp_by + sorted(cols)
 c1, c2, c3 = st.columns([0.55, 0.25, 0.2], gap="large", vertical_alignment="top")
 c1.write("#### 🗃 Data Overview (300 rows sample)")
-col_order_on = c2.toggle("Reorder columns", value=False, help="Change dataframe table columns order.")
+# col_order_on = c2.toggle("Reorder columns", value=False, help="Change dataframe table columns order.")
 with c3:
     download_clv_dataset(filtered_rep_data)
-if col_order_on:
-    column_order = sort_items(items=column_order, header="Columns order: ")
-st.dataframe(format_dates(filtered_rep_data.head(300)).map(highlight_and_format),
-             use_container_width=True,
-             column_order=column_order,
-             height=640)
+# if col_order_on:
+#    column_order = sort_items(items=column_order, header="Columns order: ")
+st.data_editor(format_dates(filtered_rep_data.head(300)).map(highlight_and_format),
+               use_container_width=True,
+               column_order=column_order,
+               height=640, disabled=True)
