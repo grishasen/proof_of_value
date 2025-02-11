@@ -380,6 +380,7 @@ def engagement_ctr_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
             row=(r + 1), col=(c + 1)
         )
     st.plotly_chart(fig, use_container_width=True)
+    ih_analysis.drop(columns=['Name', 'CName', 'index'], inplace=True, errors='ignore')
     return ih_analysis
 
 
@@ -455,6 +456,7 @@ def conversion_rate_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
             row=(r + 1), col=(c + 1)
         )
     st.plotly_chart(fig, use_container_width=True)
+    ih_analysis.drop(columns=['Name', 'CName', 'index'], inplace=True, errors='ignore')
     return ih_analysis
 
 
@@ -1598,6 +1600,7 @@ def experiment_odds_ratio_plot(data: Union[pl.DataFrame, pd.DataFrame],
         showlegend=False
     )
     st.plotly_chart(fig, use_container_width=True)
+    ih_analysis.drop(columns=['color'], inplace=True, errors='ignore')
     return ih_analysis
 
 
