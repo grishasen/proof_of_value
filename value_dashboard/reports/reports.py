@@ -1693,7 +1693,7 @@ def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
             help="Select Radial-Axis value."
         )
     with c2:
-        options_theta = ['rfm_segment']
+        options_theta = list(set(['rfm_segment'] + config['group_by']))
         config['theta'] = st.selectbox(
             label='Angular axis in polar coordinates',
             options=options_theta,
@@ -1701,7 +1701,7 @@ def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
             help="Select  angular axis in polar coordinates."
         )
     with c3:
-        options_color = ['rfm_segment', 'f_quartile', 'r_quartile', 'm_quartile']
+        options_color = list(set(['rfm_segment', 'f_quartile', 'r_quartile', 'm_quartile'] + config['group_by']))
         config['color'] = st.selectbox(
             label='Colour',
             options=options_color,
