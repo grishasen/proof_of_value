@@ -180,20 +180,22 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
 
     roc_auc = np.trapz(tpr_sorted, fpr_sorted)
 
-    thresholds = np.sort(all_scores)[::-1]
-    TP = 1.0 - F_p(thresholds)
-    FP = 1.0 - F_n(thresholds)
-    precision = TP / (TP + FP + 1e-10)
-    recall = TP
+    all_scores = np.sort(all_scores)[::-1]
+    TP = 1.0 - F_p(all_scores)
+    FP = 1.0 - F_n(all_scores)
 
-    recall = recall[::-1]
-    precision = precision[::-1]
+    epsilon = 1e-10
+    precision = TP / (TP + FP + epsilon)
+    recall = TP.copy()
+
+    # precision = precision[::-1]
+    # recall = recall[::-1]
 
     if recall[0] != 0.0:
         recall = np.concatenate(([0.0], recall))
         precision = np.concatenate(([1.0], precision))
 
-    average_precision = np.trapz(precision, recall)
+    average_precision = np.sum(np.diff(recall) * precision[1:]) - 0.5
 
     return {'roc_auc': roc_auc, 'average_precision': average_precision}
 
