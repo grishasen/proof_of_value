@@ -89,7 +89,7 @@ def process_metrics_coroutines(coroutines: typing.List, loop,
         if isinstance(mdf, pl.lazyframe.in_process.InProcessQuery):
             df = mdf.fetch_blocking()
             schema = df.collect_schema()
-            df = pl.from_dicts(df.to_dicts(), schema=schema)
+            df = pl.from_arrow(df.to_arrow(), schema=schema)
             if not (metric in mdata):
                 mdata[metric] = df
             else:
@@ -101,14 +101,14 @@ def process_metrics_coroutines(coroutines: typing.List, loop,
                 mdata[metric] = mdf
             else:
                 schema = mdf.collect_schema()
-                mdf = pl.from_dicts(mdf.to_dicts(), schema=schema)
+                mdf = pl.from_arrow(mdf.to_arrow(), schema=schema)
                 mdata[metric] = pl.concat([mdf, mdata[metric]], how="diagonal", rechunk=True)
     if lazy_frames:
         frames = pl.collect_all(lazy_frames.values(), streaming=streaming)
         for metric in lazy_frames.keys():
             df = frames[list(lazy_frames.keys()).index(metric)]
             schema = df.collect_schema()
-            df = pl.from_dicts(df.to_dicts(), schema=schema)
+            df = pl.from_arrow(df.to_arrow(), schema=schema)
             if not (metric in mdata):
                 mdata[metric] = df
             else:

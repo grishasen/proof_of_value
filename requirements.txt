@@ -1,6 +1,6 @@
 numpy
 plotly>=6.0.0
-polars>=1.21.0
+polars>=1.23.0
 pandas>=2.2.3
 polars_ds>=0.8.0
 pytdigest>=0.1.4
