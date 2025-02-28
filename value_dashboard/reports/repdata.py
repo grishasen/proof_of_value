@@ -514,7 +514,7 @@ def calculate_descriptive_scores(
             for c in num_columns
         ]
     )
-    # logger.debug("Mean and Var calculated... ")
+    logger.debug("Mean and Var calculated... ")
     if not use_t_digest:
         copy_data = (
             copy_data.group_by(grp_by)
@@ -616,87 +616,46 @@ def calculate_descriptive_scores(
             .sort(grp_by, descending=False)
         )
     else:
-        copy_data = copy_data.group_by(grp_by).agg(
-            [
-                (cs.ends_with("Count").sum()).name.suffix("_a"),
-                (cs.ends_with("Sum").sum()).name.suffix("_a"),
-                pl.col(grp_by).first().name.suffix("_a"),
-            ]
-            + [
-                weighted_mean(pl.col(f"{c}_Mean"), pl.col(f"{c}_Count")).alias(
-                    f"{c}_Mean_a"
+        non_tdigest_aggs = [
+            (cs.ends_with("Count").sum()).name.suffix("_a"),
+            (cs.ends_with("Sum").sum()).name.suffix("_a"),
+            pl.col(grp_by).first().name.suffix("_a"),
+        ]
+
+        for c in num_columns:
+            non_tdigest_aggs.extend([
+                weighted_mean(pl.col(f"{c}_Mean"), pl.col(f"{c}_Count")).alias(f"{c}_Mean_a"),
+                pl.col(f"{c}_n_minus1_variance").sum().alias(f"{c}_sum_n_minus1_variance_tmp_a"),
+                pl.col(f"{c}_n_mean_diff_sq").sum().alias(f"{c}_sum_n_mean_diff_sq_tmp_a"),
+            ])
+
+        df_non_tdigest = copy_data.group_by(grp_by).agg(non_tdigest_aggs)
+        logger.debug("Non digest properties aggregated...")
+        quantiles = [
+            (0.5, "Median"),
+            (0.25, "p25"),
+            (0.75, "p75"),
+            (0.90, "p90"),
+            (0.95, "p95"),
+        ]
+
+        copy_data = copy_data.group_by(grp_by)
+        for c in num_columns:
+            for quantile, suffix in quantiles:
+                tdigest_aggs = []
+                tdigest_aggs.append(
+                    pl.map_groups(
+                        exprs=[f"{c}_tdigest"],
+                        function=partial(estimate_quantile, quantile=quantile),
+                        return_dtype=pl.Struct,
+                        returns_scalar=True,
+                    ).alias(f"{c}_{suffix}_a")
                 )
-                for c in num_columns
-            ]
-            + [
-                pl.col(f"{c}_n_minus1_variance")
-            .sum()
-            .alias(f"{c}_sum_n_minus1_variance_tmp_a")
-                for c in num_columns
-            ]
-            + [
-                pl.col(f"{c}_n_mean_diff_sq")
-            .sum()
-            .alias(f"{c}_sum_n_mean_diff_sq_tmp_a")
-                for c in num_columns
-            ]
-            + (
-                [
-                    pl.map_groups(
-                        exprs=[f"{c}_tdigest"],
-                        function=partial(estimate_quantile, quantile=0.5),
-                        return_dtype=pl.Struct,
-                        returns_scalar=True,
-                    ).alias(f"{c}_Median_a")
-                    for c in num_columns
-                ]
-            )
-            + (
-                [
-                    pl.map_groups(
-                        exprs=[f"{c}_tdigest"],
-                        function=partial(estimate_quantile, quantile=0.25),
-                        return_dtype=pl.Struct,
-                        returns_scalar=True,
-                    ).alias(f"{c}_p25_a")
-                    for c in num_columns
-                ]
-            )
-            + (
-                [
-                    pl.map_groups(
-                        exprs=[f"{c}_tdigest"],
-                        function=partial(estimate_quantile, quantile=0.75),
-                        return_dtype=pl.Struct,
-                        returns_scalar=True,
-                    ).alias(f"{c}_p75_a")
-                    for c in num_columns
-                ]
-            )
-            + (
-                [
-                    pl.map_groups(
-                        exprs=[f"{c}_tdigest"],
-                        function=partial(estimate_quantile, quantile=0.90),
-                        return_dtype=pl.Struct,
-                        returns_scalar=True,
-                    ).alias(f"{c}_p90_a")
-                    for c in num_columns
-                ]
-            )
-            + (
-                [
-                    pl.map_groups(
-                        exprs=[f"{c}_tdigest"],
-                        function=partial(estimate_quantile, quantile=0.95),
-                        return_dtype=pl.Struct,
-                        returns_scalar=True,
-                    ).alias(f"{c}_p95_a")
-                    for c in num_columns
-                ]
-            )
-        )
-        # logger.debug("Half-way through calculate_descriptive_scores...")
+                df_tdigest = copy_data.agg(tdigest_aggs)
+                df_non_tdigest = df_non_tdigest.join(df_tdigest, on=grp_by)
+
+        logger.debug("T-digest properties aggregated...")
+        copy_data = df_non_tdigest
         copy_data = (
             copy_data.select(cs.ends_with("_a"))
             .rename(lambda column_name: column_name.removesuffix("_a"))
