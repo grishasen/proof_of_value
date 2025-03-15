@@ -52,7 +52,7 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
     try:
         ih_analysis = ih.group_by(mand_props_grp_by).agg(agg_exprs)
         if background:
-            return ih_analysis.collect(background=background, streaming=streaming)
+            return ih_analysis.collect(background=background, engine="streaming" if streaming else "auto")
         else:
             return ih_analysis
     except Exception as e:

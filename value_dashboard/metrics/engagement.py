@@ -35,7 +35,7 @@ def engagement(ih: pl.LazyFrame, config: dict, streaming=False, background=False
             ])
         )
         if background:
-            return ih_analysis.collect(background=background, streaming=streaming)
+            return ih_analysis.collect(background=background, engine="streaming" if streaming else "auto")
         else:
             return ih_analysis
     except Exception as e:

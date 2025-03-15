@@ -259,7 +259,7 @@ def read_file_group(files: typing.Iterable,
     if add_columns_expr:
         ih_group = ih_group.with_columns(add_columns_expr)
 
-    ih_group = ih_group.collect(streaming=streaming).lazy()
+    ih_group = ih_group.collect(engine="streaming" if streaming else "auto").lazy()
     logger.debug(f"Pre-processing: {(time.time() - start) * 10 ** 3:.03f}ms")
     return ih_group
 

@@ -463,7 +463,7 @@ def group_descriptive_data(
     return data
 
 
-@st.cache_data(show_spinner=False, ttl=timedelta(seconds=120), max_entries=25)
+#@st.cache_data(show_spinner=False, ttl=timedelta(seconds=120), max_entries=25)
 def calculate_descriptive_scores(
         data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:

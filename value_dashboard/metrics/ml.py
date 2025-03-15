@@ -260,7 +260,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             .unnest([unnest_expr])
         )
         if background:
-            return ml_data.collect(background=background, streaming=streaming)
+            return ml_data.collect(background=background, engine="streaming" if streaming else "auto")
         else:
             return ml_data
     except Exception as e:

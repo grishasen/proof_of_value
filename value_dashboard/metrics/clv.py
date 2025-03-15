@@ -56,7 +56,7 @@ def clv(holdings: pl.LazyFrame, config: dict, streaming=False, background=False)
                 .rename({'lifetime_value_a': 'lifetime_value'})
             )
         if background:
-            return data_aggr.collect(background=background, streaming=streaming)
+            return data_aggr.collect(background=background, engine="streaming" if streaming else "auto")
         else:
             return data_aggr
     except Exception as e:

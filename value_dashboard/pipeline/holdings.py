@@ -89,7 +89,7 @@ def read_holdings_file_group(files: typing.Iterable,
         add_columns_expr = eval(add_columns)
         product_holdings_group = product_holdings_group.with_columns(add_columns_expr)
 
-    product_holdings_group = product_holdings_group.collect(streaming=streaming).lazy()
+    product_holdings_group = product_holdings_group.collect(engine="streaming" if streaming else "auto").lazy()
     logger.debug(f"Product holdings pre-processing took: {(time.time() - start) * 10 ** 3:.03f}ms")
     return product_holdings_group
 

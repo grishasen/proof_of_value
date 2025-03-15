@@ -104,7 +104,7 @@ def process_metrics_coroutines(coroutines: typing.List, loop,
                 mdf = pl.from_arrow(mdf.to_arrow(), schema=schema)
                 mdata[metric] = pl.concat([mdf, mdata[metric]], how="diagonal", rechunk=True)
     if lazy_frames:
-        frames = pl.collect_all(lazy_frames.values(), streaming=streaming)
+        frames = pl.collect_all(lazy_frames.values(), engine="streaming" if streaming else "auto")
         for metric in lazy_frames.keys():
             df = frames[list(lazy_frames.keys()).index(metric)]
             schema = df.collect_schema()
