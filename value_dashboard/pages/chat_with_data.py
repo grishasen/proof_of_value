@@ -16,7 +16,7 @@ from value_dashboard.utils.config import get_config
 
 pio.kaleido.scope.default_format = "jpeg"
 pio.kaleido.scope.default_scale = 2
-pio.kaleido.scope.default_height = 640
+pio.kaleido.scope.default_height = 480
 
 
 def get_agent(data, llm) -> Agent:
