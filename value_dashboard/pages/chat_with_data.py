@@ -1,5 +1,6 @@
 import base64
 import os
+import traceback
 from io import BytesIO
 
 import pandasai as pai
@@ -133,9 +134,11 @@ def chat_window(analyst):
             response = analyst.chat(prompt) if new_chat else analyst.follow_up(prompt)
             saved_resp = ''
             resp_type = 'str'
+            path = ''
             if isinstance(response, ChartResponse):
                 saved_resp = response.get_base64_image()
                 resp_type = 'img'
+                path = response.value
             elif isinstance(response, DataFrameResponse):
                 saved_resp = response.to_dict()
                 resp_type = 'data'
@@ -146,7 +149,8 @@ def chat_window(analyst):
             last_msg = {
                 "role": "assistant",
                 "response": saved_resp,
-                "type": resp_type
+                "type": resp_type,
+                "path": path
             }
             st.session_state.messages.append(last_msg)
 
@@ -154,9 +158,10 @@ def chat_window(analyst):
                 print_response(last_msg)
                 with st.status("Show explanation", expanded=False):
                     st.code(analyst.last_generated_code, line_numbers=True)
-                if os.path.exists("exports/charts/temp_chart.png"):
-                    os.remove("exports/charts/temp_chart.png")
+                if os.path.exists(last_msg["path"]):
+                    os.remove(last_msg["path"])
         except Exception as e:
+            print(traceback.format_exc())
             st.write(e)
             error_message = "⚠️Sorry, Couldn't generate the answer! Please try rephrasing your question!"
 
