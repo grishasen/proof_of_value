@@ -20,10 +20,9 @@ pio.kaleido.scope.default_scale = 2
 pio.kaleido.scope.default_height = 480
 
 
-def get_agent(data, llm) -> Agent:
+def get_agent(data) -> Agent:
     agent = Agent(
         data,
-        config={"llm": llm, "verbose": True},
         memory_size=10,
         description=get_config()["chat_with_data"]["agent_prompt"],
     )
@@ -88,7 +87,11 @@ with st.sidebar:
                     description=metrics_descs[metric]
                 )
                 data_list.append(df)
-        analyst = get_agent(data_list, llm)
+        pai.config.set({
+            "llm": llm,
+            "verbose": True
+        })
+        analyst = get_agent(data_list)
         analyst.start_new_conversation()
 
 
