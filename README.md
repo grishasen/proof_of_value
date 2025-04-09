@@ -18,11 +18,13 @@ visualizations, supporting decision-making through clear data visualization.
 1. **Data Import**:
     - Navigate to the "Data Import" page.
     - Upload your data by selecting and loading ZIP or Parquet files.
+    - For demo: Switch off `Import raw data` toggle. Upload JSON file available in `data` folder (unzip archive).
     - Once the data is imported, it will be processed and prepared for visualization.
 
 2. **Dashboard**:
     - Navigate to the "Dashboard" page.
     - View the visualized data and apply various filters to interactively explore and analyze the data.
+    - Use "Chat with data" with own OpenAI key.
 
 ## Installation
 

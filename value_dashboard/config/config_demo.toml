@@ -303,10 +303,10 @@ group_by = ["Channel", "ModelType"]
 value = "ConversionRate"
 
 [reports.gauge_channel_model_type_conversion.reference]
-Web_Engagement = 0.02
-Web_Conversion = 0.02
-Mobile_Engagement = 0.08
-Mobile_Conversion = 0.08
+Web_Engagement = 0.09
+Web_Conversion = 0.09
+Mobile_Engagement = 0.065
+Mobile_Conversion = 0.065
 
 [reports.monthly_conversion_issue]
 metric = "conversion"
