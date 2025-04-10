@@ -160,7 +160,7 @@ group_by = ['Day', 'Month', 'Year', 'Quarter', 'Channel', 'ModelType', 'Issue', 
 filter = """"""
 scores = ['ConversionRate', 'Revenue']
 positive_model_response = ["Conversion"]
-negative_model_response = ["NoConversion"]
+negative_model_response = ["Impression"]
 ```
 
 - **Engagement**: Measures of user interaction with the product or service.
