@@ -18,7 +18,9 @@ visualizations, supporting decision-making through clear data visualization.
 1. **Data Import**:
     - Navigate to the "Data Import" page.
     - Upload your data by selecting and loading ZIP or Parquet files.
-    - For demo: Switch off `Import raw data` toggle. Upload JSON file available in `data` folder (unzip archive).
+    - **For demo**: 
+      - IH reporting: switch off `Import raw data` toggle. Upload JSON file available in `data` folder (unzip archive).
+      - CLV analytics: import product holdings zip file directly.
     - Once the data is imported, it will be processed and prepared for visualization.
 
 2. **Dashboard**:
@@ -361,7 +363,7 @@ providing insights that align with business objectives.
 
 ---
 
-### Reports
+### Reports' configuration parameters
 
 The `[reports]` section in the configuration file allows for the definition of various analytical reports. Each report
 is configured to display specific metrics and visualizations based on the application's requirements. These
@@ -444,7 +446,9 @@ functionality of the dashboard.
 The `[chat_with_data]` section used to configure integration with a chatbot for questions on the data and visualizations 
 beyond ad-hoc reports and queries configured for dashboard.
 
-Use `OPENAI_API_KEY` and `OPENAI_API_BASE` environment variables to set integartion with ChatGPT.
+Use `OPENAI_API_KEY` environment variable to set integration with ChatGPT, run `export OPENAI_API_KEY="<<your_open_api_key>>"` before starting the application or paste key directly in the UI form.
+
+As soon as this functionality is based on Pandas AI framework, refer to [Pandas AI documentation](https://docs.getpanda.ai/v3/introduction) for deep-dive.
 
 #### Properties in section
 
