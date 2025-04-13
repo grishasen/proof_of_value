@@ -41,6 +41,8 @@ def import_data():
     raw_load = st.toggle("Import raw data", value=True,
                          help="Load raw data or pre-aggregated metrics data")
     if raw_load:
+        reload_all = st.toggle("Remove existing data", value=False,
+                               help="Reload all data from the source, drop cache.")
         st.info("Enter folder name with interaction history files or upload files.")
         data_source = st.radio("Choose your data source", ('File Upload', 'Folder'))
         if data_source == 'Folder':
@@ -55,6 +57,7 @@ def import_data():
                     st.error("Folder not found.")
                     st.stop()
                 st.session_state['ihfolder'] = folder_path
+                st.session_state['drop_cache'] = reload_all
                 data_loaded = load_data()
                 st.session_state['data_loaded'] = True
                 st.session_state['data_load_run'] = True
@@ -72,6 +75,7 @@ def import_data():
                 if not folder_path.endswith(os.sep):
                     folder_path = folder_path + os.sep
                 st.session_state['ihfolder'] = folder_path
+                st.session_state['drop_cache'] = reload_all
                 for uploaded_file in uploaded_files:
                     file_path = os.path.join(temp_dir.name, uploaded_file.name)
                     with open(file_path, "wb") as f:
@@ -105,6 +109,7 @@ def import_data():
             use_aggregated = True
             st.session_state['use_aggregated'] = use_aggregated
             st.session_state['aggregated_path'] = file_path
+            st.session_state['drop_cache'] = False
             data_loaded = load_data()
             st.session_state['data_loaded'] = True
             st.session_state['data_load_run'] = True

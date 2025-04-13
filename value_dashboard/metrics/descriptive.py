@@ -73,12 +73,12 @@ def compact_descriptive_data(data: pl.DataFrame,
         data
         .group_by(grp_by)
         .agg([pl.col(grp_by).first().name.suffix("_a")]
-            +
-            [
-                weighted_mean(pl.col(f'{c}_Mean'), pl.col(f'{c}_Count')).alias(f'{c}_GroupMean_a') for c in
-                num_columns
-            ]
-        )
+             +
+             [
+                 weighted_mean(pl.col(f'{c}_Mean'), pl.col(f'{c}_Count')).alias(f'{c}_GroupMean_a') for c in
+                 num_columns
+             ]
+             )
         .select(cs.ends_with("_a"))
         .rename(lambda column_name: column_name.removesuffix('_a'))
     )

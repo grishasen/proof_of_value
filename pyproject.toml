@@ -36,6 +36,7 @@ pillow = "^10.4.0"
 tomlkit = "^0.13.2"
 psutil = "^6.1.1"
 hvplot = "^0.11.2"
+duckdb = ">=1.0.0,<2.0.0"
 pandasai = {version = "^3.0.0b8", optional = true}
 kaleido = {version = "*", optional = true}
 
@@ -45,6 +46,9 @@ chat = ["pandasai", "kaleido"]
 [tool.poetry.scripts]
 cdhdashboard = "value_dashboard.utils.cli:main"
 
+
+[tool.poetry.group.dev.dependencies]
+watchdog = "^6.0.0"
 
 [build-system]
 requires = ["poetry-core"]

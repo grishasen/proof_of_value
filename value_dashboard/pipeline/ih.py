@@ -16,6 +16,7 @@ import psutil
 import streamlit as st
 from polars import LazyFrame
 
+from value_dashboard.datalake.df_db_proxy import PolarsDuckDBProxy
 from value_dashboard.metrics.constants import INTERACTION_ID, NAME, RANK, OUTCOME
 from value_dashboard.metrics.conversion import conversion
 from value_dashboard.metrics.descriptive import descriptive
@@ -25,6 +26,7 @@ from value_dashboard.metrics.ml import model_ml_scores
 from value_dashboard.pipeline.datatools import collect_ih_metrics_data, collect_reports_data
 from value_dashboard.pipeline.datatools import compact_data
 from value_dashboard.utils.config import get_config
+from value_dashboard.utils.db_utils import save_file_meta, get_file_meta, drop_all_tables
 from value_dashboard.utils.file_utils import read_dataset_export
 from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.string_utils import strtobool, capitalize
@@ -55,7 +57,18 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
                 frame = json.dumps(aggregated[metric])
                 collected_metrics_data[metric] = pl.DataFrame.deserialize(source=io.StringIO(frame), format='json')
             f.close()
+            st.session_state['drop_cache'] = False
             return collected_metrics_data
+
+    drop_cache = st.session_state['drop_cache'] if 'drop_cache' in st.session_state else False
+
+    db_proxy = PolarsDuckDBProxy()
+
+    if drop_cache:
+        drop_all_tables(db_proxy)
+
+    processed_files = get_file_meta(db_proxy)
+
     if IHFOLDER not in st.session_state:
         st.warning("Please configure your files in the `Data import` tab.")
         st.stop()
@@ -129,6 +142,9 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
         filetype = 'pega_ds_export'
 
     for file in files:
+        if (processed_files["filename"] == file).any():
+            logger.info("Skipping file : " + file)
+            continue
         try:
             filedate = re.findall(config["ih"]["ih_group_pattern"], os.path.abspath(file))[0]
             if hive_partitioning:
@@ -140,17 +156,22 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
 
     file_groups = dict(sorted(file_groups.items(), reverse=True))
     size = len(file_groups.items())
+
     mdata = {}
+    for metric in metrics:
+        if db_proxy.is_dataframe_exist(metric):
+            mdata[metric] = db_proxy.get_dataframe(metric)
+
     progress_bar = st.progress(0)
     container = st.empty()
     i = 0
-    for key, files in file_groups.items():
+    for key, files_in_grp in file_groups.items():
         logger.debug(f"Processing group: {key}")
         start = time.time()
         i = i + 1
         progress_bar.progress(i / size, text=f"Processing: {key}")
         ih_group = read_file_group(
-            files,
+            files_in_grp,
             filetype,
             streaming,
             config,
@@ -182,6 +203,11 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
         totals_frame = compact_data(mdata[metric], config['metrics'][metric], metric)
         totals_frame.shrink_to_fit(in_place=True)
         collected_metrics_data[metric] = totals_frame
+        db_proxy.drop_dataframe(metric)
+        db_proxy.store_dataframe(totals_frame, metric)
+
+    for file in files:
+        save_file_meta(db_proxy, file)
 
     load_end = time.time()
     hours, remainder = divmod(load_end - load_start, 3600)
@@ -190,6 +216,7 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
     for metric in collected_metrics_data:
         frame = collected_metrics_data[metric]
         logger.debug(f"{metric} dataset size is {frame.estimated_size('kb')} kb.")
+    st.session_state['drop_cache'] = False
     return collected_metrics_data
 
 

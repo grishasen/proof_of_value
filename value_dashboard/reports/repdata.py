@@ -1,12 +1,10 @@
 import logging
-from datetime import timedelta
 from functools import partial
 from typing import Union
 
 import numpy as np
 import pandas as pd
 import polars as pl
-import streamlit as st
 from polars import selectors as cs
 from polars_ds import weighted_mean
 
@@ -463,7 +461,7 @@ def group_descriptive_data(
     return data
 
 
-#@st.cache_data(show_spinner=False, ttl=timedelta(seconds=120), max_entries=25)
+# @st.cache_data(show_spinner=False, ttl=timedelta(seconds=120), max_entries=25)
 def calculate_descriptive_scores(
         data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
