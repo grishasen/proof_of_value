@@ -425,6 +425,7 @@ y = 'monetary_value'
 [variants]
 name = "Demo"
 description = "This dashboard configuration was designed for demos"
+demo_mode = "false"
 
 [chat_with_data]
 agent_prompt = """You are a data analysis agent. Your main goal is to help non-technical users to analyze interaction history and product holdings data from Pega Customer Decision Hub application.

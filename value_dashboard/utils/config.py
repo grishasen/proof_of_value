@@ -39,6 +39,11 @@ def ih_metrics_avail() -> bool:
     return False
 
 
+def is_demo_mode() -> bool:
+    variants = get_config()["variants"]
+    return strtobool(variants['demo_mode']) if 'demo_mode' in variants.keys() else False
+
+
 def chat_with_data() -> bool:
     ux = get_config()["ux"]
     if "chat_with_data" in ux.keys():
