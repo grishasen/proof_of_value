@@ -10,16 +10,26 @@ logger = get_logger(__name__, logging.DEBUG)
 
 
 @st.cache_resource()
-def get_config():
+def get_config() -> dict:
     config_file = None
-    if "args" in st.session_state.keys():
+    if "args" in st.session_state:
         config_file = st.session_state["args"].config
     if not config_file:
         config_file = "value_dashboard/config/config.toml"
+
     logger.debug("Config file: " + config_file)
-    with open(config_file, mode="rb") as fp:
-        config = tomllib.load(fp)
-    return config
+
+    try:
+        with open(config_file, mode="rb") as fp:
+            return tomllib.load(fp)
+    except FileNotFoundError:
+        logger.error(f"Config file not found: {config_file}")
+        st.error(f"Configuration file not found: {config_file}")
+        return {}
+    except tomllib.TOMLDecodeError as e:
+        logger.error(f"Failed to parse config file: {e}")
+        st.error("Configuration file is not valid TOML.")
+        return {}
 
 
 def clv_metrics_avail() -> bool:
@@ -41,11 +51,9 @@ def ih_metrics_avail() -> bool:
 
 def is_demo_mode() -> bool:
     variants = get_config()["variants"]
-    return strtobool(variants['demo_mode']) if 'demo_mode' in variants.keys() else False
+    return strtobool(variants.get("demo_mode", False))
 
 
 def chat_with_data() -> bool:
     ux = get_config()["ux"]
-    if "chat_with_data" in ux.keys():
-        return strtobool(ux["chat_with_data"])
-    return False
+    return strtobool(ux.get("chat_with_data", False))

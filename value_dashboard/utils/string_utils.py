@@ -1,11 +1,12 @@
 import re
 
 
-def find_between(s, start, end):
-    return s.split(start)[1].split(end)[0]
+def find_between(s: str, start: str, end: str) -> str:
+    match = re.search(f"{re.escape(start)}(.*?){re.escape(end)}", s)
+    return match.group(1) if match else ""
 
 
-def strtobool(val):
+def strtobool(val: str | bool) -> bool:
     """Convert a string representation of truth to true (1) or false (0).
     True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
     are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if

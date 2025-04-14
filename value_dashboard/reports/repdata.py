@@ -58,7 +58,7 @@ def group_model_ml_scores_data(
     logger.debug("Use t-digest for scores: " + str(use_t_digest))
 
     grp_by = config["group_by"] + get_config()["metrics"]["global_filters"]
-    scores = get_config()["metrics"]["model_ml_scores"]["scores"]
+    scores = get_config()["metrics"].get("model_ml_scores", {}).get("scores", [])
     grp_by = list(set(grp_by))
     auc_data = (
         auc_data.group_by(grp_by)

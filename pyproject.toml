@@ -46,6 +46,8 @@ chat = ["pandasai", "kaleido"]
 [tool.poetry.scripts]
 cdhdashboard = "value_dashboard.utils.cli:main"
 
+[tool.poetry.group.dev]
+optional = true
 
 [tool.poetry.group.dev.dependencies]
 watchdog = "^6.0.0"

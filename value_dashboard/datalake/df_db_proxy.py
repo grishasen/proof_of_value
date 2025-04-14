@@ -14,30 +14,45 @@ class PolarsDuckDBProxy:
         self.connection = duckdb.connect("db/pov_data.duckdb")
         self._tables = set()
 
-    def __del__(self):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
     def sql(self, query: str, params: Optional[list] = None):
         return self.connection.sql(query, params=params)
 
     def close(self):
-        if hasattr(self, "conn") and self.connection:
+        if hasattr(self, "connection") and self.connection:
             self.connection.close()
             self.connection = None
             self._tables.clear()
 
+    @staticmethod
+    def _sanitize_identifier(name: str) -> str:
+        import re
+        if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', name):
+            raise ValueError("Invalid table name.")
+        return name
+
     def store_dataframe(self, df: pl.DataFrame, table_name: str):
-        self.connection.execute(f"CREATE TABLE IF NOT EXISTS {table_name} AS SELECT * FROM df")
-        self.connection.execute(f"INSERT INTO {table_name} SELECT * FROM df")
+        table_name = self._sanitize_identifier(table_name)
+        if not self.is_dataframe_exist(table_name):
+            self.connection.execute(f"CREATE TABLE {table_name} AS SELECT * FROM df")
+        else:
+            self.connection.execute(f"INSERT INTO {table_name} SELECT * FROM df")
         self._tables.add(table_name)
 
     def drop_dataframe(self, table_name: str):
+        table_name = self._sanitize_identifier(table_name)
         self.connection.execute(f"DROP TABLE IF EXISTS {table_name}")
         if table_name in self._tables:
             self._tables.remove(table_name)
 
     def get_dataframe(self, table_name: str) -> pl.DataFrame:
-        return self.connection.execute("SELECT * FROM " + table_name).pl()
+        table_name = self._sanitize_identifier(table_name)
+        return self.connection.execute(f"SELECT * FROM {table_name}").pl()
 
     def is_dataframe_exist(self, table_name: str):
         exists = self.connection.execute(f"""
