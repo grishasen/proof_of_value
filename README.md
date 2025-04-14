@@ -7,7 +7,7 @@ for linking marketing actions to business outcomes, such as customer lifetime va
 dashboard utilizes technologies like Streamlit, Polars, Plotly, and DuckDB for efficient data processing and interactive
 visualizations, supporting decision-making through clear data visualization.
 
-Please take a look at Wiki (https://github.com/grishasen/proof_of_value/wiki) for additional info.
+Go to [Wiki page](https://github.com/grishasen/proof_of_value/wiki) for additional info.
 
 ## Features
 
