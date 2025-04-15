@@ -112,7 +112,7 @@ with st.sidebar:
                 )
                 chat_log_bytes = BytesIO(chat_log.encode("utf-8"))
                 st.download_button(
-                    label="Save chat 💾",
+                    label="Save chat 📨",
                     data=chat_log_bytes,
                     file_name="chat_log.txt",
                     mime="text/plain",
