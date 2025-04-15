@@ -259,26 +259,26 @@ def read_file_group(files: typing.Iterable,
         ih = ih.filter(ih_filter_expr)
 
         ih = (
-            ih
-            .with_columns(
+            ih.with_columns([
                 pl.col('OutcomeTime').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('OutcomeDateTime'),
                 pl.col('DecisionTime').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('DecisionDateTime')
-            )
-            .with_columns(
-                [
-                    pl.col("OutcomeDateTime").dt.date().alias("Day"),
-                    (pl.col("OutcomeDateTime").dt.strftime("%Y-%m")).alias("Month"),
-                    pl.col("OutcomeDateTime").dt.year().cast(str).alias("Year"),
-                    (pl.col("OutcomeDateTime").dt.year().cast(str) + "_Q" + pl.col("OutcomeDateTime")
-                     .dt.quarter().cast(str)).alias("Quarter"),
-                    (pl.col("OutcomeDateTime") - pl.col("DecisionDateTime")).dt.total_seconds().alias("ResponseTime")
-                ]
-            )
-            .drop(["FactID", "Label", "UpdateDateTime", "OutcomeTime", "DecisionTime",
-                   "OutcomeDateTime", "StreamPartition", "EvaluationCriteria", "Organization",
-                   "Unit", "Division", "Component", "ApplicationVersion", "Strategy"], strict=False)
+            ])
+            .with_columns([
+                pl.col("OutcomeDateTime").dt.date().alias("Day"),
+                pl.col("OutcomeDateTime").dt.strftime("%Y-%m").alias("Month"),
+                pl.col("OutcomeDateTime").dt.year().cast(pl.Utf8).alias("Year"),
+                (pl.col("OutcomeDateTime").dt.year().cast(pl.Utf8) + "_Q" +
+                 pl.col("OutcomeDateTime").dt.quarter().cast(pl.Utf8)).alias("Quarter"),
+                (pl.col("OutcomeDateTime") - pl.col("DecisionDateTime")).dt.total_seconds().alias("ResponseTime")
+            ])
             .unique(subset=[INTERACTION_ID, NAME, RANK, OUTCOME])
+            .drop([
+                "FactID", "Label", "UpdateDateTime", "OutcomeTime", "DecisionTime",
+                "OutcomeDateTime", "StreamPartition", "EvaluationCriteria", "Organization",
+                "Unit", "Division", "Component", "ApplicationVersion", "Strategy"
+            ], strict=False)
         )
+
         ih_list.append(ih)
 
     if not ih_list:

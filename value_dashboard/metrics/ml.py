@@ -120,7 +120,7 @@ def novelty(args: List[Series]) -> pl.Float64:
 
 def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     a = np.linspace(0, 0.1, num=100, endpoint=False)
-    b = np.linspace(0, 1, num=101)[10:]
+    b = np.linspace(0, 1, num=201)[20:]
     thresholds = np.concatenate((a, b))
     thresholds = [round(t.item(), 4) for t in thresholds]
 
@@ -168,6 +168,12 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     q_n = np.array(sorted(negative_percentiles.keys()))
     s_n = np.array([negative_percentiles[q] for q in q_n])
 
+    s_p, idx_p = np.unique(s_p, return_index=True)
+    q_p = q_p[idx_p]
+
+    s_n, idx_n = np.unique(s_n, return_index=True)
+    q_n = q_n[idx_n]
+
     F_p = interp1d(s_p, q_p, kind='linear', bounds_error=False, fill_value=(0.0, 1.0))
     F_n = interp1d(s_n, q_n, kind='linear', bounds_error=False, fill_value=(0.0, 1.0))
 
@@ -195,7 +201,8 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
         recall = np.concatenate(([0.0], recall))
         precision = np.concatenate(([1.0], precision))
 
-    average_precision = np.sum(np.diff(recall) * precision[1:]) - 0.5
+    delta_recall = recall[1:] - recall[:-1]
+    average_precision = np.sum(delta_recall * precision[1:])
 
     return {'roc_auc': roc_auc, 'average_precision': average_precision}
 
