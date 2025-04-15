@@ -101,6 +101,19 @@ with st.sidebar:
         analyst.start_new_conversation()
 
     st.button("Clear chat 🗑️", on_click=lambda: clear_chat_history(analyst))
+    if "messages" in st.session_state:
+        if st.session_state.messages:
+            chat_log = "\n\n".join(
+                f"{msg['role'].capitalize()}: {msg.get('question') or msg.get('response') or msg.get('error')}"
+                for msg in st.session_state.messages
+            )
+            chat_log_bytes = BytesIO(chat_log.encode("utf-8"))
+            st.download_button(
+                label="Download Chat 📥",
+                data=chat_log_bytes,
+                file_name="chat_log.txt",
+                mime="text/plain",
+            )
 
 
 def print_response(message):
@@ -122,19 +135,6 @@ def chat_window(analyst):
     if "messages" not in st.session_state:
         st.session_state.messages = []
         new_chat = True
-
-    if st.session_state.messages:
-        chat_log = "\n\n".join(
-            f"{msg['role'].capitalize()}: {msg.get('question') or msg.get('response') or msg.get('error')}"
-            for msg in st.session_state.messages
-        )
-        chat_log_bytes = BytesIO(chat_log.encode("utf-8"))
-        st.download_button(
-            label="📥 Download Chat Log",
-            data=chat_log_bytes,
-            file_name="chat_log.txt",
-            mime="text/plain",
-        )
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
