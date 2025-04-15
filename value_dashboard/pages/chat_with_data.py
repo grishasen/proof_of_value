@@ -100,20 +100,24 @@ with st.sidebar:
         analyst = get_agent(data_list)
         analyst.start_new_conversation()
 
-    st.button("Clear chat 🗑️", on_click=lambda: clear_chat_history(analyst))
-    if "messages" in st.session_state:
-        if st.session_state.messages:
-            chat_log = "\n\n".join(
-                f"{msg['role'].capitalize()}: {msg.get('question') or msg.get('response') or msg.get('error')}"
-                for msg in st.session_state.messages
-            )
-            chat_log_bytes = BytesIO(chat_log.encode("utf-8"))
-            st.download_button(
-                label="Download Chat 📥",
-                data=chat_log_bytes,
-                file_name="chat_log.txt",
-                mime="text/plain",
-            )
+    c1, c2 = st.columns([0.5, 0.5], vertical_alignment="center")
+    with c1:
+        st.button("Clear chat 🗑️", on_click=lambda: clear_chat_history(analyst), use_container_width=True)
+    with c2:
+        if "messages" in st.session_state:
+            if st.session_state.messages:
+                chat_log = "\n\n".join(
+                    f"{msg['role'].capitalize()}: {msg.get('question') or msg.get('response') or msg.get('error')}"
+                    for msg in st.session_state.messages
+                )
+                chat_log_bytes = BytesIO(chat_log.encode("utf-8"))
+                st.download_button(
+                    label="Save chat 💾",
+                    data=chat_log_bytes,
+                    file_name="chat_log.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
 
 
 def print_response(message):
