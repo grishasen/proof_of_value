@@ -11,6 +11,7 @@ from polars_ds import weighted_mean
 from scipy.interpolate import interp1d
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import normalize
 
 from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME
 from value_dashboard.utils.polars_utils import tdigest_pos_neg, merge_tdigests, estimate_quantile
@@ -61,6 +62,61 @@ def personalization(args: List[Series]) -> pl.Float64:
     return 1 - personalization_score
 
 
+def personalization_optimized(args: List[Series]) -> pl.Float64:
+    """
+    Personalization measures recommendation similarity across users (Optimized).
+    Avoids computing the full N x N similarity matrix.
+
+    Parameters:
+    ----------
+    args : a 2-elements list of Series with CustomerID and Action Name
+
+    Returns:
+    -------
+    The personalization score for all recommendations.
+    """
+    if len(args) < 2:
+        return 0.0
+
+    df = pl.DataFrame(args, schema=[CUSTOMER_ID, NAME])
+    if df.height < 2:
+        return 0.0
+    df = pl.DataFrame(args, schema=[CUSTOMER_ID, NAME])
+    height = df.height
+    if height < 50000:
+        pass
+    elif height < 100000:
+        df = df.slice(round(height / 2))
+    else:
+        df = df.slice(round(height / 2), 50000)
+
+    df_grouped = (
+        df
+        .group_by(CUSTOMER_ID)
+        .agg(pl.col(NAME).alias("ActionNames"))
+    )
+
+    predicted = df_grouped.get_column("ActionNames").to_list()
+    dim = len(predicted)
+
+    if dim <= 1:
+        return 0.0
+
+    h = FeatureHasher(input_type="string", n_features=2 ** 16)
+    rec_matrix_sparse = h.transform(predicted)
+    rec_matrix_normalized = normalize(rec_matrix_sparse, norm='l2', axis=1)
+    total_similarity_sum = np.sum(np.square(rec_matrix_normalized.sum(axis=0)))
+    off_diagonal_similarity_sum = total_similarity_sum - dim
+    if dim > 1:
+        avg_off_diagonal_similarity = off_diagonal_similarity_sum / (dim * (dim - 1))
+    else:
+        avg_off_diagonal_similarity = 0.0
+
+    personalization_score = 1.0 - avg_off_diagonal_similarity
+
+    return personalization_score
+
+
 def novelty(args: List[Series]) -> pl.Float64:
     """
     Computes the novelty for a list of recommendations
@@ -91,12 +147,12 @@ def novelty(args: List[Series]) -> pl.Float64:
         return 0.0
     df = pl.DataFrame(args, schema=[CUSTOMER_ID, INTERACTION_ID, NAME])
     height = df.height
-    if height < 5000:
+    if height < 50000:
         pass
-    elif height < 10000:
+    elif height < 100000:
         df = df.slice(round(height / 2))
     else:
-        df = df.slice(round(height / 2), 5000)
+        df = df.slice(round(height / 2), 50000)
     u = df.n_unique(subset=[CUSTOMER_ID])
     item_counts = (
         df.group_by(NAME)
@@ -105,7 +161,7 @@ def novelty(args: List[Series]) -> pl.Float64:
     item_counts = item_counts.with_columns(
         (
                 pl.col("ActionCount")
-                * -((pl.col("ActionCount") / u).log(base=2))
+                * -((pl.col("ActionCount") / u).log(base=2) + 1e-10)
         ).alias("total_self_info")
     )
     total_self_info = item_counts.select(pl.col("total_self_info").sum()).item()
@@ -116,6 +172,55 @@ def novelty(args: List[Series]) -> pl.Float64:
     n = rec_lengths.select(pl.col("RecLength").max()).item()
     novelty_score = total_self_info / (u * n)
     return float(novelty_score)
+
+
+def novelty_optimized(args: List[Series]) -> pl.Float64:
+    """
+    Computes novelty based on item popularity within the recommendation set.
+    Optimized by removing sampling and using total recommendations for normalization.
+
+    Parameters
+    ----------
+    args : a 3-elements list of Series with CustomerID, InteractionID, and Action Name
+
+    Returns
+    ----------
+    novelty: float
+        The novelty score. Higher means more niche items recommended.
+    """
+    if len(args) < 3:
+        return 0.0
+
+    df = pl.DataFrame(args, schema=[CUSTOMER_ID, INTERACTION_ID, NAME])
+    total_recommendations = df.height
+
+    if total_recommendations == 0:
+        return 0.0
+
+    u = df.n_unique(subset=[CUSTOMER_ID])
+    if u == 0:
+        return 0.0
+
+    item_counts = (
+        df.group_by(NAME)
+        .agg(pl.len().alias("ActionCount"))
+        .with_columns(
+            (pl.col("ActionCount") / u).alias("P_i")
+        )
+        .with_columns(
+            (
+                    pl.col("ActionCount")
+                    * -(pl.col("P_i").log(base=2.0) + 1e-10)
+            ).alias("item_self_info_contribution")
+        )
+    )
+
+    total_self_info = item_counts.select(
+        pl.sum("item_self_info_contribution")
+    ).item()
+    novelty_score = total_self_info / total_recommendations
+
+    return float(novelty_score) if np.isfinite(novelty_score) else 0.0
 
 
 def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
@@ -224,7 +329,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
         pl.len().alias('Count'),
         pl.map_groups(
             exprs=[CUSTOMER_ID, NAME],
-            function=personalization,
+            function=personalization_optimized,
             return_dtype=pl.Float64,
             returns_scalar=True
         ).alias("personalization"),
