@@ -184,7 +184,7 @@ def import_holdings_data():
                     with open(file_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
 
-                    if zipfile.is_zipfile(file_path) & (not (file_path.endswith('xlsx'))):
+                    if zipfile.is_zipfile(file_path) and not file_path.endswith('xlsx'):
                         st.write("The uploaded file is a zip file. Unzipping...")
                         with zipfile.ZipFile(file_path, 'r') as zip_ref:
                             zip_ref.extractall(temp_dir.name)

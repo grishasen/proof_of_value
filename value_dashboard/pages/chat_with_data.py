@@ -30,6 +30,11 @@ def get_agent(data) -> Agent:
     return agent
 
 
+def clear_chat_history(analyst_ref):
+    st.session_state.messages = []
+    analyst_ref.start_new_conversation()
+
+
 load_dotenv()
 st.title("Chat With Your Data")
 if "data_loaded" not in st.session_state:
@@ -56,7 +61,6 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # Set OpenAI API key
     openai_api_key = (
         api_key_input if api_key_input else os.environ.get("OPENAI_API_KEY")
     )
@@ -65,22 +69,24 @@ with st.sidebar:
         st.error("Please configure API key.")
         st.stop()
 
+    model_choice = st.selectbox(
+        "Choose Model",
+        options=OpenAI._supported_chat_models,
+        index=OpenAI._supported_chat_models.index("gpt-4o")
+    )
+
     # Create llm instance
     llm = OpenAI(
         api_token=openai_api_key,
         temperature=0,
-        model="gpt-4o"
+        model=model_choice
     )
     if llm:
         metrics_data = load_data()
         metrics_descs = get_config()["chat_with_data"]["metric_descriptions"]
         data_list = []
         for metric in metrics_data.keys():
-            if (
-                    metric.startswith("eng")
-                    | metric.startswith("conv")
-                    | metric.startswith("exp")
-            ):
+            if metric.startswith(("engagement", "conversion", "experiment")):
                 df = pai.DataFrame(
                     metrics_data[metric].to_pandas(),
                     name=metric,
@@ -94,13 +100,7 @@ with st.sidebar:
         analyst = get_agent(data_list)
         analyst.start_new_conversation()
 
-
-    def clear_chat_history():
-        st.session_state.messages = []
-        analyst.start_new_conversation()
-
-
-    st.button("Clear chat 🗑️", on_click=clear_chat_history)
+    st.button("Clear chat 🗑️", on_click=lambda: clear_chat_history(analyst))
 
 
 def print_response(message):
@@ -122,6 +122,19 @@ def chat_window(analyst):
     if "messages" not in st.session_state:
         st.session_state.messages = []
         new_chat = True
+
+    if st.session_state.messages:
+        chat_log = "\n\n".join(
+            f"{msg['role'].capitalize()}: {msg.get('question') or msg.get('response') or msg.get('error')}"
+            for msg in st.session_state.messages
+        )
+        chat_log_bytes = BytesIO(chat_log.encode("utf-8"))
+        st.download_button(
+            label="📥 Download Chat Log",
+            data=chat_log_bytes,
+            file_name="chat_log.txt",
+            mime="text/plain",
+        )
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -165,8 +178,9 @@ def chat_window(analyst):
                     os.remove(last_msg["path"])
         except Exception as e:
             print(traceback.format_exc())
-            st.write(e)
             error_message = "⚠️Sorry, Couldn't generate the answer! Please try rephrasing your question!"
+            st.write(error_message)
+            st.write(e)
 
 
 chat_window(analyst)
