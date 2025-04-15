@@ -194,8 +194,7 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     precision = TP / (TP + FP + epsilon)
     recall = TP.copy()
 
-    # precision = precision[::-1]
-    # recall = recall[::-1]
+    precision = np.maximum.accumulate(precision[::-1])[::-1]
 
     if recall[0] != 0.0:
         recall = np.concatenate(([0.0], recall))
