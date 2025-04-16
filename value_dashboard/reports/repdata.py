@@ -1,4 +1,3 @@
-import logging
 from functools import partial
 from typing import Union
 
@@ -17,7 +16,7 @@ from value_dashboard.utils.stats import chi2_test, g_test, z_test, proportions_z
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
-logger = get_logger(__name__, logging.DEBUG)
+logger = get_logger(__name__)
 
 
 @timed
