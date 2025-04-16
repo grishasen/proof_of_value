@@ -9,41 +9,24 @@ from value_dashboard.utils.st_utils import get_page_configs
 st.set_page_config(**get_page_configs())
 
 
-def _create_page(relative_path, name):
+def create_page(relative_path, name):
     current_dir = os.path.dirname(__file__)
     return st.Page(os.path.join(current_dir, relative_path), title=name)
 
 
 def get_pages():
-    pages = (
-            [
-                _create_page("value_dashboard/pages/home.py", "Home"),
-                _create_page("value_dashboard/pages/data_import.py", "Data Import")
-            ]
-            +
-            (
-                [
-                    _create_page("value_dashboard/pages/dashboard.py", "Dashboard")
-                ] if ih_metrics_avail() else []
-            )
-            +
-            (
-                [
-                    _create_page("value_dashboard/pages/chat_with_data.py", "Chat with data")
-                ] if (ih_metrics_avail() & chat_with_data()) else []
-            )
-            +
-            (
-                [
-                    _create_page("value_dashboard/pages/clv_analysis.py", "CLV Analysis")
-                ] if clv_metrics_avail() else []
-            )
-            +
-            [
-                _create_page("value_dashboard/pages/toml_editor.py", "Configuration")
-            ]
-    )
-    return pages
+    pages = [
+        create_page("value_dashboard/pages/home.py", "Home"),
+        create_page("value_dashboard/pages/data_import.py", "Data Import"),
+    ]
+    if ih_metrics_avail():
+        pages.append(create_page("value_dashboard/pages/dashboard.py", "Dashboard"))
+    if ih_metrics_avail() and chat_with_data():
+        pages.append(create_page("value_dashboard/pages/chat_with_data.py", "Chat with data"))
+    if clv_metrics_avail():
+        pages.append(create_page("value_dashboard/pages/clv_analysis.py", "CLV Analysis"))
+    pages.append(create_page("value_dashboard/pages/toml_editor.py", "Configuration"))
+    return [p for p in pages if p is not None]
 
 
 parser = argparse.ArgumentParser(description='Command line arguments')
