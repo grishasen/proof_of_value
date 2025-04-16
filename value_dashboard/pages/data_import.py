@@ -69,6 +69,9 @@ def import_data():
                     st.session_state['ihfolder'] = folder_path
                     st.session_state['drop_cache'] = reload_all
                     data_loaded = load_data()
+                    if not data_loaded:
+                        st.error("Data could not be loaded. Please check the input.")
+                        return
                     st.session_state['data_loaded'] = True
                     st.session_state['data_load_run'] = True
                     st.info(f"Data loaded from {folder_path}")
@@ -97,6 +100,9 @@ def import_data():
                                 zip_ref.extractall(temp_dir.name)
 
                     data_loaded = load_data()
+                    if not data_loaded:
+                        st.error("Data could not be loaded. Please check the input.")
+                        return
                     st.session_state['data_loaded'] = True
                     st.session_state['data_load_run'] = True
                     temp_dir.cleanup()
@@ -121,6 +127,9 @@ def import_data():
                 st.session_state['aggregated_path'] = file_path
                 st.session_state['drop_cache'] = False
                 data_loaded = load_data()
+                if not data_loaded:
+                    st.error("Data could not be loaded. Please check the input.")
+                    return
                 st.session_state['data_loaded'] = True
                 st.session_state['data_load_run'] = True
                 temp_dir.cleanup()
@@ -165,6 +174,9 @@ def import_holdings_data():
                     st.stop()
                 st.session_state['holdingsfolder'] = folder_path
                 data_loaded = load_holdings_data()
+                if not data_loaded:
+                    st.error("Data could not be loaded. Please check the input.")
+                    return
                 st.session_state['holdings_data_loaded'] = True
                 st.info(f"Data loaded from {folder_path}")
 
@@ -189,6 +201,9 @@ def import_holdings_data():
                         with zipfile.ZipFile(file_path, 'r') as zip_ref:
                             zip_ref.extractall(temp_dir.name)
                 data_loaded = load_holdings_data()
+                if not data_loaded:
+                    st.error("Data could not be loaded. Please check the input.")
+                    return
                 st.session_state['holdings_data_loaded'] = True
                 temp_dir.cleanup()
 
