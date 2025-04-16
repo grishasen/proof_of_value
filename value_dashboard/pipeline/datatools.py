@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import typing
 from collections import OrderedDict
 from typing import Any
@@ -19,7 +18,7 @@ from value_dashboard.utils.config import get_config
 from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.timer import timed
 
-logger = get_logger(__name__, logging.DEBUG)
+logger = get_logger(__name__)
 data_cache_hours = 24
 if 'data_cache_hours' in get_config()['ux'].keys():
     data_cache_hours = get_config()['ux']['data_cache_hours']

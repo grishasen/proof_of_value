@@ -2,7 +2,6 @@ import asyncio
 import glob
 import io
 import json
-import logging
 import os
 import re
 import time
@@ -33,7 +32,7 @@ from value_dashboard.utils.string_utils import strtobool, capitalize
 from value_dashboard.utils.timer import timed
 
 IHFOLDER = "ihfolder"
-logger = get_logger(__name__, logging.DEBUG)
+logger = get_logger(__name__)
 data_cache_hours = 24
 if 'data_cache_hours' in get_config()['ux'].keys():
     data_cache_hours = get_config()['ux']['data_cache_hours']

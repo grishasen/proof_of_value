@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import tempfile
 import time
@@ -17,7 +16,7 @@ from value_dashboard.utils.logger import get_logger
 
 pio.templates.default = "plotly_white"
 px.defaults.template = "plotly_white"
-logger = get_logger(__name__, logging.DEBUG)
+logger = get_logger(__name__)
 st.title("Importing the data")
 
 

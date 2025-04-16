@@ -1,12 +1,11 @@
 import asyncio
-import logging
 import time
 from functools import wraps
 from typing import Callable
 
 from value_dashboard.utils.logger import get_logger
 
-logger = get_logger(__name__, logging.DEBUG)
+logger = get_logger(__name__)
 
 
 def timed(func: Callable) -> Callable:

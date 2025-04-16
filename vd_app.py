@@ -4,6 +4,7 @@ import os
 import streamlit as st
 
 from value_dashboard.utils.config import clv_metrics_avail, ih_metrics_avail, chat_with_data
+from value_dashboard.utils.logger import configure_logging
 from value_dashboard.utils.st_utils import get_page_configs
 
 st.set_page_config(**get_page_configs())
@@ -33,6 +34,8 @@ parser = argparse.ArgumentParser(description='Command line arguments')
 
 parser.add_argument('--config', action='store', default="",
                     help="Config file")
+parser.add_argument('--logging_config', action='store', default="",
+                    help="Logging config file")
 
 try:
     args = parser.parse_args()
@@ -40,6 +43,10 @@ try:
 except SystemExit as e:
     pass
 
+if args.logging_config:
+    configure_logging(config_path=args.logging_config)
+else:
+    configure_logging()
 pages = get_pages()
 pg = st.navigation(pages, expanded=False)
 pg.run()

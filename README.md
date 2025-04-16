@@ -20,9 +20,10 @@ Go to [Wiki page](https://github.com/grishasen/proof_of_value/wiki) for addition
 1. **Data Import**:
     - Navigate to the "Data Import" page.
     - Upload your data by selecting and loading ZIP or Parquet files.
-    - **For demo**: 
-      - IH reporting: switch off `Import raw data` toggle. Upload JSON file available in `data` folder (unzip archive).
-      - CLV analytics: import product holdings zip file directly.
+    - **For demo**:
+        - IH reporting: switch off `Import raw data` toggle. Upload JSON file available in `data` folder (unzip
+          archive).
+        - CLV analytics: import product holdings zip file directly.
     - Once the data is imported, it will be processed and prepared for visualization.
 
 2. **Dashboard**:
@@ -254,10 +255,14 @@ negative_model_response = ["Impression", "Pending"]
 ```
 
 - **CLV**: Customer Lifetime Value analysis metrics.
-    - ***frequency***: represents the number of repeat purchases that a customer has made, i.e. one less than the total number of purchases.
-    - ***T (tenure)***: represents a customer’s “age”, i.e. the duration between a customer’s first purchase and the end of the period of study.
-    - ***recency***: represents the time period when a customer made their most recent purchase. This is equal to the duration between a customer’s first and last purchase. If a customer has made only 1 purchase, their recency is 0.
-    - ***monetary_value***: represents the average value of a given customer’s repeat purchases. Customers who have only made a single purchase have monetary values of zero.
+    - ***frequency***: represents the number of repeat purchases that a customer has made, i.e. one less than the total
+      number of purchases.
+    - ***T (tenure)***: represents a customer’s “age”, i.e. the duration between a customer’s first purchase and the end
+      of the period of study.
+    - ***recency***: represents the time period when a customer made their most recent purchase. This is equal to the
+      duration between a customer’s first and last purchase. If a customer has made only 1 purchase, their recency is 0.
+    - ***monetary_value***: represents the average value of a given customer’s repeat purchases. Customers who have only
+      made a single purchase have monetary values of zero.
 
 ```toml
 [metrics.clv]
@@ -301,8 +306,8 @@ These settings control the behavior of the application's user interface.
   Possible values are "true" or "false".
 - **refresh_interval**: The time interval (in milliseconds) for refreshing the dashboard automatically. The default
   value is 120000, which equals 2 minutes.
-- **data_profiling**: true/false - show additional EDA page 
-- **data_cache_hours**: Cache processed data for N hours 
+- **data_profiling**: true/false - show additional EDA page
+- **data_cache_hours**: Cache processed data for N hours
 - **chat_with_data**: true/false - enable "Chat with your data" option
 
 ---
@@ -342,7 +347,8 @@ providing insights that align with business objectives.
 ##### Product Holdings
 
 - **file_type**: The expected type of input data files. The default setting is "pega_ds_export".
-- **file_pattern**: A glob pattern used to locate data files within the directory structure. For example: "**/*.json", works for "pega_ds_export".
+- **file_pattern**: A glob pattern used to locate data files within the directory structure. For example: "**/*.json",
+  works for "pega_ds_export".
 - **file_group_pattern**: A regular expression pattern used to extract date or identifier information from file names.
 - **streaming**: Process the polars query in batches to handle larger-than-memory data. If set to False (default), the
   entire query is processed in a single batch. Should be changed to `true` if dataset files are larger than few GBs.
@@ -445,18 +451,20 @@ functionality of the dashboard.
 
 ### Chat With Data
 
-The `[chat_with_data]` section used to configure integration with a chatbot for questions on the data and visualizations 
+The `[chat_with_data]` section used to configure integration with a chatbot for questions on the data and visualizations
 beyond ad-hoc reports and queries configured for dashboard.
 
-Use `OPENAI_API_KEY` environment variable to set integration with ChatGPT, run `export OPENAI_API_KEY="<<your_open_api_key>>"` before starting the application or paste key directly in the UI form.
+Use `OPENAI_API_KEY` environment variable to set integration with ChatGPT, run
+`export OPENAI_API_KEY="<<your_open_api_key>>"` before starting the application or paste key directly in the UI form.
 
-As soon as this functionality is based on Pandas AI framework, refer to [Pandas AI documentation](https://docs.getpanda.ai/v3/introduction) for deep-dive.
+As soon as this functionality is based on Pandas AI framework, refer
+to [Pandas AI documentation](https://docs.getpanda.ai/v3/introduction) for deep-dive.
 
 #### Properties in section
 
-- **agent_prompt**: description will be used to describe the agent in the chat and to provide more context for the LLM about how to respond to queries.
+- **agent_prompt**: description will be used to describe the agent in the chat and to provide more context for the LLM
+  about how to respond to queries.
 - **metric_descriptions**: detailed dataset description for the LLM.
-
 
 ## Contributing
 
