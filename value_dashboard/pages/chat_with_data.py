@@ -120,11 +120,28 @@ with st.sidebar:
                 )
 
 
+def print_previous_response(message):
+    if "question" in message:
+        st.markdown(message["question"])
+    elif "response" in message:
+        if message["type"] == 'img':
+            st.image(Image.open(BytesIO(base64.b64decode(message["response"]))))
+        elif message["type"] == 'data':
+            st.dataframe(message["response"]['value'])
+        else:
+            st.write(message["response"])
+    elif "error" in message:
+        st.text(message["error"])
+
+
 def print_response(message):
     if "question" in message:
         st.markdown(message["question"])
     elif "response" in message:
         if message["type"] == 'img':
+            if message.get('last_generated_code', None):
+                if 'plotly_chart' in message['last_generated_code']:
+                    return
             st.image(Image.open(BytesIO(base64.b64decode(message["response"]))))
         elif message["type"] == 'data':
             st.dataframe(message["response"]['value'])
@@ -142,7 +159,7 @@ def chat_window(analyst):
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            print_response(message)
+            print_previous_response(message)
 
     if prompt := st.chat_input("What would you like to know? "):
         with st.chat_message("user"):
@@ -170,7 +187,8 @@ def chat_window(analyst):
                 "role": "assistant",
                 "response": saved_resp,
                 "type": resp_type,
-                "path": path
+                "path": path,
+                "last_generated_code": analyst.last_generated_code
             }
             st.session_state.messages.append(last_msg)
 
