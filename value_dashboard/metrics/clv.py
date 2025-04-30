@@ -6,6 +6,7 @@ from value_dashboard.metrics.constants import CLV_MODEL
 from value_dashboard.metrics.constants import CUSTOMER_ID
 from value_dashboard.metrics.constants import PURCHASED_DATE, ONE_TIME_COST, HOLDING_ID
 from value_dashboard.metrics.constants import RECURRING_PERIOD, RECURRING_COST
+from value_dashboard.metrics.constants import rfm_config_dict
 from value_dashboard.utils.timer import timed
 
 
@@ -115,8 +116,8 @@ def rfm_summary(holdings_aggr: pl.DataFrame, config: dict):
     """
     customer_id_col = config['customer_id_col'] if 'customer_id_col' in config.keys() else CUSTOMER_ID
     mand_props_grp_by = config['group_by'] + [customer_id_col]
-    rfm_segment_config = config[
-        'rfm_segment_config'] if 'rfm_segment_config' in config.keys() else _default_rfm_segment_config
+    rfm_segment_config = rfm_config_dict.get(
+        config['rfm_segment_config'] if 'rfm_segment_config' in config.keys() else 'NA', _default_rfm_segment_config)
 
     observation_period_end_ts = holdings_aggr.select(pl.col("MaxPurchasedDate").max()).item()
     time_scaler = 1.0
