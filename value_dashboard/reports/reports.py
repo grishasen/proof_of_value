@@ -1469,6 +1469,29 @@ def eng_conv_ml_heatmap_plot(data: Union[pl.DataFrame, pd.DataFrame],
     st.plotly_chart(fig, use_container_width=True)
     return ih_analysis
 
+def eng_conv_ml_scatter_plot(data: Union[pl.DataFrame, pd.DataFrame],
+                             config: dict) -> pd.DataFrame:
+    report_data = calculate_reports_data(data, config).to_pandas()
+    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+    if ih_analysis.shape[0] == 0:
+        st.warning("No data available.")
+        st.stop()
+    fig = px.scatter(ih_analysis,
+                     title=config['description'],
+                     x=config['x'], y=config['y'],
+                     animation_frame=config['animation_frame'],
+                     animation_group=config['animation_group'],
+                     size=config['size'], color=config['color'],
+                     hover_name=config['animation_group'],
+                     size_max=100, log_x=strtobool(config['log_x']),
+                     range_y=[ih_analysis[config['y']].min(),ih_analysis[config['y']].max()],
+                     range_x=[ih_analysis[config['x']].min(),ih_analysis[config['x']].max()],
+                     height=640)
+    fig.update_layout(scattermode="group", scattergap=0.75)
+
+    st.plotly_chart(fig, use_container_width=True)
+    return ih_analysis
+
 
 @timed
 def experiment_z_score_bar_plot(data: Union[pl.DataFrame, pd.DataFrame],
@@ -1971,12 +1994,16 @@ def get_figures() -> dict:
                 figures[report] = eng_conv_treemap_plot
             elif params['type'] == 'heatmap':
                 figures[report] = eng_conv_ml_heatmap_plot
+            elif params['type'] == 'scatter':
+                figures[report] = eng_conv_ml_scatter_plot
             else:
                 raise Exception(params['type'] + " is not supported type for plot " + params['type'] +
                                 " and metric: " + params['metric'])
         elif params['metric'].startswith("model_ml_scores"):
             if params['type'] == 'heatmap':
                 figures[report] = eng_conv_ml_heatmap_plot
+            elif params['type'] == 'scatter':
+                figures[report] = eng_conv_ml_scatter_plot
             elif params['type'] == 'treemap':
                 figures[report] = model_ml_treemap_plot
             else:
@@ -1984,6 +2011,8 @@ def get_figures() -> dict:
         elif params['metric'].startswith("conversion"):
             if params['type'] == 'heatmap':
                 figures[report] = eng_conv_ml_heatmap_plot
+            elif params['type'] == 'scatter':
+                figures[report] = eng_conv_ml_scatter_plot
             elif params['type'] == 'gauge':
                 figures[report] = conversion_rate_gauge_plot
             elif params['type'] == 'treemap':

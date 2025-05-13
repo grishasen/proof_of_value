@@ -23,9 +23,7 @@ default_values = { 'ModelType' = 'Engagement', 'PlacementType' = '', 'ModelCateg
 filter = """(pl.col("Outcome").is_in(["Pending", "Impression", "Clicked", "Conversion", "NoConversion"]) &
 pl.col("ModelCategory").is_in(["Bayesian", "Gradient boosting"]) &
 pl.col("Channel").is_in(["Web", "Mobile", "Email"]))""" #Global filter across entire IH (for performance)
-columns = """[
-            (pl.when(pl.col("Outcome") == "Conversion").then(pl.lit(np.random.normal(3.5))).otherwise(
-                pl.lit(0))).alias('Revenue')]"""
+columns = """[(pl.when(pl.col("Outcome") == "Conversion").then(pl.lit(np.random.normal(3.5))).otherwise(pl.lit(0))).alias('Revenue')]"""
 
 [holdings]
 file_type = "pega_ds_export" # parquet, pega_ds_export, csv, xlsx
@@ -129,6 +127,19 @@ group_by = ["Month", "Group"]
 color = "CTR"
 x = "Month"
 y = "Group"
+
+[reports.scatter_month_group_ctr]
+metric = 'engagement'
+type = 'scatter'
+description = '[BIZ] Monthly Lift By Business Group'
+group_by = ['Month', 'Issue', 'Group']
+color = 'Issue'
+size="CTR"
+animation_frame="Month"
+animation_group="Group"
+x = 'Count'
+y = 'Lift'
+log_x = 'true'
 
 [reports.treemap_channel_abgroup_ctr]
 metric = "engagement"
