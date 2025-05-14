@@ -12,7 +12,6 @@ import polars as pl
 import streamlit as st
 from polars import LazyFrame, DataFrame
 
-from value_dashboard.metrics.clv import rfm_summary
 from value_dashboard.pipeline.datatools import collect_clv_metrics_data
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.file_utils import read_dataset_export, detect_delimiter

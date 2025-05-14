@@ -1,8 +1,8 @@
-import traceback
-from dateutil.relativedelta import relativedelta
 import datetime
+import traceback
 
 import polars as pl
+from dateutil.relativedelta import relativedelta
 
 from value_dashboard.metrics.constants import CLV_MODEL
 from value_dashboard.metrics.constants import CUSTOMER_ID
@@ -187,5 +187,6 @@ def rfm_summary(holdings_aggr: pl.DataFrame, config: dict):
         .with_columns(
             pl.col("rfm_score").replace(segment_names, default="Unknown").alias("rfm_segment")
         )
+        .drop(["MinPurchasedDate", "MaxPurchasedDate", "rfm_score"])
     )
     return summary

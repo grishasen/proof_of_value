@@ -37,6 +37,7 @@ tomlkit = "^0.13.2"
 psutil = "^7.0.0"
 hvplot = "^0.11.2"
 duckdb = ">=1.2.2,<2.0.0"
+lifetimes = ">=0.11.3"
 pandasai = { version = "^3.0.0b17", optional = true }
 kaleido = { version = "*", optional = true }
 

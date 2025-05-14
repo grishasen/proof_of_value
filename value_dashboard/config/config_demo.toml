@@ -134,9 +134,9 @@ type = 'scatter'
 description = '[BIZ] Monthly Lift By Business Group'
 group_by = ['Month', 'Issue', 'Group']
 color = 'Issue'
-size="CTR"
-animation_frame="Month"
-animation_group="Group"
+size = "CTR"
+animation_frame = "Month"
+animation_group = "Group"
 x = 'Count'
 y = 'Lift'
 log_x = 'true'
@@ -408,7 +408,7 @@ color = 'ControlGroup'
 #x = 'frequency'
 #y = 'recency'
 
-[reports.polar_bar_segments]
+[reports.clv_polar_bar_segments]
 metric = 'clv'
 type = 'bar_polar'
 description = '[BIZ] RFM Segmentation'
@@ -418,19 +418,25 @@ theta = 'rfm_segment'
 color = 'rfm_segment'
 showlegend = 'False'
 
-[reports.exposure]
+[reports.clv_exposure]
 metric = 'clv'
 type = 'exposure'
 description = '[BIZ] Customer Exposure'
 group_by = []
 
-[reports.corr]
+[reports.clv_corr]
 metric = 'clv'
 type = 'corr'
 description = '[BIZ] CLV parameters correlation'
 group_by = []
 x = 'frequency'
 y = 'monetary_value'
+
+[reports.clv_model]
+metric = 'clv'
+type = 'model'
+description = '[BIZ] CLV prediction'
+group_by = []
 
 [variants]
 name = "Demo"

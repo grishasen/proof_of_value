@@ -9,7 +9,7 @@ from polars_ds import weighted_mean
 
 from value_dashboard.metrics.clv import rfm_summary
 from value_dashboard.metrics.constants import MODELCONTROLGROUP
-from value_dashboard.metrics.ml import binary_metrics_tdigest, CUSTOMER_ID
+from value_dashboard.metrics.ml import binary_metrics_tdigest
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.polars_utils import estimate_quantile, merge_tdigests

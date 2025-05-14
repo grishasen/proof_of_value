@@ -25,3 +25,4 @@ pandasai-openai
 kaleido
 matplotlib
 duckdb>=1.2.2
+lifetimes>=0.11.3

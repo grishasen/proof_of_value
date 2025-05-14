@@ -8,6 +8,8 @@ import plotly.graph_objs as go
 import plotly.io as pio
 import polars as pl
 import streamlit as st
+from lifetimes import BetaGeoFitter
+from lifetimes import GammaGammaFitter
 from plotly.subplots import make_subplots
 from polars_ds import sample_and_split as pds_sample
 
@@ -2010,16 +2012,83 @@ def clv_totals_cards_subplot(clv_analysis: Union[pl.DataFrame, pd.DataFrame],
     avg1, avg2 = avg_sorted["avg"].to_list()
     percentage_diff = ((avg2 - avg1) / avg1)
 
-    cols[2].metric(label=year2 + ' year LTV', value='{:,.2f}'.format(avg2), delta='{:.2%}'.format(percentage_diff))
+    cols[2].metric(label=year2 + ' average CLTV', value='{:,.2f}'.format(avg2),
+                   delta='{:.2%} YoY'.format(percentage_diff))
 
     cur_df = clv_analysis.filter(pl.col("Year").is_in([cur_year]))
     avg_per_year = (cur_df.group_by("Year")
                     .agg((pl.col("lifetime_value").sum() / pl.col(customer_id_col).n_unique()).alias("avg"))
                     )
     avg_sorted = avg_per_year.sort("Year")
-    avg1, = avg_sorted["avg"].to_list()
+    avg, = avg_sorted["avg"].to_list()
+    percentage_diff = ((avg - avg2) / avg2)
+    cols[3].metric(label=cur_year + ' average CLTV', value='{:,.2f}'.format(avg),
+                   delta='{:.2%} YoY'.format(percentage_diff))
 
-    cols[3].metric(label='Last (' + cur_year + ') year LTV', value='{:,.2f}'.format(avg1))
+
+@timed
+def clv_model_plot(data: Union[pl.DataFrame, pd.DataFrame],
+                   config: dict) -> pd.DataFrame:
+    clv_totals_cards_subplot(data, config)
+    clv = calculate_reports_data(data, config).to_pandas()
+    clv = clv[clv['frequency'] > 0]
+    c1, c2 = st.columns(2)
+    with c1:
+        options_model = ['Gamma - Gamma Model', 'BG/NBD Model']
+        model = st.selectbox(
+            label='LTV prediction model',
+            options=options_model,
+            help="Select LTV prediction model."
+        )
+
+    with c2:
+        lifespan = [1, 3, 5, 8]
+        predict_lifespan = st.selectbox(
+            label='Predict LTV in years',
+            options=lifespan,
+            help="Select LTV prediction time."
+        )
+
+    bgf = BetaGeoFitter(penalizer_coef=0.001)
+    bgf.fit(clv['frequency'], clv['recency'], clv['tenure'])
+    t = 12 * 30 * predict_lifespan
+    clv['expected_number_of_purchases'] = bgf.conditional_expected_number_of_purchases_up_to_time(t, clv['frequency'],
+                                                                                                  clv['recency'],
+                                                                                                  clv['tenure'])
+    if model == 'BG/NBD Model':
+        clv_plt = clv.groupby('rfm_segment')['expected_number_of_purchases'].mean().reset_index()
+        fig = px.bar(clv_plt,
+                     x='rfm_segment',
+                     y='expected_number_of_purchases',
+                     color='rfm_segment',
+                     )
+
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        ggf = GammaGammaFitter(penalizer_coef=0.01)
+        ggf.fit(clv["frequency"], clv["monetary_value"])
+        clv["expected_lifetime_value"] = ggf.customer_lifetime_value(
+            bgf,
+            clv["frequency"],
+            clv["recency"],
+            clv["tenure"],
+            clv["monetary_value"],
+            time=12 * predict_lifespan,
+            freq="D",
+            discount_rate=0.01,
+        )
+        clv_plt = clv.groupby('rfm_segment')['expected_lifetime_value'].mean().reset_index()
+        fig = px.bar(clv_plt,
+                     x='rfm_segment',
+                     y='expected_lifetime_value',
+                     color='rfm_segment',
+                     )
+
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+        st.plotly_chart(fig, use_container_width=True)
+
+    return clv
 
 
 @timed
@@ -2104,6 +2173,8 @@ def get_figures() -> dict:
                 figures[report] = clv_exposure_plot
             elif params['type'] == 'corr':
                 figures[report] = clv_correlation_plot
+            elif params['type'] == 'model':
+                figures[report] = clv_model_plot
             else:
                 raise Exception(params['type'] + " is not supported parameter for metric: " + params['metric'])
         else:
