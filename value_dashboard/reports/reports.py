@@ -10,7 +10,6 @@ import polars as pl
 import streamlit as st
 from lifetimes import BetaGeoFitter, ParetoNBDFitter
 from lifetimes import GammaGammaFitter
-from numpy.f2py.crackfortran import verbose
 from plotly.subplots import make_subplots
 from polars_ds import sample_and_split as pds_sample
 
@@ -2066,43 +2065,48 @@ def clv_model_plot(data: Union[pl.DataFrame, pd.DataFrame],
         fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
         st.plotly_chart(fig, use_container_width=True)
     elif model == 'Pareto/NBD model':
-        pnbmf = ParetoNBDFitter(penalizer_coef=0.001)
-        pnbmf.fit(clv['frequency'], clv['recency'], clv['tenure'], verbose=True, maxiter=200)
-        clv['expected_number_of_purchases'] = pnbmf.conditional_expected_number_of_purchases_up_to_time(t,
-                                                                                                      clv['frequency'],
-                                                                                                      clv['recency'],
-                                                                                                      clv['tenure'])
-        clv_plt = clv.groupby('rfm_segment')['expected_number_of_purchases'].mean().reset_index()
-        fig = px.bar(clv_plt,
-                     x='rfm_segment',
-                     y='expected_number_of_purchases',
-                     color='rfm_segment',
-                     )
+        with st.spinner("Wait for it...", show_time=True):
+            pnbmf = ParetoNBDFitter(penalizer_coef=0.001)
+            pnbmf.fit(clv['frequency'], clv['recency'], clv['tenure'], verbose=True, maxiter=200)
+            clv['expected_number_of_purchases'] = pnbmf.conditional_expected_number_of_purchases_up_to_time(t,
+                                                                                                            clv[
+                                                                                                                'frequency'],
+                                                                                                            clv[
+                                                                                                                'recency'],
+                                                                                                            clv[
+                                                                                                                'tenure'])
+            clv_plt = clv.groupby('rfm_segment')['expected_number_of_purchases'].mean().reset_index()
+            fig = px.bar(clv_plt,
+                         x='rfm_segment',
+                         y='expected_number_of_purchases',
+                         color='rfm_segment',
+                         )
 
-        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-        st.plotly_chart(fig, use_container_width=True)
+            fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+            st.plotly_chart(fig, use_container_width=True)
     else:
-        ggf = GammaGammaFitter(penalizer_coef=0.01)
-        ggf.fit(clv["frequency"], clv["monetary_value"], verbose=True)
-        clv["expected_lifetime_value"] = ggf.customer_lifetime_value(
-            bgf,
-            clv["frequency"],
-            clv["recency"],
-            clv["tenure"],
-            clv["monetary_value"],
-            time=12 * predict_lifespan,
-            freq="D",
-            discount_rate=0.01,
-        )
-        clv_plt = clv.groupby('rfm_segment')['expected_lifetime_value'].mean().reset_index()
-        fig = px.bar(clv_plt,
-                     x='rfm_segment',
-                     y='expected_lifetime_value',
-                     color='rfm_segment',
-                     )
+        with st.spinner("Wait for it...", show_time=True):
+            ggf = GammaGammaFitter(penalizer_coef=0.01)
+            ggf.fit(clv["frequency"], clv["monetary_value"], verbose=True)
+            clv["expected_lifetime_value"] = ggf.customer_lifetime_value(
+                bgf,
+                clv["frequency"],
+                clv["recency"],
+                clv["tenure"],
+                clv["monetary_value"],
+                time=12 * predict_lifespan,
+                freq="D",
+                discount_rate=0.01,
+            )
+            clv_plt = clv.groupby('rfm_segment')['expected_lifetime_value'].mean().reset_index()
+            fig = px.bar(clv_plt,
+                         x='rfm_segment',
+                         y='expected_lifetime_value',
+                         color='rfm_segment',
+                         )
 
-        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-        st.plotly_chart(fig, use_container_width=True)
+            fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+            st.plotly_chart(fig, use_container_width=True)
 
     return clv
 
