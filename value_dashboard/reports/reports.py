@@ -2042,7 +2042,7 @@ def clv_model_plot(data: Union[pl.DataFrame, pd.DataFrame],
         )
 
     with c2:
-        lifespan = [1, 3, 5, 8]
+        lifespan = [1, 2, 3, 5, 8]
         predict_lifespan = st.selectbox(
             label='Predict LTV in years',
             options=lifespan,
