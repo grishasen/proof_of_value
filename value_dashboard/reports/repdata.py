@@ -7,6 +7,7 @@ import polars as pl
 from polars import selectors as cs
 from polars_ds import weighted_mean
 
+from value_dashboard.metrics.clv import rfm_summary
 from value_dashboard.metrics.constants import MODELCONTROLGROUP
 from value_dashboard.metrics.ml import binary_metrics_tdigest, CUSTOMER_ID
 from value_dashboard.utils.config import get_config
@@ -698,12 +699,7 @@ def calculate_clv_scores(
     if isinstance(exp_data, pd.DataFrame):
         exp_data = pl.from_pandas(exp_data)
     m_config = get_config()["metrics"][config["metric"]]
-    customer_id_col = (
-        m_config["customer_id_col"]
-        if "customer_id_col" in m_config.keys()
-        else CUSTOMER_ID
-    )
-    exp_data = exp_data.filter(pl.col(customer_id_col).is_not_null())
+    totals_frame = rfm_summary(exp_data, m_config)
     if "x" in config.keys():
-        exp_data = exp_data.sort(config["x"], descending=True)
-    return exp_data
+        totals_frame = totals_frame.sort(config["x"], descending=True)
+    return totals_frame

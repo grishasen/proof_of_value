@@ -90,7 +90,7 @@ purchase_date_col = 'PurchasedDateTime'
 model = 'non-contractual' #contractual, non-contractual
 recurring_period = 'RecurringPeriod' #only for model = 'contractual'
 recurring_cost = 'RecurringCost' #only for model = 'contractual'
-lifespan = 3
+lifespan = 9
 rfm_segment_config = 'retail_banking' #telco, e-commerce
 
 [reports.polar_bar_overall_ctr]

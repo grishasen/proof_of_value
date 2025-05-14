@@ -1,4 +1,6 @@
 import traceback
+from dateutil.relativedelta import relativedelta
+import datetime
 
 import polars as pl
 
@@ -13,21 +15,30 @@ from value_dashboard.utils.timer import timed
 @timed
 def clv(holdings: pl.LazyFrame, config: dict, streaming=False, background=False):
     holding_id_col = config['order_id_col'] if 'order_id_col' in config.keys() else HOLDING_ID
+    lifespan = config['lifespan'] if 'lifespan' in config.keys() else 2000
     customer_id_col = config['customer_id_col'] if 'customer_id_col' in config.keys() else CUSTOMER_ID
     monetary_value_col = config['monetary_value_col'] if 'monetary_value_col' in config.keys() else ONE_TIME_COST
     purchase_date_col = config['purchase_date_col'] if 'purchase_date_col' in config.keys() else PURCHASED_DATE
     clv_model = config['model'] if 'model' in config.keys() else CLV_MODEL
     recurring_period_col = config['recurring_period'] if 'recurring_period' in config.keys() else RECURRING_PERIOD
     recurring_cost_col = config['recurring_cost'] if 'recurring_cost' in config.keys() else RECURRING_COST
-    mand_props_grp_by = config['group_by'] + [customer_id_col]
+    mand_props_grp_by = config['group_by'] + [customer_id_col, 'Year', 'Quarter']
 
     if "filter" in config:
         holdings = holdings.filter(config["filter"])
 
+    holdings = holdings.filter(pl.col(purchase_date_col) > (datetime.datetime.now() - relativedelta(years=lifespan)))
     holdings = holdings.with_columns(pl.col(monetary_value_col).cast(pl.Float64))
     try:
         data_aggr = (
             holdings
+            .with_columns([
+                pl.col(purchase_date_col).dt.date().alias('Day'),
+                pl.col(purchase_date_col).dt.strftime('%Y-%m').alias('Month'),
+                pl.col(purchase_date_col).dt.year().cast(pl.Utf8).alias('Year'),
+                (pl.col(purchase_date_col).dt.year().cast(pl.Utf8) + '_Q' +
+                 pl.col(purchase_date_col).dt.quarter().cast(pl.Utf8)).alias('Quarter')
+            ])
             .group_by(mand_props_grp_by)
             .agg(
                 [

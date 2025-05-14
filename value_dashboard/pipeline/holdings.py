@@ -179,7 +179,7 @@ def load_holdings_data() -> typing.Dict[str, pl.DataFrame]:
     collected_metrics_data = {}
 
     for metric in mdata:
-        totals_frame = rfm_summary(mdata[metric], config['metrics'][metric])
+        totals_frame = mdata[metric]
         totals_frame.shrink_to_fit(in_place=True)
         collected_metrics_data[metric] = totals_frame
 

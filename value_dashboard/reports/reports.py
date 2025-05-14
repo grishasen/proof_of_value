@@ -1,6 +1,6 @@
+import math
 from typing import Union
 
-import math
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -11,6 +11,7 @@ import streamlit as st
 from plotly.subplots import make_subplots
 from polars_ds import sample_and_split as pds_sample
 
+from value_dashboard.metrics.constants import CUSTOMER_ID
 from value_dashboard.reports.repdata import calculate_reports_data
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.st_utils import filter_dataframe, align_column_types
@@ -1469,6 +1470,7 @@ def eng_conv_ml_heatmap_plot(data: Union[pl.DataFrame, pd.DataFrame],
     st.plotly_chart(fig, use_container_width=True)
     return ih_analysis
 
+
 def eng_conv_ml_scatter_plot(data: Union[pl.DataFrame, pd.DataFrame],
                              config: dict) -> pd.DataFrame:
     report_data = calculate_reports_data(data, config).to_pandas()
@@ -1484,8 +1486,8 @@ def eng_conv_ml_scatter_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      size=config['size'], color=config['color'],
                      hover_name=config['animation_group'],
                      size_max=100, log_x=strtobool(config['log_x']),
-                     range_y=[ih_analysis[config['y']].min(),ih_analysis[config['y']].max()],
-                     range_x=[ih_analysis[config['x']].min(),ih_analysis[config['x']].max()],
+                     range_y=[ih_analysis[config['y']].min(), ih_analysis[config['y']].max()],
+                     range_x=[ih_analysis[config['x']].min(), ih_analysis[config['x']].max()],
                      height=640)
     fig.update_layout(scattermode="group", scattergap=0.75)
 
@@ -1706,6 +1708,8 @@ def histogram_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
                       config: dict) -> pd.DataFrame:
+    clv_totals_cards_subplot(data, config)
+    data = calculate_reports_data(data, config).to_pandas()
     c1, c2, c3 = st.columns(3)
     with c1:
         options_r = ['lifetime_value', 'unique_holdings', 'monetary_value']
@@ -1791,6 +1795,7 @@ def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def clv_exposure_plot(data: Union[pl.DataFrame, pd.DataFrame],
                       config: dict) -> pd.DataFrame:
+    data = calculate_reports_data(data, config).to_pandas()
     clv_analysis = pl.from_pandas(filter_dataframe(align_column_types(data), case=False))
 
     if clv_analysis.shape[0] == 0:
@@ -1889,6 +1894,7 @@ def plot_customer_exposure(
 @timed
 def clv_correlation_plot(data: Union[pl.DataFrame, pd.DataFrame],
                          config: dict) -> pd.DataFrame:
+    data = calculate_reports_data(data, config).to_pandas()
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         options_par1 = ['recency', 'frequency', 'monetary_value', 'tenure', 'lifetime_value']
@@ -1967,6 +1973,53 @@ def clv_correlation_plot(data: Union[pl.DataFrame, pd.DataFrame],
     )
     st.plotly_chart(fig, use_container_width=True)
     return ih_analysis
+
+
+@timed
+def clv_totals_cards_subplot(clv_analysis: Union[pl.DataFrame, pd.DataFrame],
+                             config: dict):
+    if isinstance(clv_analysis, pd.DataFrame):
+        clv_analysis = pl.from_pandas(clv_analysis)
+
+    total_data = calculate_reports_data(clv_analysis, config)
+
+    m_config = get_config()["metrics"][config["metric"]]
+    customer_id_col = (
+        m_config["customer_id_col"]
+        if "customer_id_col" in m_config.keys()
+        else CUSTOMER_ID
+    )
+
+    num_cols = 4
+    cols = st.columns(num_cols, vertical_alignment='center')
+    unique_customers = total_data.select(pl.col(customer_id_col).n_unique())
+    total_value = total_data.select(pl.col("lifetime_value").sum())
+    cols[0].metric(label='Unique customers', value='{:,}'.format(unique_customers.item()).replace(",", " "))
+    cols[1].metric(label='Total value', value='{:,.2f}'.format(total_value.item()))
+
+    years = clv_analysis.select("Year").unique().sort("Year")["Year"].to_list()
+    if len(years) < 3:
+        return
+    year1, year2, cur_year = years[-3], years[-2], years[-1],
+
+    df_last_two = clv_analysis.filter(pl.col("Year").is_in([year1, year2]))
+    avg_per_year = (df_last_two.group_by("Year")
+                    .agg((pl.col("lifetime_value").sum() / pl.col(customer_id_col).n_unique()).alias("avg"))
+                    )
+    avg_sorted = avg_per_year.sort("Year")
+    avg1, avg2 = avg_sorted["avg"].to_list()
+    percentage_diff = ((avg2 - avg1) / avg1)
+
+    cols[2].metric(label=year2 + ' year LTV', value='{:,.2f}'.format(avg2), delta='{:.2%}'.format(percentage_diff))
+
+    cur_df = clv_analysis.filter(pl.col("Year").is_in([cur_year]))
+    avg_per_year = (cur_df.group_by("Year")
+                    .agg((pl.col("lifetime_value").sum() / pl.col(customer_id_col).n_unique()).alias("avg"))
+                    )
+    avg_sorted = avg_per_year.sort("Year")
+    avg1, = avg_sorted["avg"].to_list()
+
+    cols[3].metric(label='Last (' + cur_year + ') year LTV', value='{:,.2f}'.format(avg1))
 
 
 @timed
