@@ -3,6 +3,10 @@ maxUploadSize = 2048
 
 [client]
 toolbarMode = 'minimal'
+showErrorDetails = 'full'
 
 [ui]
 hideTopBar = true
+
+[browser]
+gatherUsageStats = false
