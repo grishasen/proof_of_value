@@ -39,7 +39,7 @@ hvplot = "^0.11.2"
 duckdb = ">=1.2.2,<2.0.0"
 lifetimes = ">=0.11.3"
 pandasai = { version = "^3.0.0b17", optional = true }
-kaleido = { version = "*", optional = true }
+kaleido = { version = "^1.0.0rc13", optional = true }
 
 [tool.poetry.extras]
 chat = ["pandasai", "kaleido"]

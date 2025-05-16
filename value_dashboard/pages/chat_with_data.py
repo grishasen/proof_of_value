@@ -12,12 +12,14 @@ from pandasai import Agent
 from pandasai.core.response import ChartResponse, DataFrameResponse
 from pandasai_openai import OpenAI
 
-from value_dashboard.pipeline.ih import load_data
+from value_dashboard.metrics.clv import rfm_summary
+from value_dashboard.pipeline.holdings import load_holdings_data as load_holdings_data
+from value_dashboard.pipeline.ih import load_data as ih_load_data
 from value_dashboard.utils.config import get_config
 
-pio.kaleido.scope.default_format = "jpeg"
-pio.kaleido.scope.default_scale = 2
-pio.kaleido.scope.default_height = 480
+pio.defaults.default_scale = 4
+pio.defaults.default_height = 480
+pio.defaults.default_width = 1280
 
 
 def get_agent(data) -> Agent:
@@ -82,13 +84,24 @@ with st.sidebar:
         model=model_choice
     )
     if llm:
-        metrics_data = load_data()
+        metrics_data = ih_load_data()
+        clv_data = load_holdings_data()
         metrics_descs = get_config()["chat_with_data"]["metric_descriptions"]
         data_list = []
         for metric in metrics_data.keys():
             if metric.startswith(("engagement", "conversion", "experiment")):
                 df = pai.DataFrame(
                     metrics_data[metric].to_pandas(),
+                    name=metric,
+                    description=metrics_descs[metric]
+                )
+                data_list.append(df)
+        for metric in clv_data.keys():
+            if metric.startswith(("clv")):
+                m_config = get_config()['metrics'][metric]
+                totals_frame = rfm_summary(clv_data[metric], m_config)
+                df = pai.DataFrame(
+                    totals_frame.to_pandas(),
                     name=metric,
                     description=metrics_descs[metric]
                 )
@@ -169,8 +182,6 @@ def chat_window(analyst):
         try:
             st.toast("Getting response...")
             response = analyst.chat(prompt) if new_chat else analyst.follow_up(prompt)
-            saved_resp = ''
-            resp_type = 'str'
             path = ''
             if isinstance(response, ChartResponse):
                 saved_resp = response.get_base64_image()
