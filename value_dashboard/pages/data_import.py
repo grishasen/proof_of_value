@@ -5,18 +5,16 @@ import time
 import typing
 import zipfile
 
-import plotly.express as px
-import plotly.io as pio
 import streamlit as st
 
 from value_dashboard.pipeline.holdings import load_holdings_data
 from value_dashboard.pipeline.ih import load_data, get_reports_data
 from value_dashboard.utils.config import ih_metrics_avail, clv_metrics_avail, is_demo_mode
 from value_dashboard.utils.logger import get_logger
+from value_dashboard.utils.plotly_utils import init_plotly_theme
 
-pio.templates.default = "plotly_white"
-px.defaults.template = "plotly_white"
 logger = get_logger(__name__)
+init_plotly_theme()
 st.title("Importing the data")
 
 

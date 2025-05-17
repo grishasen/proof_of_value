@@ -3,8 +3,6 @@ import time
 from collections import defaultdict, OrderedDict
 
 import pandas as pd
-import plotly.express as px
-import plotly.io as pio
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 from streamlit_dimensions import st_dimensions
@@ -28,8 +26,6 @@ def download_clv_dataset(df):
     )
 
 
-pio.templates.default = "plotly_white"
-px.defaults.template = "plotly_white"
 pd.options.styler.format.thousands = ','
 pd.options.styler.format.na_rep = 'background-color: lightgrey;'
 pd.options.styler.format.precision = 5
