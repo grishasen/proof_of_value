@@ -863,6 +863,57 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
 
 
 @timed
+def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
+                       config: dict) -> pd.DataFrame:
+    metric = config["metric"]
+    m_config = get_config()["metrics"][metric]
+    report_grp_by = config['group_by']
+    title = config['description']
+    x = config['x']
+    color = config['color']
+    stages = config['stages']
+    facet_row = None if not 'facet_row' in config.keys() else config['facet_row']
+    facet_column = None if not 'facet_column' in config.keys() else config['facet_column']
+    copy_config = config.copy()
+    copy_config['group_by'] = report_grp_by + [x]
+    report_data = calculate_reports_data(data, copy_config)
+    report_data = (
+        report_data
+        .filter(pl.col(x).is_in(stages))
+        .group_by(report_grp_by + [x])
+        .agg(pl.col(x + "_Count").sum())
+        .pivot(x, index=report_grp_by, values=x + "_Count")
+        .sort(report_grp_by)
+        .unpivot(stages, index=report_grp_by)
+        .with_columns(pl.col("value").fill_null(0.0))
+        .rename({"variable": "Stage"})
+        .rename({"value": "Count"})
+    )
+    ih_analysis = report_data.to_pandas()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    if ih_analysis.shape[0] == 0:
+        st.warning("No data available.")
+        st.stop()
+
+    if facet_row:
+        height = max(640, 350 * len(ih_analysis[facet_row].unique()))
+    else:
+        height = 640
+
+    fig = px.funnel(ih_analysis,
+                    x='Count',
+                    y='Stage',
+                    color=color,
+                    facet_row=facet_row,
+                    facet_col=facet_column,
+                    title=title,
+                    height=height)
+    fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+    st.plotly_chart(fig, use_container_width=True)
+    return ih_analysis
+
+
+@timed
 def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                               config: dict) -> pd.DataFrame:
     report_data = calculate_reports_data(data, config).to_pandas()
@@ -2174,6 +2225,8 @@ def get_figures() -> dict:
                 figures[report] = descriptive_line_plot
             elif params['type'] == 'boxplot':
                 figures[report] = descriptive_box_plot
+            elif params['type'] == 'funnel':
+                figures[report] = descriptive_funnel
             else:
                 raise Exception(params['type'] + " is not supported type for metric: " + params['metric'])
         elif params['metric'].startswith("experiment"):

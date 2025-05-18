@@ -131,6 +131,6 @@ if data_profiling:
 st.data_editor(format_dates(filtered_rep_data).map(highlight_and_format),
                use_container_width=True,
                column_order=column_order,
-               height=640,
+               height=640 if filtered_rep_data.shape[0] > 15 else None,
                hide_index=True,
                disabled=True)

@@ -372,6 +372,16 @@ color = 'Issue'
 facet_row = "Channel"
 facet_column = "CustomerType"
 
+[reports.describe_outcome_funnel]
+metric = 'descriptive'
+type = 'funnel'
+description = '[DESC] Action Outcome Funnel'
+group_by = ['Channel', 'Issue']
+stages = ['Impression', 'Clicked', 'Conversion']
+x = 'Outcome'
+color = 'Issue'
+facet_column = "Channel"
+
 [reports.experiment_z_score]
 metric = "experiment"
 type = "line"
