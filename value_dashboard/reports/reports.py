@@ -93,7 +93,10 @@ def model_ml_scores_line_plot_roc_auc(data: Union[pl.DataFrame, pd.DataFrame],
                       height=len(
                           report_data[config['facet_row']].unique()) * 400 if 'facet_row' in config.keys() else 640
                       )
-
+        fig.add_shape(
+            type="line", line=dict(dash='dash', color="darkred"),
+            row='all', col='all', x0=0, y0=0, x1=1, y1=1
+        )
         fig.update_layout(
             xaxis=dict(
                 title="fpr",
