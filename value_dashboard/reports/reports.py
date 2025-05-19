@@ -14,7 +14,7 @@ from plotly.subplots import make_subplots
 from polars_ds import sample_and_split as pds_sample
 
 from value_dashboard.metrics.constants import CUSTOMER_ID
-from value_dashboard.reports.repdata import calculate_reports_data
+from value_dashboard.reports.repdata import calculate_reports_data, calculate_model_ml_scores
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.st_utils import filter_dataframe, align_column_types
 from value_dashboard.utils.string_utils import strtobool
@@ -59,6 +59,56 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                                           config['y'] + ' : %{y:.2%}' + '<extra></extra>')
 
     st.plotly_chart(fig, use_container_width=True)
+    return ih_analysis
+
+
+@timed
+def model_ml_scores_line_plot_roc_auc(data: Union[pl.DataFrame, pd.DataFrame],
+                                      config: dict) -> pd.DataFrame:
+    adv_on = st.toggle("Show ROC curve", value=False, help="Show ROC curve.", key=config['description'])
+    ih_analysis = pd.DataFrame()
+    if adv_on:
+        cp_config = config.copy()
+        cp_config['group_by'] = ([config['facet_column']] if 'facet_column' in config.keys() else []) + (
+            [config['facet_row']] if 'facet_row' in config.keys() else []) + (
+                                    [config['color']] if 'color' in config.keys() else [])
+        if not cp_config['group_by']:
+            cp_config['group_by'] = None
+        report_data = calculate_model_ml_scores(data, cp_config, False)
+        if cp_config['group_by'] is None:
+            report_data = report_data.with_columns(
+                [
+                    pl.col("fpr").list.first().alias("fpr"),
+                    pl.col("tpr").list.first().alias("tpr")
+                ]
+            )
+        report_data = report_data.explode(["fpr", "tpr"])
+        fig = px.line(report_data,
+                      x='fpr', y='tpr',
+                      title=config['description'] + ": ROC Curve",
+                      color=config['color'],
+                      labels=dict(x='False Positive Rate', y='True Positive Rate'),
+                      facet_col=config['facet_column'] if 'facet_column' in config.keys() else None,
+                      facet_row=config['facet_row'] if 'facet_row' in config.keys() else None,
+                      height=len(
+                          report_data[config['facet_row']].unique()) * 400 if 'facet_row' in config.keys() else 640
+                      )
+
+        fig.update_layout(
+            xaxis=dict(
+                title="fpr",
+                range=[0, 1]
+            ),
+            yaxis=dict(
+                title="tpr",
+                range=[0, 1]
+            )
+        )
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        ih_analysis = model_ml_scores_line_plot(data, config)
     return ih_analysis
 
 
@@ -2162,7 +2212,6 @@ def clv_model_plot(data: Union[pl.DataFrame, pd.DataFrame],
     return clv
 
 
-@timed
 def get_figures() -> dict:
     figures = {}
     reports = get_config()["reports"]
@@ -2200,7 +2249,10 @@ def get_figures() -> dict:
             elif params['type'] == 'treemap':
                 figures[report] = model_ml_treemap_plot
             else:
-                figures[report] = model_ml_scores_line_plot
+                if params['y'] == "roc_auc":
+                    figures[report] = model_ml_scores_line_plot_roc_auc
+                else:
+                    figures[report] = model_ml_scores_line_plot
         elif params['metric'].startswith("conversion"):
             if params['type'] == 'heatmap':
                 figures[report] = eng_conv_ml_heatmap_plot

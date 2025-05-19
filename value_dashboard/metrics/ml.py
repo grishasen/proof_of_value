@@ -308,7 +308,7 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     delta_recall = recall[1:] - recall[:-1]
     average_precision = np.sum(delta_recall * precision[1:])
 
-    return {'roc_auc': roc_auc, 'average_precision': average_precision}
+    return {'roc_auc': roc_auc, 'average_precision': average_precision, 'tpr': tpr_sorted.tolist(), 'fpr': fpr_sorted.tolist()}
 
 
 @timed

@@ -205,7 +205,9 @@ def calculate_experiment_scores(
 
 
 def calculate_model_ml_scores(
-        model_roc_auc_data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        model_roc_auc_data: Union[pl.DataFrame, pd.DataFrame],
+        config: dict,
+        drop_fpr_tpr=True
 ) -> pl.DataFrame:
     if isinstance(model_roc_auc_data, pd.DataFrame):
         model_roc_auc_data = pl.from_pandas(model_roc_auc_data)
@@ -221,7 +223,8 @@ def calculate_model_ml_scores(
     logger.debug("Use t-digest for scores: " + str(use_t_digest))
 
     auc_data = (
-        model_roc_auc_data.group_by(grp_by)
+        model_roc_auc_data
+        .group_by(grp_by)
         .agg(
             (
                 [weighted_mean(pl.col(scores), pl.col("Count")).name.suffix("_a")]
@@ -233,13 +236,14 @@ def calculate_model_ml_scores(
                 ]
             )
             + [
-                pl.col("Count").sum().alias("Count_a"),
-                pl.col(grp_by).first().name.suffix("_a"),
+                pl.col("Count").sum().alias("Count_a")
             ]
+            + ([pl.col(grp_by).first().name.suffix("_a")] if grp_by else [])
             + (
                 [
                     pl.map_groups(
-                        exprs=["tdigest_positives", "tdigest_negatives"],
+                        exprs=["tdigest_positives",
+                               "tdigest_negatives"],
                         function=binary_metrics_tdigest,
                         return_dtype=pl.Struct,
                         returns_scalar=True,
@@ -254,6 +258,8 @@ def calculate_model_ml_scores(
         .unnest(["roc_auc_tdigest"] if use_t_digest else [])
         .sort(grp_by, descending=False)
     )
+    if drop_fpr_tpr:
+        auc_data = auc_data.drop(cs.by_name(['fpr', 'tpr'], require_all=False), strict=False)
 
     return auc_data
 
