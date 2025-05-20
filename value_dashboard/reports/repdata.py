@@ -1,4 +1,3 @@
-from functools import partial
 from typing import Union
 
 import numpy as np
@@ -6,13 +5,13 @@ import pandas as pd
 import polars as pl
 from polars import selectors as cs
 from polars_ds import weighted_mean
+from polars_tdigest import estimate_quantile, merge_tdigests
 
 from value_dashboard.metrics.clv import rfm_summary
 from value_dashboard.metrics.constants import MODELCONTROLGROUP
 from value_dashboard.metrics.ml import binary_metrics_tdigest
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.logger import get_logger
-from value_dashboard.utils.polars_utils import estimate_quantile, merge_tdigests
 from value_dashboard.utils.stats import chi2_test, g_test, z_test, proportions_ztest
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
@@ -78,24 +77,14 @@ def group_model_ml_scores_data(
             ]
             + (
                 [
-                    pl.map_groups(
-                        exprs=["tdigest_positives"],
-                        function=merge_tdigests,
-                        return_dtype=pl.Struct,
-                        returns_scalar=True,
-                    ).alias("tdigest_positives_a")
+                    merge_tdigests("tdigest_positives").alias("tdigest_positives_a")
                 ]
                 if use_t_digest
                 else []
             )
             + (
                 [
-                    pl.map_groups(
-                        exprs=["tdigest_negatives"],
-                        function=merge_tdigests,
-                        return_dtype=pl.Struct,
-                        returns_scalar=True,
-                    ).alias("tdigest_negatives_a")
+                    merge_tdigests("tdigest_negatives").alias("tdigest_negatives_a")
                 ]
                 if use_t_digest
                 else []
@@ -644,19 +633,14 @@ def calculate_descriptive_scores(
         ]
 
         copy_data = copy_data.group_by(grp_by)
+        tdigest_aggs = []
         for c in num_columns:
             for quantile, suffix in quantiles:
-                tdigest_aggs = []
                 tdigest_aggs.append(
-                    pl.map_groups(
-                        exprs=[f"{c}_tdigest"],
-                        function=partial(estimate_quantile, quantile=quantile),
-                        return_dtype=pl.Struct,
-                        returns_scalar=True,
-                    ).alias(f"{c}_{suffix}_a")
+                    estimate_quantile([f'{c}_tdigest'], quantile).alias(f'{c}_{suffix}_a')
                 )
-                df_tdigest = copy_data.agg(tdigest_aggs)
-                df_non_tdigest = df_non_tdigest.join(df_tdigest, on=grp_by)
+        df_tdigest = copy_data.agg(tdigest_aggs)
+        df_non_tdigest = df_non_tdigest.join(df_tdigest, on=grp_by)
 
         logger.debug("T-digest properties aggregated...")
         copy_data = df_non_tdigest

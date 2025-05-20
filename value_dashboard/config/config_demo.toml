@@ -67,7 +67,7 @@ negative_model_response = ["NoConversion"]
 group_by = ["Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "Issue", "Group", "ModelCategory", "Outcome"]
 filter = """"""
 use_t_digest = "true"
-columns = ['Outcome', 'Propensity', 'FinalPropensity', 'Priority']
+columns = ['Outcome', 'Propensity', 'FinalPropensity', 'Priority', 'ResponseTime']
 scores = ['Count', 'Sum', 'Mean', 'Median', 'p25', 'p75', 'p90', 'p95', 'Std', 'Var', 'Skew']
 
 [metrics.experiment]

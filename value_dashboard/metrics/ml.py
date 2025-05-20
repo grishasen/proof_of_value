@@ -1,5 +1,4 @@
 import traceback
-from functools import partial
 from typing import List
 
 import numpy as np
@@ -8,13 +7,14 @@ import polars_ds as pds
 from polars import Series
 from polars import selectors as cs
 from polars_ds import weighted_mean
+from polars_tdigest import estimate_quantile, merge_tdigests, tdigest
 from scipy.interpolate import interp1d
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
 from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME
-from value_dashboard.utils.polars_utils import tdigest_pos_neg, merge_tdigests, estimate_quantile
+from value_dashboard.utils.polars_utils import T_DIGEST_COMPRESSION
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
@@ -224,48 +224,35 @@ def novelty_optimized(args: List[Series]) -> pl.Float64:
 
 
 def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
+    if (args[0].len() == 0) or (args[1].len() == 0):
+        return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0]}
+
     a = np.linspace(0, 0.1, num=100, endpoint=False)
     b = np.linspace(0, 1, num=201)[20:]
     thresholds = np.concatenate((a, b))
     thresholds = [round(t.item(), 4) for t in thresholds]
 
     df = pl.DataFrame(args)
+    df = df.filter(pl.col('column_0').struct.field("count") > 0)
+    if df.shape[0] > 0:
+        df = df.filter(pl.col('column_1').struct.field("count") > 0)
+    else:
+        return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0]}
 
-    positive_percentiles = (
-        df
-        .select('column_0')
-        .group_by(None)
-        .agg(
-            [
-                pl.map_groups(
-                    exprs=['column_0'],
-                    function=partial(estimate_quantile, quantile=t),
-                    return_dtype=pl.Struct,
-                    returns_scalar=True).alias(f'{t}') for t in thresholds
-            ]
-        )
-        .unpivot(cs.numeric())
-        .with_columns(pl.col("variable").cast(pl.Float64))
-    )
+    if df.shape[0] == 0:
+        return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0]}
+
+    positive_percentiles = (df.select([estimate_quantile('column_0', t).alias(f'{t}') for t in thresholds])
+                            .unpivot(cs.numeric())
+                            .with_columns(pl.col("variable").cast(pl.Float64))
+                            )
 
     positive_percentiles = dict(positive_percentiles.iter_rows())
 
-    negative_percentiles = (
-        df
-        .select('column_1')
-        .group_by(None)
-        .agg(
-            [
-                pl.map_groups(
-                    exprs=['column_1'],
-                    function=partial(estimate_quantile, quantile=t),
-                    return_dtype=pl.Struct,
-                    returns_scalar=True).alias(f'{t}') for t in thresholds
-            ]
-        )
-        .unpivot(cs.numeric())
-        .with_columns(pl.col("variable").cast(pl.Float64))
-    )
+    negative_percentiles = (df.select([estimate_quantile('column_1', t).alias(f'{t}') for t in thresholds])
+                            .unpivot(cs.numeric())
+                            .with_columns(pl.col("variable").cast(pl.Float64))
+                            )
     negative_percentiles = dict(negative_percentiles.iter_rows())
 
     q_p = np.array(sorted(positive_percentiles.keys()))
@@ -308,7 +295,8 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     delta_recall = recall[1:] - recall[:-1]
     average_precision = np.sum(delta_recall * precision[1:])
 
-    return {'roc_auc': roc_auc, 'average_precision': average_precision, 'tpr': tpr_sorted.tolist(), 'fpr': fpr_sorted.tolist()}
+    return {'roc_auc': roc_auc, 'average_precision': average_precision, 'tpr': tpr_sorted.tolist(),
+            'fpr': fpr_sorted.tolist()}
 
 
 @timed
@@ -317,10 +305,6 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else False
-
-    unnest_expr = pl.col("metrics")
-    if use_t_digest:
-        unnest_expr = pl.col("propensity_tdigest_pos_neg")
 
     if "filter" in config:
         ih = ih.filter(config["filter"])
@@ -341,11 +325,12 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
         ).alias("novelty")
     ]
     if use_t_digest:
-        t_digest_aggs = [pl.map_groups(
-            exprs=["Outcome_Boolean", "Propensity"],
-            function=tdigest_pos_neg,
-            return_dtype=pl.Struct,
-            returns_scalar=True).alias("propensity_tdigest_pos_neg")]
+        t_digest_aggs = [
+            tdigest(pl.col("Propensity").filter(pl.col("Outcome_Boolean") == True),
+                    max_size=T_DIGEST_COMPRESSION).alias('tdigest_positives'),
+            tdigest(pl.col("Propensity").filter(pl.col("Outcome_Boolean") == False),
+                    max_size=T_DIGEST_COMPRESSION).alias('tdigest_negatives')
+        ]
         agg_exprs = common_aggs + t_digest_aggs
     else:
         extra_aggs = [pds.query_binary_metrics(
@@ -368,8 +353,10 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             .filter(pl.col('Outcome_Boolean') == pl.col('Outcome_Boolean').max().over(INTERACTION_ID, NAME, RANK))
             .group_by(grp_by)
             .agg(agg_exprs)
-            .unnest([unnest_expr])
         )
+        if not use_t_digest:
+            ml_data = ml_data.unnest(pl.col("metrics"))
+
         if background:
             return ml_data.collect(background=background, engine="streaming" if streaming else "auto")
         else:
@@ -410,21 +397,13 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
             +
             (
                 [
-                    pl.map_groups(
-                        exprs=["tdigest_positives"],
-                        function=merge_tdigests,
-                        return_dtype=pl.Struct,
-                        returns_scalar=True).alias("tdigest_positives_a")
+                    merge_tdigests("tdigest_positives").alias("tdigest_positives_a")
                 ] if use_t_digest else []
             )
             +
             (
                 [
-                    pl.map_groups(
-                        exprs=["tdigest_negatives"],
-                        function=merge_tdigests,
-                        return_dtype=pl.Struct,
-                        returns_scalar=True).alias("tdigest_negatives_a")
+                    merge_tdigests("tdigest_negatives").alias("tdigest_negatives_a")
                 ] if use_t_digest else []
             )
         )

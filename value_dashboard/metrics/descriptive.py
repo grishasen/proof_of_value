@@ -3,9 +3,9 @@ import traceback
 import polars as pl
 from polars import selectors as cs
 from polars_ds import weighted_mean
+from polars_tdigest import tdigest, merge_tdigests
 
-from value_dashboard.utils.polars_utils import merge_tdigests
-from value_dashboard.utils.polars_utils import tdigest
+from value_dashboard.utils.polars_utils import T_DIGEST_COMPRESSION
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
@@ -29,13 +29,7 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
     ]
     if use_t_digest:
         t_digest_aggs = [
-            pl.map_groups(
-                exprs=[f"{c}"],
-                function=tdigest,
-                return_dtype=pl.Struct,
-                returns_scalar=True
-            ).alias(f"{c}_tdigest")
-            for c in num_columns
+            tdigest(cs.by_name(num_columns, require_all=True), max_size=T_DIGEST_COMPRESSION).name.suffix('_tdigest')
         ]
         agg_exprs = common_aggs + t_digest_aggs
     else:
@@ -125,13 +119,7 @@ def compact_descriptive_data(data: pl.DataFrame,
                            for c in num_columns]
     else:
         extra_aggs = [
-            pl.map_groups(
-                exprs=[f"{c}_tdigest"],
-                function=merge_tdigests,
-                return_dtype=pl.Struct,
-                returns_scalar=True
-            ).alias(f"{c}_tdigest_a")
-            for c in num_columns
+            merge_tdigests(f'{c}_tdigest').alias(f'{c}_tdigest_a') for c in num_columns
         ]
 
     tail_aggs = (
