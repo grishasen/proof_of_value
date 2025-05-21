@@ -237,10 +237,12 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     if df.shape[0] > 0:
         df = df.filter(pl.col('column_1').struct.field("count") > 0)
     else:
-        return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0]}
+        return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0], 'precision': [0.0],
+                'recall': [0.0]}
 
     if df.shape[0] == 0:
-        return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0]}
+        return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0], 'precision': [0.0],
+                'recall': [0.0]}
 
     positive_percentiles = (df.select([estimate_quantile('column_0', t).alias(f'{t}') for t in thresholds])
                             .unpivot(cs.numeric())
@@ -278,13 +280,18 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
 
     roc_auc = np.trapz(tpr_sorted, fpr_sorted)
 
+    pos = df.select(pl.count('column_0')).item()
+    neg = df.select(pl.count('column_1')).item()
     all_scores = np.sort(all_scores)[::-1]
-    TP = 1.0 - F_p(all_scores)
-    FP = 1.0 - F_n(all_scores)
+    tpr = 1.0 - F_p(all_scores)
+    fpr = 1.0 - F_n(all_scores)
+
+    tp = pos * tpr
+    fp = neg * fpr
 
     epsilon = 1e-10
-    precision = TP / (TP + FP + epsilon)
-    recall = TP.copy()
+    precision = tp / (tp + fp + epsilon)
+    recall = tpr
 
     precision = np.maximum.accumulate(precision[::-1])[::-1]
 
@@ -296,7 +303,7 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     average_precision = np.sum(delta_recall * precision[1:])
 
     return {'roc_auc': roc_auc, 'average_precision': average_precision, 'tpr': tpr_sorted.tolist(),
-            'fpr': fpr_sorted.tolist()}
+            'fpr': fpr_sorted.tolist(), 'precision': precision.tolist(), 'recall': recall.tolist()}
 
 
 @timed

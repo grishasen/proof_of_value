@@ -63,9 +63,33 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
 
 
 @timed
-def model_ml_scores_line_plot_roc_auc(data: Union[pl.DataFrame, pd.DataFrame],
-                                      config: dict) -> pd.DataFrame:
-    adv_on = st.toggle("Show ROC curve", value=False, help="Show ROC curve.", key=config['description'])
+def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFrame],
+                                           config: dict) -> pd.DataFrame:
+    if config['y'] == "roc_auc":
+        x = 'fpr'
+        y = 'tpr'
+        title = config['description'] + ": ROC Curve"
+        label_x = 'False Positive Rate'
+        label_y = 'True Positive Rate'
+        x0 = 0
+        y0 = 0
+        x1 = 1
+        y1 = 1
+    elif config['y'] == "average_precision":
+        x = 'recall'
+        y = 'precision'
+        title = config['description'] + ": Precision-Recall Curve Curve"
+        label_x = 'Recall'
+        label_y = 'Precision'
+        x0 = 0
+        y0 = 1
+        x1 = 1
+        y1 = 0
+    else:
+        ih_analysis = model_ml_scores_line_plot(data, config)
+        return ih_analysis
+
+    adv_on = st.toggle("Show as curves", value=False, help="Show as curve (ROC or PR).", key=config['description'])
     ih_analysis = pd.DataFrame()
     if adv_on:
         cp_config = config.copy()
@@ -78,16 +102,15 @@ def model_ml_scores_line_plot_roc_auc(data: Union[pl.DataFrame, pd.DataFrame],
         if cp_config['group_by'] is None:
             report_data = report_data.with_columns(
                 [
-                    pl.col("fpr").list.first().alias("fpr"),
-                    pl.col("tpr").list.first().alias("tpr")
+                    pl.col(x).list.first().alias(x),
+                    pl.col(y).list.first().alias(y)
                 ]
             )
-        report_data = report_data.explode(["fpr", "tpr"])
+        report_data = report_data.explode([x, y])
         fig = px.line(report_data,
-                      x='fpr', y='tpr',
-                      title=config['description'] + ": ROC Curve",
+                      x=x, y=y,
+                      title=title,
                       color=config['color'],
-                      labels=dict(x='False Positive Rate', y='True Positive Rate'),
                       facet_col=config['facet_column'] if 'facet_column' in config.keys() else None,
                       facet_row=config['facet_row'] if 'facet_row' in config.keys() else None,
                       height=len(
@@ -95,19 +118,39 @@ def model_ml_scores_line_plot_roc_auc(data: Union[pl.DataFrame, pd.DataFrame],
                       )
         fig.add_shape(
             type="line", line=dict(dash='dash', color="darkred"),
-            row='all', col='all', x0=0, y0=0, x1=1, y1=1
+            row='all', col='all', x0=x0, y0=y0, x1=x1, y1=y1
         )
         fig.update_layout(
             xaxis=dict(
-                title="fpr",
                 range=[0, 1]
             ),
             yaxis=dict(
-                title="tpr",
                 range=[0, 1]
             )
         )
+        fig.for_each_xaxis(lambda x: x.update({'title': ''}))
+        fig.for_each_yaxis(lambda y: y.update({'title': ''}))
         fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+        fig.add_annotation(
+            showarrow=False,
+            xanchor='center',
+            xref='paper',
+            x=0.5,
+            yref='paper',
+            y=-0.05,
+            text=label_x
+        )
+        fig.add_annotation(
+            showarrow=False,
+            xanchor='center',
+            xref='paper',
+            x=-0.04,
+            yanchor='middle',
+            yref='paper',
+            y=0.5,
+            textangle=90,
+            text=label_y
+        )
 
         st.plotly_chart(fig, use_container_width=True)
     else:
@@ -2253,7 +2296,9 @@ def get_figures() -> dict:
                 figures[report] = model_ml_treemap_plot
             else:
                 if params['y'] == "roc_auc":
-                    figures[report] = model_ml_scores_line_plot_roc_auc
+                    figures[report] = model_ml_scores_line_plot_roc_pr_curve
+                elif params['y'] == "average_precision":
+                    figures[report] = model_ml_scores_line_plot_roc_pr_curve
                 else:
                     figures[report] = model_ml_scores_line_plot
         elif params['metric'].startswith("conversion"):

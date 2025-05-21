@@ -248,7 +248,13 @@ def calculate_model_ml_scores(
         .sort(grp_by, descending=False)
     )
     if drop_fpr_tpr:
-        auc_data = auc_data.drop(cs.by_name(['fpr', 'tpr'], require_all=False), strict=False)
+        auc_data = (
+            auc_data
+            .drop(
+                cs.by_name(['fpr', 'tpr', 'precision', 'recall'], require_all=False),
+                strict=False
+            )
+        )
 
     return auc_data
 
