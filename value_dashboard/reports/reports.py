@@ -440,10 +440,11 @@ def engagement_ctr_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
                         specs=[[{"type": "indicator"} for c in range(cols)] for t in range(rows)]
                         )
     fig.update_layout(
-        height=270 * rows,
+        height=300 * rows,
         autosize=True,
         title=config['description'],
         margin=dict(b=10, t=120, l=10, r=10))
+
     for index, row in ih_analysis.iterrows():
         ref_value = reference.get(row['CName'], None)
         gauge = {
@@ -516,14 +517,15 @@ def conversion_rate_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
                         specs=[[{"type": "indicator"} for c in range(cols)] for t in range(rows)]
                         )
     fig.update_layout(
-        height=270 * rows,
+        height=300 * rows,
         autosize=True,
         title=config['description'],
         margin=dict(b=10, t=120, l=10, r=10))
     for index, row in ih_analysis.iterrows():
         ref_value = reference.get(row['CName'], None)
+        max_value = 1.1 * ih_analysis[ih_analysis[grp_by[0]] == row[grp_by[0]]][config['value']].max()
         gauge = {
-            'axis': {'tickformat': ',.2%'},
+            'axis': {'range': [None, max_value], 'tickformat': ',.2%'},
             'threshold': {
                 'line': {'color': "red", 'width': 2},
                 'thickness': 0.75,
@@ -533,7 +535,7 @@ def conversion_rate_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
         if ref_value:
             if row[config['value']] < ref_value:
                 gauge = {
-                    'axis': {'tickformat': ',.2%'},
+                    'axis': {'range': [None, max_value], 'tickformat': ',.2%'},
                     'bar': {'color': '#EC5300' if row[config['value']] < (0.75 * ref_value) else '#EC9B00'},
                     'threshold': {
                         'line': {'color': "red", 'width': 2},
