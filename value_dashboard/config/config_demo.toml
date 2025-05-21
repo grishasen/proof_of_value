@@ -19,7 +19,7 @@ streaming = "false"
 background = "false"
 
 [ih.extensions]
-default_values = { 'ModelType' = 'Engagement', 'PlacementType' = '', 'ModelCategory' = 'Bayesian', 'Product' = 'N/A', 'ExperimentName' = 'N/A', 'ExperimentGroup' = 'N/A', 'FinalPropensity' = 0.0 }
+default_values = { 'ModelType' = 'Engagement', 'PlacementType' = '', 'ModelCategory' = 'Bayesian', 'Product' = 'N/A', 'ExperimentName' = 'N/A', 'ExperimentGroup' = 'N/A', 'FinalPropensity' = 0.0, 'Priority' = 1e-10, 'Revenue' = 0.0 }
 filter = """(pl.col("Outcome").is_in(["Pending", "Impression", "Clicked", "Conversion", "NoConversion"]) &
 pl.col("ModelCategory").is_in(["Bayesian", "Gradient boosting"]) &
 pl.col("Channel").is_in(["Web", "Mobile", "Email"]))""" #Global filter across entire IH (for performance)
