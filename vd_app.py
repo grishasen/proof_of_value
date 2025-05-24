@@ -27,6 +27,7 @@ def get_pages():
     if clv_metrics_avail():
         pages.append(create_page("value_dashboard/pages/clv_analysis.py", "CLV Analysis"))
     pages.append(create_page("value_dashboard/pages/toml_editor.py", "Configuration"))
+    pages.append(create_page("value_dashboard/pages/config_gen.py", "GenAI Config"))
     return [p for p in pages if p is not None]
 
 
@@ -39,7 +40,8 @@ parser.add_argument('--logging_config', action='store', default="",
 
 try:
     args = parser.parse_args()
-    st.session_state['args'] = args
+    st.session_state['app_config'] = args.config
+    st.session_state['logging_config'] = args.logging_config
 except SystemExit as e:
     pass
 

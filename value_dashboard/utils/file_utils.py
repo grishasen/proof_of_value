@@ -12,24 +12,36 @@ def read_dataset_export(file_name, src_folder=".",
                         tmp_folder=None,
                         lazy=False,
                         verbose=False):
-    json_file = None
+    export_file = None
     error_reason = ""
     tmp_folder = tmp_folder if tmp_folder else tempfile.gettempdir()
 
     if file_name.endswith(".json"):
         error_reason = "Error reading JSON file"
         if os.path.exists(file_name):
-            json_file = file_name
+            export_file = file_name
         elif os.path.exists(os.path.join(src_folder, file_name)):
-            json_file = os.path.join(src_folder, file_name)
-        if json_file and verbose:
-            print(error_reason, json_file)
-        if json_file:
+            export_file = os.path.join(src_folder, file_name)
+        if export_file and verbose:
+            print(error_reason, export_file)
+        if export_file:
             if lazy:
-                multi_line_json = pl.scan_ndjson(json_file)
+                df = pl.scan_ndjson(export_file)
             else:
-                multi_line_json = pl.read_ndjson(json_file)
-
+                df = pl.read_ndjson(export_file)
+    elif file_name.endswith(".parquet"):
+        error_reason = "Error reading PARQUET file"
+        if os.path.exists(file_name):
+            export_file = file_name
+        elif os.path.exists(os.path.join(src_folder, file_name)):
+            export_file = os.path.join(src_folder, file_name)
+        if export_file and verbose:
+            print(error_reason, export_file)
+        if export_file:
+            if lazy:
+                df = pl.scan_parquet(export_file)
+            else:
+                df = pl.read_parquet(export_file)
     else:
         zip_file = file_name
         if file_name.endswith(".zip"):
@@ -46,9 +58,9 @@ def read_dataset_export(file_name, src_folder=".",
                 if verbose:
                     print(error_reason, zip_file)
 
-                json_file = os.path.join(tmp_folder, "data.json")
-                if os.path.exists(json_file):
-                    os.remove(json_file)
+                export_file = os.path.join(tmp_folder, "data.json")
+                if os.path.exists(export_file):
+                    os.remove(export_file)
 
                 with zipfile.ZipFile(zip_file, 'r') as zip_ref:
                     all_zip_entries = zip_ref.namelist()
@@ -58,19 +70,19 @@ def read_dataset_export(file_name, src_folder=".",
 
                     for file in json_file_in_zip:
                         zip_ref.extract(file, tmp_folder)
-                        json_file = os.path.join(tmp_folder, file)
+                        export_file = os.path.join(tmp_folder, file)
 
-                if not os.path.exists(json_file):
+                if not os.path.exists(export_file):
                     raise Exception(f"Dataset zipfile {zip_file} does not have \"data.json\"")
                 if lazy:
-                    multi_line_json = pl.scan_ndjson(json_file, infer_schema_length=10000)
+                    df = pl.scan_ndjson(export_file, infer_schema_length=100000)
                 else:
-                    multi_line_json = pl.read_ndjson(json_file, infer_schema_length=10000)
-                    os.remove(json_file)
+                    df = pl.read_ndjson(export_file, infer_schema_length=100000)
+                    os.remove(export_file)
 
-    if json_file is None:
+    if export_file is None:
         raise Exception(f"Dataset export not found {error_reason}")
-    return multi_line_json
+    return df
 
 
 class PooledFileReader:

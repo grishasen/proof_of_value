@@ -975,6 +975,10 @@ def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
     copy_config = config.copy()
     copy_config['group_by'] = report_grp_by + [x]
     report_data = calculate_reports_data(data, copy_config)
+    for stage in stages:
+        if report_data.filter(pl.col(x).is_in([stage])).height == 0:
+            stages.remove(stage)
+
     report_data = (
         report_data
         .filter(pl.col(x).is_in(stages))

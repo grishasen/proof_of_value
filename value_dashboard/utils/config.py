@@ -11,10 +11,10 @@ logger = get_logger(__name__)
 @st.cache_resource()
 def get_config() -> dict:
     config_file = None
-    if "args" in st.session_state:
-        config_file = st.session_state["args"].config
+    if "app_config" in st.session_state.keys():
+        config_file = st.session_state["app_config"]
     if not config_file:
-        config_file = "value_dashboard/config/config.toml"
+        config_file = "value_dashboard/config/config_template.toml"
 
     logger.debug("Config file: " + config_file)
 

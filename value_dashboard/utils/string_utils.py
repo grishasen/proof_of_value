@@ -14,6 +14,8 @@ def strtobool(val: str | bool) -> bool:
     """
     if isinstance(val, bool):
         return val
+    if isinstance(val, int):
+        return val != 0
     val = val.lower()
     if val in ("y", "yes", "t", "true", "on", "1"):
         return True
@@ -73,3 +75,17 @@ def capitalize(fields: list) -> list:
         fields_new = [re.sub(word + '\b', word, field, flags=re.I) for field in fields_new]
         fields_new = [field[:1].upper() + field[1:] for field in fields_new]
     return fields_new
+
+
+def isBool(val):
+    if isinstance(val, int):
+        return (val == 1) or (val == 0)
+    if not (isinstance(val, str)):
+        return False
+    val = val.lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return True
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return True
+    else:
+        return False

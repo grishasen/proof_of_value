@@ -15,7 +15,7 @@ from pandasai_openai import OpenAI
 from value_dashboard.metrics.clv import rfm_summary
 from value_dashboard.pipeline.holdings import load_holdings_data as load_holdings_data
 from value_dashboard.pipeline.ih import load_data as ih_load_data
-from value_dashboard.utils.config import get_config
+from value_dashboard.utils.config import get_config, clv_metrics_avail
 
 pio.defaults.default_scale = 4
 pio.defaults.default_height = 480
@@ -85,7 +85,7 @@ with st.sidebar:
     )
     if llm:
         metrics_data = ih_load_data()
-        clv_data = load_holdings_data()
+        clv_data = load_holdings_data() if clv_metrics_avail() else {}
         metrics_descs = get_config()["chat_with_data"]["metric_descriptions"]
         data_list = []
         for metric in metrics_data.keys():

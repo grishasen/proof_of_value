@@ -11,23 +11,13 @@ from streamlit_tags import st_tags
 from value_dashboard.pipeline import holdings
 from value_dashboard.pipeline import ih
 from value_dashboard.utils.config import get_config
-from value_dashboard.utils.string_utils import strtobool
-
-get_config.clear()
-ih.get_reports_data.clear()
-holdings.get_reports_data.clear()
+from value_dashboard.utils.string_utils import strtobool, isBool
 
 
-def isbool(val):
-    if not (isinstance(val, str)):
-        return False
-    val = val.lower()
-    if val in ("y", "yes", "t", "true", "on", "1"):
-        return True
-    elif val in ("n", "no", "f", "false", "off", "0"):
-        return True
-    else:
-        return False
+def clear_config_cache():
+    get_config.clear()
+    ih.get_reports_data.clear()
+    holdings.get_reports_data.clear()
 
 
 # Function to display and edit dictionary in a structured way
@@ -54,7 +44,7 @@ def display_dict(name, data, read_only=False, level=0):
                     index=file_types.index(value),
                     disabled=ro,
                 )
-            elif isbool(value):
+            elif isBool(value):
                 updated_data[key] = st.checkbox(
                     label=f"{' ' * level * 2}- {name}-{key}",
                     value=strtobool(value),
@@ -171,6 +161,9 @@ def display_dict_as_table(values, read_only=False):
     edited_df.set_index("Name", inplace=True)
     return edited_df.to_dict()["Value"]
 
+
+with st.sidebar:
+    st.button("Clear config cache 🗑️", on_click=lambda: clear_config_cache())
 
 tabs = ["📄 Configuration", "📝 Readme"]
 conf, readme = st.tabs(tabs)

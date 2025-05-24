@@ -216,15 +216,16 @@ def import_holdings_data():
             download_collected_metrics("collected_clv_data.json", data_loaded)
 
 
-tabs = ["Import Interaction History", "Import Product Holdings"]
-ih, holdings = st.tabs(tabs)
-with ih:
+tabs = ["Import Interaction History"] + (["Import Product Holdings"] if clv_metrics_avail() else [])
+st_tabs = st.tabs(tabs)
+with st_tabs[0]:
     if ih_metrics_avail():
         import_data()
     else:
         st.warning("Please configure IH metrics.")
-with holdings:
-    if clv_metrics_avail():
-        import_holdings_data()
-    else:
-        st.warning("Please configure CLV metrics.")
+if clv_metrics_avail():
+    with st_tabs[1]:
+        if clv_metrics_avail():
+            import_holdings_data()
+        else:
+            st.warning("Please configure CLV metrics.")
