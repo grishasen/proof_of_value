@@ -4,6 +4,8 @@ from typing import Optional
 import duckdb
 import polars as pl
 
+from value_dashboard.utils.config import get_config
+
 
 class PolarsDuckDBProxy:
     def __init__(self):
@@ -11,7 +13,8 @@ class PolarsDuckDBProxy:
             os.makedirs("db")
         except FileExistsError:
             pass
-        self.connection = duckdb.connect("db/pov_data.duckdb")
+        variant = get_config()['variants']['name']
+        self.connection = duckdb.connect('db/pov_data_' + variant + '.duckdb')
         self._tables = set()
 
     def __enter__(self):

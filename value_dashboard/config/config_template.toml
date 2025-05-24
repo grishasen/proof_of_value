@@ -19,7 +19,7 @@ streaming = "true"
 background = "false"
 
 [ih.extensions]
-default_values = { 'HoldOutControlGroup' = 'Test', 'ExperimentName' = 'N/A', 'ExperimentGroup' = 'N/A', 'FinalPropensity' = 0.0, 'Priority' = 1e-10, 'Revenue' = 0.0 }
+default_values = { 'HoldOutControlGroup' = 'Test', 'ModelControlGroup' = 'Test', 'PlacementType' = 'NA', 'ExperimentName' = 'N/A', 'ExperimentGroup' = 'N/A', 'FinalPropensity' = 0.0, 'Priority' = 1e-10, 'Revenue' = 0.0 }
 filter = """pl.col("Channel").is_not_null()"""
 columns = """"""
 

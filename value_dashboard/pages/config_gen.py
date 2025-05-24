@@ -90,8 +90,8 @@ if uploaded_file and st.button("Generate Config"):
 
     df = (
         df.with_columns([
-            pl.col('OutcomeTime').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('OutcomeDateTime'),
-            pl.col('DecisionTime').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('DecisionDateTime')
+            pl.col('OutcomeTime').cast(str).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('OutcomeDateTime'),
+            pl.col('DecisionTime').cast(str).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('DecisionDateTime')
         ])
         .with_columns([
             pl.col("OutcomeDateTime").dt.date().alias("Day"),
@@ -120,11 +120,12 @@ if uploaded_file and st.button("Generate Config"):
     st.write(df.describe())
 
     prompt = f"""
-        Given interaction history dataset schema (column names and types) and configuration file temaplate, please create 
+        Given interaction history dataset schema (column names and types) and configuration file template, please create 
         similar config file, suited for this data. 
         Keep all the reports, metrics and other settings, but adjust columns, so they correspond to the 
         data in the file provided. Check columns available in the schema and include in the configuration 
         only those available in the sample. Do not generate 'chat_with_data' section.
+        Try to map column names in the schema to those in template (may differ by case or have different prefixes or suffixes).
         Set 'file_type' to either 'parquet' (use file name extension to determine file type) or 'pega_ds_export' otherwise.
         Set 'file_pattern' extension accordingly.
         File name: {str(file_path)}.
