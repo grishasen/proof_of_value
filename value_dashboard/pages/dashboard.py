@@ -19,7 +19,7 @@ from value_dashboard.utils.string_utils import strtobool
 pd.options.styler.format.thousands = ','
 pd.options.styler.format.na_rep = 'background-color: lightgrey;'
 pd.options.styler.format.precision = 5
-dataset_max_rows = 100000
+dataset_max_rows = 10000
 pd.set_option("styler.render.max_elements", dataset_max_rows)
 
 theme = st_theme(key='dashboard')
@@ -128,7 +128,7 @@ if data_profiling:
 
 # if col_order_on:
 #    column_order = sort_items(items=column_order, header="Columns order: ")
-st.data_editor(format_dates(filtered_rep_data).map(highlight_and_format),
+st.data_editor(format_dates(filtered_rep_data.head(dataset_max_rows)).map(highlight_and_format),
                use_container_width=True,
                column_order=column_order,
                height=640 if filtered_rep_data.shape[0] > 15 else None,
