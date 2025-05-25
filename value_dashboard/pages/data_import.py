@@ -85,7 +85,7 @@ def import_data():
                     if not folder_path.endswith(os.sep):
                         folder_path = folder_path + os.sep
                     st.session_state['ihfolder'] = folder_path
-                    st.session_state['drop_cache'] = reload_all
+                    st.session_state['drop_cache'] = True
                     for uploaded_file in uploaded_files:
                         file_path = os.path.join(temp_dir.name, uploaded_file.name)
                         with open(file_path, "wb") as f:

@@ -15,3 +15,38 @@ def df_to_dict(df: pl.DataFrame, key_col: str, value_col: str) -> Dict[Any, Any]
     If the key column is not unique, the last row is used
     """
     return dict(df.select(key_col, value_col).iter_rows())
+
+
+def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Return a Polars DataFrame schema with the number of unique values for each string column.
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        The input Polars DataFrame.
+
+    Returns
+    -------
+    pl.DataFrame
+        A DataFrame with columns: 'column', 'dtype', and 'unique_count'.
+    """
+
+    schema = df.schema
+    records = []
+    for col, dtype in schema.items():
+        if dtype == pl.Utf8:
+            count = df[col].n_unique()
+            records.append({
+                "Column": col,
+                "Data Type": str(dtype),
+                "Unique Count": count
+            })
+        else:
+            records.append({
+                "Column": col,
+                "Data Type": str(dtype),
+                "Unique Count": "N/A"
+            })
+
+    return pl.DataFrame(records)

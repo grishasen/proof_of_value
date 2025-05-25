@@ -8,7 +8,7 @@ from value_dashboard.utils.timer import timed
 
 @timed
 def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
-    mand_props_grp_by = config['group_by'] + [config['experiment_name']] + [config['experiment_group']]
+    mand_props_grp_by = list(set(config['group_by'] + [config['experiment_name']] + [config['experiment_group']]))
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
 
@@ -48,12 +48,11 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
 def compact_experiment_data(exp_data: pl.DataFrame,
                             config: dict) -> pl.DataFrame:
     grp_by = config['group_by'] + [config['experiment_name']]
-
     grp_by = list(set(grp_by))
     if grp_by:
         exp_data = (
             exp_data
-            .group_by(grp_by + [config['experiment_group']])
+            .group_by(list(set(grp_by + [config['experiment_group']])))
             .agg([
                 pl.col("Count").sum(),
                 pl.col("Positives").sum(),
