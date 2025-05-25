@@ -3,7 +3,7 @@ import os
 
 import streamlit as st
 
-from value_dashboard.utils.config import clv_metrics_avail, ih_metrics_avail, chat_with_data
+from value_dashboard.utils.config import clv_metrics_avail, ih_metrics_avail, chat_with_data, is_demo_mode
 from value_dashboard.utils.logger import configure_logging
 from value_dashboard.utils.st_utils import get_page_configs
 
@@ -27,7 +27,8 @@ def get_pages():
     if clv_metrics_avail():
         pages.append(create_page("value_dashboard/pages/clv_analysis.py", "CLV Analysis"))
     pages.append(create_page("value_dashboard/pages/toml_editor.py", "Configuration"))
-    pages.append(create_page("value_dashboard/pages/config_gen.py", "GenAI Config"))
+    if is_demo_mode():
+        pages.append(create_page("value_dashboard/pages/config_gen.py", "GenAI Config"))
     return [p for p in pages if p is not None]
 
 
