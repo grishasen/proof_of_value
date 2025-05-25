@@ -29,8 +29,8 @@ def download_clv_dataset(df):
 pd.options.styler.format.thousands = ','
 pd.options.styler.format.na_rep = 'background-color: lightgrey;'
 pd.options.styler.format.precision = 5
-dataset_max_rows = 100000
-pd.set_option("styler.render.max_elements", dataset_max_rows)
+dataset_max_rows = 1000
+pd.set_option("styler.render.max_elements", dataset_max_rows * 100)
 
 theme = st_theme(key='clv_analysis')
 st.session_state['theme'] = theme
@@ -119,7 +119,7 @@ with c3:
     download_clv_dataset(filtered_rep_data)
 # if col_order_on:
 #    column_order = sort_items(items=column_order, header="Columns order: ")
-st.data_editor(format_dates(filtered_rep_data.head(300))
+st.data_editor(format_dates(filtered_rep_data.head(dataset_max_rows))
                .map(highlight_and_format),
                use_container_width=True,
                column_order=column_order, disabled=True)

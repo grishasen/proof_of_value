@@ -19,8 +19,8 @@ from value_dashboard.utils.string_utils import strtobool
 pd.options.styler.format.thousands = ','
 pd.options.styler.format.na_rep = 'background-color: lightgrey;'
 pd.options.styler.format.precision = 5
-dataset_max_rows = 10000
-pd.set_option("styler.render.max_elements", dataset_max_rows)
+dataset_max_rows = 1000
+pd.set_option("styler.render.max_elements", dataset_max_rows * 100)
 
 theme = st_theme(key='dashboard')
 st.session_state['theme'] = theme
