@@ -27,7 +27,7 @@ def get_pages():
     if clv_metrics_avail():
         pages.append(create_page("value_dashboard/pages/clv_analysis.py", "CLV Analysis"))
     pages.append(create_page("value_dashboard/pages/toml_editor.py", "Configuration"))
-    if is_demo_mode():
+    if not is_demo_mode():
         pages.append(create_page("value_dashboard/pages/config_gen.py", "GenAI Config"))
     return [p for p in pages if p is not None]
 
