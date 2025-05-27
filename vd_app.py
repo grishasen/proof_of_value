@@ -1,5 +1,6 @@
 import argparse
 import os
+from traceback import print_stack
 
 import streamlit as st
 
@@ -53,3 +54,4 @@ else:
 pages = get_pages()
 pg = st.navigation(pages, expanded=False)
 pg.run()
+

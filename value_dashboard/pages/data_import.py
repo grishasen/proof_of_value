@@ -141,9 +141,9 @@ def import_data():
         time.sleep(1)
         report_data = get_reports_data()
         msg.toast('Dashboard ready.', icon="📊")
-        st.success("Go to the Dashboard page using the sidebar")
         if not use_aggregated:
             download_collected_metrics("collected_ih_metrics_data.json", data_loaded)
+        st.success("Go to the Dashboard page using the sidebar")
 
 
 @st.fragment
@@ -211,9 +211,9 @@ def import_holdings_data():
         time.sleep(1)
 
         msg.toast('Dashboard ready.', icon="📊")
-        st.success("Go to the CLV Analysis page using the sidebar")
         if data_loaded:
             download_collected_metrics("collected_clv_data.json", data_loaded)
+        st.success("Go to the CLV Analysis page using the sidebar")
 
 
 tabs = ["Import Interaction History"] + (["Import Product Holdings"] if clv_metrics_avail() else [])

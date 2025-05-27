@@ -105,7 +105,7 @@ with st.sidebar:
     )
 
 st.subheader("Choose file with IH sample", divider='red')
-uploaded_file = st.file_uploader("*", type=["zip", "parquet"],
+uploaded_file = st.file_uploader("*", type=["zip", "parquet", "json", "gzip"],
                                  accept_multiple_files=False)
 df = pl.DataFrame()
 if uploaded_file:

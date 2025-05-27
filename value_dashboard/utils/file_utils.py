@@ -1,11 +1,42 @@
 import concurrent.futures
+import gzip
 import os
 import queue
+import shutil
+import tarfile
 import tempfile
 import time
 import zipfile
+from pathlib import Path
 
 import polars as pl
+
+
+def extract_compressed_file(file_path) -> str:
+    """
+    Extracts .gz, .gzip, .tar.gz, or .tgz files.
+    For .gz/.gzip: extracts to a file with same name minus extension.
+    For .tar.gz/.tgz: extracts all files to a directory with same name as archive.
+    """
+    file_path = Path(file_path)
+    suffixes = file_path.suffixes
+    file_name_no_ext = file_path.with_suffix('')
+
+    if suffixes[-2:] == ['.tar', '.gz'] or suffixes[-1] == '.tgz':
+        extract_dir = file_name_no_ext.with_suffix('')
+        extract_dir.mkdir(exist_ok=True)
+        with tarfile.open(file_path, 'r:gz') as tar:
+            tar.extractall(path=extract_dir)
+        return extract_dir
+
+    elif suffixes[-1] in ['.gz', '.gzip']:
+        output_path = file_name_no_ext
+        with gzip.open(file_path, 'rb') as f_in:
+            with open(output_path, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        return output_path
+    else:
+        raise Exception(f"File cannot be extracted: {file_path}")
 
 
 def read_dataset_export(file_name, src_folder=".",
@@ -42,6 +73,23 @@ def read_dataset_export(file_name, src_folder=".",
                 df = pl.scan_parquet(export_file)
             else:
                 df = pl.read_parquet(export_file)
+    elif file_name.endswith(".gzip") or file_name.endswith(".gz"):
+        error_reason = "Error reading GZIP file"
+        if os.path.exists(file_name):
+            export_file = file_name
+        elif os.path.exists(os.path.join(src_folder, file_name)):
+            export_file = os.path.join(src_folder, file_name)
+        if export_file and verbose:
+            print(error_reason, export_file)
+        if export_file:
+            output_file_or_dir = extract_compressed_file(export_file)
+            if lazy:
+                df = pl.read_ndjson(output_file_or_dir, infer_schema_length=100000)
+                os.remove(output_file_or_dir)
+                df = df.lazy()
+            else:
+                df = pl.read_ndjson(output_file_or_dir, infer_schema_length=100000)
+                os.remove(output_file_or_dir)
     else:
         zip_file = file_name
         if file_name.endswith(".zip"):

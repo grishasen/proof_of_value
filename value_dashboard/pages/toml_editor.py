@@ -171,7 +171,12 @@ conf, readme = st.tabs(tabs)
 with conf:
     st.title("Application Configuration Editor")
 
-    config = get_config()
+    try:
+        config = get_config()
+    except:
+        print_stack()
+        st.error("Error reading TOML file. Please validate config file.")
+        st.stop()
     # Display and edit copyright section
     st.subheader(
         "Branding Section",

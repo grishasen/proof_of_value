@@ -29,6 +29,10 @@ def get_config() -> dict:
         logger.error(f"Failed to parse config file: {e}")
         st.error("Configuration file is not valid TOML.")
         return {}
+    except KeyError as e:
+        logger.error(f"Failed to parse config file: {e}")
+        st.error("Configuration file is not valid TOML.")
+        return {}
 
 
 def clv_metrics_avail() -> bool:
