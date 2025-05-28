@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import polars as pl
 import polars_ds as pds
-from _datasketches import tdigest_double
+from datasketches import req_floats_sketch
 from polars import Series
 from polars import selectors as cs
 from polars_ds import weighted_mean
@@ -13,7 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
 from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME
-from value_dashboard.utils.polars_utils import T_DIGEST_COMPRESSION, merge_tdigests, build_tdigest
+from value_dashboard.utils.polars_utils import REQ_SKETCH_K, merge_req_floats_sketches, build_req_floats_sketch
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
@@ -240,13 +240,12 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     all_pos = args[0].to_list()[0]
     all_neg = args[1].to_list()[0]
 
-    def _merge(sketches: List[tdigest_double]) -> tdigest_double:
+    def _merge(sketches: List[req_floats_sketch]) -> req_floats_sketch:
         if not sketches:
-            return tdigest_double(T_DIGEST_COMPRESSION)
-        merged = tdigest_double.deserialize(sketches[0])
+            return req_floats_sketch(k=REQ_SKETCH_K, is_hra=False)
+        merged = req_floats_sketch.deserialize(sketches[0])
         for sk in sketches[1:]:
-            merged.merge(tdigest_double.deserialize(sk))
-        merged.compress()
+            merged.merge(req_floats_sketch.deserialize(sk))
         return merged
 
     pos_sk = _merge(all_pos)
@@ -262,8 +261,8 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
             'recall': [0.0],
         }
 
-    pos_count = pos_sk.get_total_weight()
-    neg_count = neg_sk.get_total_weight()
+    pos_count = pos_sk.n
+    neg_count = neg_sk.n
 
     cdf_pos = np.array(pos_sk.get_cdf(thresholds))
     cdf_neg = np.array(neg_sk.get_cdf(thresholds))
@@ -332,13 +331,13 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             pl.map_groups(
                 exprs=[pl.col("Propensity")
                        .filter(pl.col("Outcome_Boolean") == True)],
-                function=lambda s: build_tdigest(s),
+                function=lambda s: build_req_floats_sketch(s),
                 return_dtype=pl.Binary
             ).alias('tdigest_positives'),
             pl.map_groups(
                 exprs=[pl.col("Propensity")
                        .filter(pl.col("Outcome_Boolean") == False)],
-                function=lambda s: build_tdigest(s),
+                function=lambda s: build_req_floats_sketch(s),
                 return_dtype=pl.Binary
             ).alias('tdigest_negatives'),
         ]
@@ -410,7 +409,7 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
                 [
                     pl.map_groups(
                         exprs=["tdigest_positives"],
-                        function=merge_tdigests,
+                        function=merge_req_floats_sketches,
                         return_dtype=pl.Binary
                     ).alias("tdigest_positives_a")
                 ] if use_t_digest else []
@@ -420,7 +419,7 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
                 [
                     pl.map_groups(
                         exprs=["tdigest_negatives"],
-                        function=merge_tdigests,
+                        function=merge_req_floats_sketches,
                         return_dtype=pl.Binary
                     ).alias("tdigest_negatives_a")
                 ] if use_t_digest else []

@@ -12,7 +12,7 @@ from value_dashboard.metrics.constants import MODELCONTROLGROUP
 from value_dashboard.metrics.ml import binary_metrics_tdigest
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.logger import get_logger
-from value_dashboard.utils.polars_utils import merge_tdigests, estimate_quantile
+from value_dashboard.utils.polars_utils import merge_req_floats_sketches, estimate_quantile
 from value_dashboard.utils.stats import chi2_test, g_test, z_test, proportions_ztest
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
@@ -80,7 +80,7 @@ def group_model_ml_scores_data(
                 [
                     pl.map_groups(
                         exprs=["tdigest_positives"],
-                        function=merge_tdigests,
+                        function=merge_req_floats_sketches,
                         return_dtype=pl.Binary
                     ).alias("tdigest_positives_a")
                 ]
@@ -91,7 +91,7 @@ def group_model_ml_scores_data(
                 [
                     pl.map_groups(
                         exprs=["tdigest_negatives"],
-                        function=merge_tdigests,
+                        function=merge_req_floats_sketches,
                         return_dtype=pl.Binary
                     ).alias("tdigest_negatives_a")
                 ]
