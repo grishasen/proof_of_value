@@ -4,17 +4,16 @@ from typing import List
 import numpy as np
 import polars as pl
 import polars_ds as pds
+from _datasketches import tdigest_double
 from polars import Series
 from polars import selectors as cs
 from polars_ds import weighted_mean
-from polars_tdigest import estimate_quantile, merge_tdigests, tdigest
-from scipy.interpolate import interp1d
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
 from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME
-from value_dashboard.utils.polars_utils import T_DIGEST_COMPRESSION
+from value_dashboard.utils.polars_utils import T_DIGEST_COMPRESSION, merge_tdigests, build_tdigest
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
@@ -224,74 +223,65 @@ def novelty_optimized(args: List[Series]) -> pl.Float64:
 
 
 def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
-    if (args[0].len() == 0) or (args[1].len() == 0):
-        return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0]}
+    pos_series, neg_series = args[0], args[1]
+    if pos_series.len() == 0 or neg_series.len() == 0:
+        return {
+            'roc_auc': 0.0,
+            'average_precision': 0.0,
+            'tpr': [0.0],
+            'fpr': [0.0],
+            'precision': [0.0],
+            'recall': [0.0],
+        }
 
-    a = np.linspace(0, 0.1, num=100, endpoint=False)
-    b = np.linspace(0, 1, num=201)[20:]
-    thresholds = np.concatenate((a, b))
-    thresholds = [round(t.item(), 4) for t in thresholds]
+    a = np.linspace(0, 1, num=200, endpoint=False)
+    thresholds = [round(float(t), 4) for t in a]
 
-    df = pl.DataFrame(args)
-    df = df.filter(pl.col('column_0').struct.field("count") > 0)
-    if df.shape[0] > 0:
-        df = df.filter(pl.col('column_1').struct.field("count") > 0)
-    else:
-        return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0], 'precision': [0.0],
-                'recall': [0.0]}
+    all_pos = args[0].to_list()[0]
+    all_neg = args[1].to_list()[0]
 
-    if df.shape[0] == 0:
-        return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0], 'precision': [0.0],
-                'recall': [0.0]}
+    def _merge(sketches: List[tdigest_double]) -> tdigest_double:
+        if not sketches:
+            return tdigest_double(T_DIGEST_COMPRESSION)
+        merged = tdigest_double.deserialize(sketches[0])
+        for sk in sketches[1:]:
+            merged.merge(tdigest_double.deserialize(sk))
+        merged.compress()
+        return merged
 
-    positive_percentiles = (df.select([estimate_quantile('column_0', t).alias(f'{t}') for t in thresholds])
-                            .unpivot(cs.numeric())
-                            .with_columns(pl.col("variable").cast(pl.Float64))
-                            )
+    pos_sk = _merge(all_pos)
+    neg_sk = _merge(all_neg)
 
-    positive_percentiles = dict(positive_percentiles.iter_rows())
+    if pos_sk.is_empty() or neg_sk.is_empty():
+        return {
+            'roc_auc': 0.0,
+            'average_precision': 0.0,
+            'tpr': [0.0],
+            'fpr': [0.0],
+            'precision': [0.0],
+            'recall': [0.0],
+        }
 
-    negative_percentiles = (df.select([estimate_quantile('column_1', t).alias(f'{t}') for t in thresholds])
-                            .unpivot(cs.numeric())
-                            .with_columns(pl.col("variable").cast(pl.Float64))
-                            )
-    negative_percentiles = dict(negative_percentiles.iter_rows())
+    pos_count = pos_sk.get_total_weight()
+    neg_count = neg_sk.get_total_weight()
 
-    q_p = np.array(sorted(positive_percentiles.keys()))
-    s_p = np.array([positive_percentiles[q] for q in q_p])
-    q_n = np.array(sorted(negative_percentiles.keys()))
-    s_n = np.array([negative_percentiles[q] for q in q_n])
+    cdf_pos = np.array(pos_sk.get_cdf(thresholds))
+    cdf_neg = np.array(neg_sk.get_cdf(thresholds))
+    tpr = 1.0 - cdf_pos
+    fpr = 1.0 - cdf_neg
 
-    s_p, idx_p = np.unique(s_p, return_index=True)
-    q_p = q_p[idx_p]
-
-    s_n, idx_n = np.unique(s_n, return_index=True)
-    q_n = q_n[idx_n]
-
-    F_p = interp1d(s_p, q_p, kind='linear', bounds_error=False, fill_value=(0.0, 1.0))
-    F_n = interp1d(s_n, q_n, kind='linear', bounds_error=False, fill_value=(0.0, 1.0))
-
-    all_scores = np.union1d(s_p, s_n)
-    tpr = 1.0 - F_p(all_scores)
-    fpr = 1.0 - F_n(all_scores)
-    sorted_indices = np.argsort(fpr)
-    fpr_sorted = fpr[sorted_indices]
-    tpr_sorted = tpr[sorted_indices]
-
+    idx = np.argsort(fpr)
+    fpr_sorted = fpr[idx]
+    tpr_sorted = tpr[idx]
     roc_auc = np.trapz(tpr_sorted, fpr_sorted)
 
-    pos = df.select(pl.count('column_0')).item()
-    neg = df.select(pl.count('column_1')).item()
-    all_scores = np.sort(all_scores)[::-1]
-    tpr = 1.0 - F_p(all_scores)
-    fpr = 1.0 - F_n(all_scores)
+    recall = tpr[::-1]
+    fpr_desc = fpr[::-1]
+    tp = pos_count * recall
+    fp = neg_count * fpr_desc
 
-    tp = pos * tpr
-    fp = neg * fpr
-
-    epsilon = 1e-10
-    precision = tp / (tp + fp + epsilon)
-    recall = tpr
+    eps = 1e-10
+    precision = tp / (tp + fp + eps)
 
     precision = np.maximum.accumulate(precision[::-1])[::-1]
 
@@ -299,11 +289,17 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
         recall = np.concatenate(([0.0], recall))
         precision = np.concatenate(([1.0], precision))
 
-    delta_recall = recall[1:] - recall[:-1]
-    average_precision = np.sum(delta_recall * precision[1:])
+    delta_r = recall[1:] - recall[:-1]
+    average_precision = np.sum(delta_r * precision[1:])
 
-    return {'roc_auc': roc_auc, 'average_precision': average_precision, 'tpr': tpr_sorted.tolist(),
-            'fpr': fpr_sorted.tolist(), 'precision': precision.tolist(), 'recall': recall.tolist()}
+    return {
+        'roc_auc': float(roc_auc),
+        'average_precision': float(average_precision),
+        'tpr': tpr_sorted.tolist(),
+        'fpr': fpr_sorted.tolist(),
+        'precision': precision.tolist(),
+        'recall': recall.tolist(),
+    }
 
 
 @timed
@@ -333,10 +329,18 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
     ]
     if use_t_digest:
         t_digest_aggs = [
-            tdigest(pl.col("Propensity").filter(pl.col("Outcome_Boolean") == True),
-                    max_size=T_DIGEST_COMPRESSION).alias('tdigest_positives'),
-            tdigest(pl.col("Propensity").filter(pl.col("Outcome_Boolean") == False),
-                    max_size=T_DIGEST_COMPRESSION).alias('tdigest_negatives')
+            pl.map_groups(
+                exprs=[pl.col("Propensity")
+                       .filter(pl.col("Outcome_Boolean") == True)],
+                function=lambda s: build_tdigest(s),
+                return_dtype=pl.Binary
+            ).alias('tdigest_positives'),
+            pl.map_groups(
+                exprs=[pl.col("Propensity")
+                       .filter(pl.col("Outcome_Boolean") == False)],
+                function=lambda s: build_tdigest(s),
+                return_dtype=pl.Binary
+            ).alias('tdigest_negatives'),
         ]
         agg_exprs = common_aggs + t_digest_aggs
     else:
@@ -404,13 +408,21 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
             +
             (
                 [
-                    merge_tdigests("tdigest_positives").alias("tdigest_positives_a")
+                    pl.map_groups(
+                        exprs=["tdigest_positives"],
+                        function=merge_tdigests,
+                        return_dtype=pl.Binary
+                    ).alias("tdigest_positives_a")
                 ] if use_t_digest else []
             )
             +
             (
                 [
-                    merge_tdigests("tdigest_negatives").alias("tdigest_negatives_a")
+                    pl.map_groups(
+                        exprs=["tdigest_negatives"],
+                        function=merge_tdigests,
+                        return_dtype=pl.Binary
+                    ).alias("tdigest_negatives_a")
                 ] if use_t_digest else []
             )
         )
