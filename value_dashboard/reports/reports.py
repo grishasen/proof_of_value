@@ -116,10 +116,11 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
                       height=len(
                           report_data[config['facet_row']].unique()) * 400 if 'facet_row' in config.keys() else 640
                       )
-        fig.add_shape(
-            type="line", line=dict(dash='dash', color="darkred"),
-            row='all', col='all', x0=x0, y0=y0, x1=x1, y1=y1
-        )
+        if config['y'] == "roc_auc":
+            fig.add_shape(
+                type="line", line=dict(dash='dash', color="darkred"),
+                row='all', col='all', x0=x0, y0=y0, x1=x1, y1=y1
+            )
         fig.update_layout(
             xaxis=dict(
                 range=[0, 1]
