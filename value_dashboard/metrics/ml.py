@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import polars as pl
 import polars_ds as pds
-from _datasketches import tdigest_double
+from fastdigest import TDigest, merge_all
 from polars import Series
 from polars import selectors as cs
 from polars_ds import weighted_mean
@@ -13,7 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
 from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME
-from value_dashboard.utils.polars_utils import T_DIGEST_COMPRESSION, merge_tdigests, build_tdigest
+from value_dashboard.utils.polars_utils import merge_tdigests, build_tdigest
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
@@ -234,25 +234,25 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
             'recall': [0.0],
         }
 
-    a = np.linspace(0, 1, num=200, endpoint=False)
-    thresholds = [round(float(t), 4) for t in a]
+    a = np.linspace(0, 0.1, num=100, endpoint=False)
+    b = np.linspace(0, 1, num=201)[20:]
+    thresholds = np.concatenate((a, b))
+    thresholds = [round(t.item(), 4) for t in thresholds]
 
     all_pos = args[0].to_list()[0]
     all_neg = args[1].to_list()[0]
 
-    def _merge(sketches: List[tdigest_double]) -> tdigest_double:
-        if not sketches:
-            return tdigest_double(T_DIGEST_COMPRESSION)
-        merged = tdigest_double.deserialize(sketches[0])
-        for sk in sketches[1:]:
-            merged.merge(tdigest_double.deserialize(sk))
-        merged.compress()
-        return merged
+    partial_digests = []
+    for b in all_pos:
+        partial_digests.append(TDigest.from_dict(b))
+    pos_sk = merge_all(partial_digests)
 
-    pos_sk = _merge(all_pos)
-    neg_sk = _merge(all_neg)
+    partial_digests = []
+    for b in all_neg:
+        partial_digests.append(TDigest.from_dict(b))
+    neg_sk = merge_all(partial_digests)
 
-    if pos_sk.is_empty() or neg_sk.is_empty():
+    if pos_sk.is_empty or neg_sk.is_empty:
         return {
             'roc_auc': 0.0,
             'average_precision': 0.0,
@@ -262,11 +262,11 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
             'recall': [0.0],
         }
 
-    pos_count = pos_sk.get_total_weight()
-    neg_count = neg_sk.get_total_weight()
+    pos_count = pos_sk.n_values
+    neg_count = neg_sk.n_values
 
-    cdf_pos = np.array(pos_sk.get_cdf(thresholds))
-    cdf_neg = np.array(neg_sk.get_cdf(thresholds))
+    cdf_pos = np.array([pos_sk.cdf(t) for t in thresholds])
+    cdf_neg = np.array([neg_sk.cdf(t) for t in thresholds])
     tpr = 1.0 - cdf_pos
     fpr = 1.0 - cdf_neg
 

@@ -1,13 +1,13 @@
 import logging
 from typing import Dict, Any, List
 
-import datasketches
+from fastdigest import TDigest, merge_all
 import numpy as np
 import polars as pl
 
 from value_dashboard.utils.logger import get_logger
 
-T_DIGEST_COMPRESSION = 500
+T_DIGEST_COMPRESSION = 1000
 logger = get_logger(__name__, logging.DEBUG)
 
 
@@ -56,27 +56,26 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
 
 def build_tdigest(args: List[pl.Series]) -> bytes:
     arr = np.array(args[0].drop_nulls(), dtype=np.float64)
-    sketch = datasketches.tdigest_double(T_DIGEST_COMPRESSION)
-    sketch.update(arr)
-    sketch.compress()
-    return sketch.serialize()
+    if arr.size == 0:
+        sketch = TDigest.from_values([0.0], T_DIGEST_COMPRESSION)
+    else:
+        sketch = TDigest.from_values(arr, T_DIGEST_COMPRESSION)
+    return sketch.to_dict()
 
 
 def merge_tdigests(args: List[pl.Series]
                    ) -> bytes:
     sketch_bytes_list = args[0].to_list()[0]
-    merged = datasketches.tdigest_double.deserialize(sketch_bytes_list[0])
-    for b in sketch_bytes_list[1:]:
-        other = datasketches.tdigest_double.deserialize(b)
-        merged.merge(other)
-    merged.compress()
-    return merged.serialize()
+    partial_digests = []
+    for b in sketch_bytes_list:
+        partial_digests.append(TDigest.from_dict(b))
+    merged = merge_all(partial_digests)
+    return merged.to_dict()
 
 def estimate_quantile(args: List[pl.Series], quantile: float) -> float:
     sketch_bytes_list = args[0].to_list()[0]
-    merged = datasketches.tdigest_double.deserialize(sketch_bytes_list[0])
-    for b in sketch_bytes_list[1:]:
-        other = datasketches.tdigest_double.deserialize(b)
-        merged.merge(other)
-    merged.compress()
-    return merged.get_quantile(quantile)
+    partial_digests = []
+    for b in sketch_bytes_list:
+        partial_digests.append(TDigest.from_dict(b))
+    merged = merge_all(partial_digests)
+    return merged.quantile(quantile)
