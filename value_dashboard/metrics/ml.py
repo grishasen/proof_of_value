@@ -244,12 +244,17 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
         return {'roc_auc': 0.0, 'average_precision': 0.0, 'tpr': [0.0], 'fpr': [0.0], 'precision': [0.0],
                 'recall': [0.0]}
 
+    positives_tdigest_series = df.select(merge_tdigests(pl.col('column_0')))
+    positives_tdigest = positives_tdigest_series.item()
     positive_percentiles = (df.select([estimate_quantile('column_0', t).alias(f'{t}') for t in thresholds])
                             .unpivot(cs.numeric())
                             .with_columns(pl.col("variable").cast(pl.Float64))
                             )
 
     positive_percentiles = dict(positive_percentiles.iter_rows())
+
+    negatives_tdigest_series = df.select(merge_tdigests(pl.col('column_1')))
+    negatives_tdigest = negatives_tdigest_series.item()
 
     negative_percentiles = (df.select([estimate_quantile('column_1', t).alias(f'{t}') for t in thresholds])
                             .unpivot(cs.numeric())
@@ -280,8 +285,8 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
 
     roc_auc = np.trapz(tpr_sorted, fpr_sorted)
 
-    pos = df.select(pl.count('column_0')).item()
-    neg = df.select(pl.count('column_1')).item()
+    pos = positives_tdigest.get('count')
+    neg = negatives_tdigest.get('count')
     all_scores = np.sort(all_scores)[::-1]
     tpr = 1.0 - F_p(all_scores)
     fpr = 1.0 - F_n(all_scores)
