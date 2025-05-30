@@ -98,6 +98,17 @@ def group_model_ml_scores_data(
                 if use_t_digest
                 else []
             )
+            + (
+                [
+                    pl.map_groups(
+                        exprs=["tdigest_propensity"],
+                        function=merge_tdigests,
+                        return_dtype=pl.Binary
+                    ).alias("tdigest_propensity_a")
+                ]
+                if use_t_digest
+                else []
+            )
         )
         .select(cs.ends_with("_a"))
         .rename(lambda column_name: column_name.removesuffix("_a"))
@@ -241,7 +252,8 @@ def calculate_model_ml_scores(
                 [
                     pl.map_groups(
                         exprs=["tdigest_positives",
-                               "tdigest_negatives"],
+                               "tdigest_negatives",
+                               "tdigest_propensity"],
                         function=binary_metrics_tdigest,
                         return_dtype=pl.Struct,
                         returns_scalar=True,

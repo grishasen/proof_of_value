@@ -56,27 +56,30 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
 
 def build_tdigest(args: List[pl.Series]) -> bytes:
     arr = np.array(args[0].drop_nulls(), dtype=np.float64)
-    sketch = datasketches.tdigest_double(T_DIGEST_COMPRESSION)
-    sketch.update(arr)
-    sketch.compress()
+    sketch = datasketches.tdigest_float(T_DIGEST_COMPRESSION)
+    if arr.size == 0:
+        sketch.update(0.0)
+    else:
+        sketch.update(arr)
+    #sketch.compress()
     return sketch.serialize()
 
 
 def merge_tdigests(args: List[pl.Series]
                    ) -> bytes:
     sketch_bytes_list = args[0].to_list()[0]
-    merged = datasketches.tdigest_double.deserialize(sketch_bytes_list[0])
+    merged = datasketches.tdigest_float.deserialize(sketch_bytes_list[0])
     for b in sketch_bytes_list[1:]:
-        other = datasketches.tdigest_double.deserialize(b)
+        other = datasketches.tdigest_float.deserialize(b)
         merged.merge(other)
     merged.compress()
     return merged.serialize()
 
 def estimate_quantile(args: List[pl.Series], quantile: float) -> float:
     sketch_bytes_list = args[0].to_list()[0]
-    merged = datasketches.tdigest_double.deserialize(sketch_bytes_list[0])
+    merged = datasketches.tdigest_float.deserialize(sketch_bytes_list[0])
     for b in sketch_bytes_list[1:]:
-        other = datasketches.tdigest_double.deserialize(b)
+        other = datasketches.tdigest_float.deserialize(b)
         merged.merge(other)
-    merged.compress()
+    #merged.compress()
     return merged.get_quantile(quantile)

@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import polars as pl
 import polars_ds as pds
-from _datasketches import tdigest_double
+import datasketches
 from polars import Series
 from polars import selectors as cs
 from polars_ds import weighted_mean
@@ -234,23 +234,25 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
             'recall': [0.0],
         }
 
-    a = np.linspace(0, 1, num=200, endpoint=False)
+    a = np.linspace(0, 1, num=101)
     thresholds = [round(float(t), 4) for t in a]
 
-    all_pos = args[0].to_list()[0]
-    all_neg = args[1].to_list()[0]
+    all_pos = pos_series.to_list()[0]
+    all_neg = neg_series.to_list()[0]
+    all_props = args[2].to_list()[0]
 
-    def _merge(sketches: List[tdigest_double]) -> tdigest_double:
+    def _merge(sketches: List[datasketches.tdigest_float]) -> datasketches.tdigest_float:
         if not sketches:
-            return tdigest_double(T_DIGEST_COMPRESSION)
-        merged = tdigest_double.deserialize(sketches[0])
+            return datasketches.tdigest_float(T_DIGEST_COMPRESSION)
+        merged = datasketches.tdigest_float.deserialize(sketches[0])
         for sk in sketches[1:]:
-            merged.merge(tdigest_double.deserialize(sk))
-        merged.compress()
+            merged.merge(datasketches.tdigest_float.deserialize(sk))
+        #merged.compress()
         return merged
 
     pos_sk = _merge(all_pos)
     neg_sk = _merge(all_neg)
+    prop_sk = _merge(all_props)
 
     if pos_sk.is_empty() or neg_sk.is_empty():
         return {
@@ -265,18 +267,24 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     pos_count = pos_sk.get_total_weight()
     neg_count = neg_sk.get_total_weight()
 
-    cdf_pos = np.array(pos_sk.get_cdf(thresholds))
-    cdf_neg = np.array(neg_sk.get_cdf(thresholds))
+    thr = sorted(set([prop_sk.get_quantile(t) for t in thresholds]))
+    cdf_pos = np.array(pos_sk.get_cdf(thr))
+    cdf_neg = np.array(neg_sk.get_cdf(thr))
     tpr = 1.0 - cdf_pos
     fpr = 1.0 - cdf_neg
+
+    tpr = np.maximum.accumulate(tpr[::-1])[::-1]
+    pairs = np.vstack((fpr, tpr)).T
+    unique_pairs = np.unique(pairs, axis=0)
+    fpr, tpr = unique_pairs[:, 0], unique_pairs[:, 1]
 
     idx = np.argsort(fpr)
     fpr_sorted = fpr[idx]
     tpr_sorted = tpr[idx]
     roc_auc = np.trapz(tpr_sorted, fpr_sorted)
 
-    recall = tpr[::-1]
-    fpr_desc = fpr[::-1]
+    recall = tpr
+    fpr_desc = fpr
     tp = pos_count * recall
     fp = neg_count * fpr_desc
 
@@ -341,6 +349,11 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
                 function=lambda s: build_tdigest(s),
                 return_dtype=pl.Binary
             ).alias('tdigest_negatives'),
+            pl.map_groups(
+                exprs=[pl.col("Propensity")],
+                function=lambda s: build_tdigest(s),
+                return_dtype=pl.Binary
+            ).alias('tdigest_propensity')
         ]
         agg_exprs = common_aggs + t_digest_aggs
     else:
@@ -423,6 +436,16 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
                         function=merge_tdigests,
                         return_dtype=pl.Binary
                     ).alias("tdigest_negatives_a")
+                ] if use_t_digest else []
+            )
+            +
+            (
+                [
+                    pl.map_groups(
+                        exprs=["tdigest_propensity"],
+                        function=merge_tdigests,
+                        return_dtype=pl.Binary
+                    ).alias("tdigest_propensity_a")
                 ] if use_t_digest else []
             )
         )
