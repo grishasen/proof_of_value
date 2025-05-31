@@ -66,7 +66,7 @@ group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "Issu
 filter = """"""
 use_t_digest = "true"
 columns = ['Outcome', 'Propensity', 'FinalPropensity', 'Priority', 'ResponseTime']
-scores = ['Count', 'Sum', 'Mean', 'Median', 'p25', 'p75', 'p90', 'p95', 'Std', 'Var', 'Skew']
+scores = ['Count', 'Sum', 'Mean', 'Median', 'p25', 'p75', 'p90', 'p95', 'Std', 'Var', 'Skew', 'Min', 'Max']
 
 [metrics.experiment]
 group_by = ["Year", "Channel", "PlacementType"]
@@ -137,6 +137,7 @@ animation_group = "Group"
 x = 'Count'
 y = 'Lift'
 log_x = 'true'
+log_x = 'false'
 
 [reports.daily_model_roc_auc_place]
 metric = "model_ml_scores"

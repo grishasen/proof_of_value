@@ -521,6 +521,8 @@ def calculate_descriptive_scores(
                 [
                     (cs.ends_with("Count").sum()).name.suffix("_a"),
                     (cs.ends_with("Sum").sum()).name.suffix("_a"),
+                    (cs.ends_with("Min").min()).name.suffix("_a"),
+                    (cs.ends_with("Max").max()).name.suffix("_a"),
                     pl.col(grp_by).first().name.suffix("_a"),
                 ]
                 + [
@@ -618,6 +620,8 @@ def calculate_descriptive_scores(
         non_tdigest_aggs = [
             (cs.ends_with("Count").sum()).name.suffix("_a"),
             (cs.ends_with("Sum").sum()).name.suffix("_a"),
+            (cs.ends_with("Min").min()).name.suffix("_a"),
+            (cs.ends_with("Max").max()).name.suffix("_a"),
             pl.col(grp_by).first().name.suffix("_a"),
         ]
 
@@ -636,6 +640,8 @@ def calculate_descriptive_scores(
             (0.75, "p75"),
             (0.90, "p90"),
             (0.95, "p95"),
+            (0.0, "p0"),
+            (1.0, "p100")
         ]
 
         copy_data = copy_data.group_by(grp_by)

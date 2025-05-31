@@ -230,7 +230,7 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     a = np.linspace(0, 0.1, num=100, endpoint=False)
     b = np.linspace(0, 1, num=201)[20:]
     thresholds = np.concatenate((a, b))
-    thresholds = [round(t.item(), 4) for t in thresholds]
+    thresholds = [round(t.item(), 4) for t in np.linspace(0, 1, num=101)]
 
     df = pl.DataFrame(args)
     df = df.filter(pl.col('column_0').struct.field("count") > 0)
@@ -279,6 +279,12 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     all_scores = np.union1d(s_p, s_n)
     tpr = 1.0 - F_p(all_scores)
     fpr = 1.0 - F_n(all_scores)
+
+    tpr = np.maximum.accumulate(tpr[::-1])[::-1]
+    pairs = np.vstack((fpr, tpr)).T
+    unique_pairs = np.unique(pairs, axis=0)
+    fpr, tpr = unique_pairs[:, 0], unique_pairs[:, 1]
+
     sorted_indices = np.argsort(fpr)
     fpr_sorted = fpr[sorted_indices]
     tpr_sorted = tpr[sorted_indices]
@@ -287,9 +293,9 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
 
     pos = positives_tdigest.get('count')
     neg = negatives_tdigest.get('count')
-    all_scores = np.sort(all_scores)[::-1]
-    tpr = 1.0 - F_p(all_scores)
-    fpr = 1.0 - F_n(all_scores)
+    #all_scores = np.sort(all_scores)[::-1]
+    #tpr = 1.0 - F_p(all_scores)
+    #fpr = 1.0 - F_n(all_scores)
 
     tp = pos * tpr
     fp = neg * fpr

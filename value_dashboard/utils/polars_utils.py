@@ -5,7 +5,7 @@ import polars as pl
 
 from value_dashboard.utils.logger import get_logger
 
-T_DIGEST_COMPRESSION = 1000
+T_DIGEST_COMPRESSION = 200
 logger = get_logger(__name__, logging.DEBUG)
 
 
