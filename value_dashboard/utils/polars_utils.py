@@ -36,17 +36,24 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
     records = []
     for col, dtype in schema.items():
         if dtype == pl.Utf8:
-            count = df[col].n_unique()
+            unique_count = df[col].n_unique()
+            mode = df[col].mode().to_list()
+            unique = df[col].unique().to_list()
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
-                "Unique Count": count
+                "Unique Count": unique_count,
+                "Mode": str(mode),
+                "Values": str(unique) if unique_count < 10 else '...'
             })
         else:
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
-                "Unique Count": "N/A"
+                "Unique Count": "N/A",
+                "Mode": "N/A",
+                "Values": "Min: " + str(df[col].min()) + " Max: " + str(df[col].max()) + " Mean: " + str(
+                    df[col].mean()) + " Median: " + str(df[col].median())
             })
 
     return pl.DataFrame(records)

@@ -1,4 +1,5 @@
 import tomllib
+from traceback import print_stack
 
 import streamlit as st
 
@@ -22,16 +23,19 @@ def get_config() -> dict:
         with open(config_file, mode="rb") as fp:
             return tomllib.load(fp)
     except FileNotFoundError:
+        print_stack()
         logger.error(f"Config file not found: {config_file}")
         st.error(f"Configuration file not found: {config_file}")
         return {}
     except tomllib.TOMLDecodeError as e:
+        print_stack()
         logger.error(f"Failed to parse config file: {e}")
-        st.error("Configuration file is not valid TOML.")
+        st.error(f"Configuration file is not valid TOML. {e}")
         return {}
     except KeyError as e:
+        print_stack()
         logger.error(f"Failed to parse config file: {e}")
-        st.error("Configuration file is not valid TOML.")
+        st.error(f"Configuration file is not valid TOML. {e}")
         return {}
 
 

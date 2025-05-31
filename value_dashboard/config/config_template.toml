@@ -137,7 +137,7 @@ animation_group = "Group"
 x = 'Count'
 y = 'Lift'
 log_x = 'true'
-log_x = 'false'
+log_y = 'false'
 
 [reports.daily_model_roc_auc_place]
 metric = "model_ml_scores"

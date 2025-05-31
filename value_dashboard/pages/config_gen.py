@@ -2,6 +2,7 @@ import os
 import tempfile
 import tomllib
 import uuid
+from traceback import print_stack
 
 import polars as pl
 import streamlit as st
@@ -65,10 +66,12 @@ with st.sidebar:
         with open(template_config_file, mode="rb") as fp:
             template_config = tomllib.load(fp)
     except FileNotFoundError:
+        print_stack()
         st.error(f"Configuration file not found: {template_config_file}")
         st.stop()
     except tomllib.TOMLDecodeError as e:
-        st.error("Configuration file is not valid TOML.")
+        print_stack()
+        st.error(f"Configuration file is not valid TOML. {e}")
         st.stop()
 
     api_key_input = st.text_input(
