@@ -46,14 +46,23 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
                 "Mode": str(mode),
                 "Values": str(unique) if unique_count < 10 else '...'
             })
+        elif dtype.is_numeric():
+            records.append({
+                "Column": col,
+                "Data Type": str(dtype),
+                "Unique Count": "N/A",
+                "Mode": "N/A",
+                "Values": "Min = " + f'{df[col].min():.4f}' + " Max = " + f'{df[col].max():.4f}' + " Mean = "
+                          + f'{df[col].mean():.4f}' + " Median = " + f'{df[col].median():.4f}'
+            })
         else:
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
                 "Unique Count": "N/A",
                 "Mode": "N/A",
-                "Values": "Min: " + str(df[col].min()) + " Max: " + str(df[col].max()) + " Mean: " + str(
-                    df[col].mean()) + " Median: " + str(df[col].median())
+                "Values": "Min = " + f'{df[col].min()}' + " Max = " + f'{df[col].max()}'
             })
+
 
     return pl.DataFrame(records)

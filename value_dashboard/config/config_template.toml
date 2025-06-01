@@ -19,7 +19,7 @@ streaming = "true"
 background = "false"
 
 [ih.extensions]
-default_values = { 'HoldOutControlGroup' = 'Test', 'ModelControlGroup' = 'Test', 'PlacementType' = 'NA', 'ExperimentName' = 'N/A', 'ExperimentGroup' = 'N/A', 'FinalPropensity' = 0.0, 'Priority' = 1e-10, 'Revenue' = 0.0 }
+default_values = { 'HoldOutControlGroup' = 'Test', 'ModelControlGroup' = 'Test', 'PlacementType' = 'NA', 'ExperimentName' = 'N/A', 'ExperimentGroup' = 'N/A', 'FinalPropensity' = 0.0, 'Priority' = 1e-10, 'Revenue' = 0.0, "PropensitySource" = "NA" }
 filter = """pl.col("Channel").is_not_null()"""
 columns = """"""
 
@@ -37,10 +37,10 @@ filter = """"""
 columns = """[pl.col('PurchasedDate').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").dt.date().alias('PurchasedDateTime')]"""
 
 [metrics]
-global_filters = ["Channel", "Year"]
+global_filters = ["Channel", "Year", "PlacementType", "PropensitySource"]
 
 [metrics.model_ml_scores]
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "Issue", "Group"]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group"]
 filter = """"""
 use_t_digest = "true"
 scores = ["roc_auc", "average_precision", "personalization", "novelty"]
@@ -48,28 +48,28 @@ positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
 
 [metrics.engagement]
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "HoldOutControlGroup", "Issue", "Group"]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "HoldOutControlGroup", "PropensitySource", "Issue", "Group"]
 filter = """"""
 scores = ["CTR", "Lift", "Lift_Z_Score", "Lift_P_Val"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
 
 [metrics.conversion]
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "Issue", "Group"]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group"]
 filter = ""
 scores = ["ConversionRate", "Revenue"]
 positive_model_response = ["Conversion"]
 negative_model_response = ["Impression"]
 
 [metrics.descriptive]
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "Issue", "Group", "Outcome"]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group", "Outcome"]
 filter = """"""
 use_t_digest = "true"
 columns = ['Outcome', 'Propensity', 'FinalPropensity', 'Priority', 'ResponseTime']
 scores = ['Count', 'Sum', 'Mean', 'Median', 'p25', 'p75', 'p90', 'p95', 'Std', 'Var', 'Skew', 'Min', 'Max']
 
 [metrics.experiment]
-group_by = ["Year", "Channel", "PlacementType"]
+group_by = ["Year", "Channel", "PlacementType", "PropensitySource"]
 filter = """"""
 experiment_name = "ExperimentName"
 experiment_group = "ExperimentGroup"
@@ -143,10 +143,10 @@ log_y = 'false'
 metric = "model_ml_scores"
 type = "line"
 description = "[ML] Daily model ROC AUC By Placement"
-group_by = ["Day", "Channel", "PlacementType", "Issue"]
+group_by = ["Day", "Channel", "PlacementType", "PropensitySource"]
 x = "Day"
 y = "roc_auc"
-color = "Issue"
+color = "PropensitySource"
 facet_row = "Channel"
 facet_column = "PlacementType"
 
@@ -155,10 +155,10 @@ facet_column = "PlacementType"
 metric = "model_ml_scores"
 type = "line"
 description = "[ML] Daily average precision score"
-group_by = ["Day", "Channel", "PlacementType", "Issue"]
+group_by = ["Day", "Channel", "PlacementType", "PropensitySource"]
 x = "Day"
 y = "average_precision"
-color = "Issue"
+color = "PropensitySource"
 facet_row = "Channel"
 facet_column = "PlacementType"
 
@@ -180,7 +180,7 @@ color = "novelty"
 metric = "engagement"
 type = "line"
 description = "[ENG] Daily Click Through Rate"
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "Issue", "Group"]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group"]
 x = "Day"
 y = "CTR"
 color = "Group"
@@ -191,7 +191,7 @@ facet_column = "PlacementType"
 metric = "engagement"
 type = "line"
 description = "[ENG] Daily CTR vs HoldOut Control Group"
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "HoldOutControlGroup"]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "HoldOutControlGroup"]
 x = "Day"
 y = "CTR"
 color = "HoldOutControlGroup"
@@ -202,7 +202,7 @@ facet_column = "PlacementType"
 metric = "engagement"
 type = "line"
 description = "[ENG] Daily Lift vs Random Action"
-group_by = ["Day", "Quarter", "Year", "Channel", "PlacementType", "Issue"]
+group_by = ["Day", "Quarter", "Year", "Channel", "PlacementType", "PropensitySource", "Issue"]
 x = "Day"
 y = "Lift"
 color = "Issue"
@@ -213,7 +213,7 @@ facet_column = "PlacementType"
 metric = "engagement"
 type = "line"
 description = "[ENG] Lift vs Random Action Significance"
-group_by = ["Day", "Quarter", "Year", "Channel", "PlacementType", "Issue"]
+group_by = ["Day", "Quarter", "Year", "Channel", "PlacementType", "PropensitySource", "Issue"]
 x = "Day"
 y = "Lift_Z_Score"
 color = "Issue"
@@ -247,7 +247,7 @@ Mobile_Conversion = 0.065
 metric = 'descriptive'
 type = 'line'
 description = '[DESC] Univariate analysis'
-group_by = ['Day', 'Month', 'Year', 'Quarter', 'Channel', 'PlacementType', 'Issue', 'Group', 'Outcome']
+group_by = ['Day', 'Month', 'Year', 'Quarter', 'Channel', 'PlacementType', "PropensitySource", 'Issue', 'Group', 'Outcome']
 x = 'Day'
 y = 'Propensity'
 score = 'Mean'
@@ -259,7 +259,7 @@ facet_column = "PlacementType"
 metric = 'descriptive'
 type = 'boxplot'
 description = '[DESC] Univariate analysis: Quartiles'
-group_by = ['Day', 'Month', 'Year', 'Quarter', 'Channel', 'PlacementType', 'Issue', 'Group', 'Outcome']
+group_by = ['Day', 'Month', 'Year', 'Quarter', 'Channel', 'PlacementType', "PropensitySource", 'Issue', 'Group', 'Outcome']
 x = 'Day'
 y = 'Propensity'
 color = 'Issue'
