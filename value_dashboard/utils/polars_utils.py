@@ -67,7 +67,6 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
                 "Values": "Min = " + f'{df[col].min()}' + " Max = " + f'{df[col].max()}'
             })
 
-
     return pl.DataFrame(records)
 
 

@@ -258,7 +258,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         st.warning("No data available.")
         st.stop()
     if cards_on:
-        engagement_ctr_cards_subplot(ih_analysis, config)
+        engagement_ctr_cards_subplot(ih_analysis, cp_config)
 
     ih_analysis['ConfInterval'] = ih_analysis['StdErr'] * 1.96
     if len(ih_analysis[config['x']].unique()) < 25:
@@ -1025,9 +1025,10 @@ def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
                     facet_col=facet_column,
                     title=title,
                     height=height,
-                    category_orders = {
-                        config['color']: ih_analysis.sort_values("Count", axis=0, ascending=False)[config['color']].unique()
-                        }
+                    category_orders={
+                        config['color']: ih_analysis.sort_values("Count", axis=0, ascending=False)[
+                            config['color']].unique()
+                    }
                     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
     st.plotly_chart(fig, use_container_width=True)
@@ -1199,7 +1200,7 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         st.warning("No data available.")
         st.stop()
     if cards_on:
-        conversion_rate_cards_subplot(ih_analysis, config)
+        conversion_rate_cards_subplot(ih_analysis, cp_config)
 
     if len(ih_analysis[config['x']].unique()) < 30:
         fig = px.bar(ih_analysis,
