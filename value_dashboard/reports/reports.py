@@ -249,9 +249,10 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if not xplot_col in grp_by:
         grp_by.append(xplot_col)
 
-    config['group_by'] = grp_by
+    cp_config = config.copy()
+    cp_config['group_by'] = grp_by
 
-    report_data = calculate_reports_data(data, config).to_pandas()
+    report_data = calculate_reports_data(data, cp_config).to_pandas()
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
@@ -682,10 +683,12 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if not xplot_col in grp_by:
         grp_by.append(xplot_col)
 
-    config['group_by'] = grp_by
+    cp_config = config.copy()
+    cp_config['group_by'] = grp_by
 
-    report_data = calculate_reports_data(data, config).to_pandas()
-    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+    report_data = calculate_reports_data(data, cp_config)
+    ih_analysis = report_data.to_pandas()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
@@ -759,7 +762,6 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
                          config: dict) -> pd.DataFrame:
     metric = config["metric"]
     m_config = get_config()["metrics"][metric]
-    scores = m_config["scores"]
     columns_conf = m_config['columns']
     num_columns = [col for col in columns_conf if (col + '_Mean') in data.columns]
 
@@ -847,10 +849,13 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if not xplot_col in grp_by:
         grp_by.append(xplot_col)
 
-    config['group_by'] = grp_by
+    cp_config = config.copy()
+    cp_config['group_by'] = grp_by
 
-    report_data = calculate_reports_data(data, config).to_pandas()
-    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+    report_data = calculate_reports_data(data, cp_config)
+    ih_analysis = report_data.to_pandas()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
@@ -901,9 +906,18 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
         mean = item[config['y'] + '_Mean']
         sd = item[config['y'] + '_Std']
         lowerfence = item[config['y'] + '_p25'] - 1.5 * (item[config['y'] + '_p75'] - item[config['y'] + '_p25'])
+        lowerfence1 = item[config['y'] + '_Min']
+        if lowerfence1 > lowerfence:
+            lowerfence = lowerfence1
+
         notchspan = (1.57 * (
                 (item[config['y'] + '_p75'] - item[config['y'] + '_p25']) / (item[config['y'] + '_Count'] ** 0.5)))
+
         upperfence = (item[config['y'] + '_p75'] + 1.5 * (item[config['y'] + '_p75'] - item[config['y'] + '_p25']))
+        upperfence1 = item[config['y'] + '_Max']
+        if upperfence1 < upperfence:
+            upperfence = upperfence1
+
         subplot_row, subplot_col = row_col_map[(row, col)]
         fig.add_trace(
             go.Box(
@@ -1010,7 +1024,11 @@ def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
                     facet_row=facet_row,
                     facet_col=facet_column,
                     title=title,
-                    height=height)
+                    height=height,
+                    category_orders = {
+                        config['color']: ih_analysis.sort_values("Count", axis=0, ascending=False)[config['color']].unique()
+                        }
+                    )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
     st.plotly_chart(fig, use_container_width=True)
     return ih_analysis
@@ -1172,9 +1190,10 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if not xplot_col in grp_by:
         grp_by.append(xplot_col)
 
-    config['group_by'] = grp_by
+    cp_config = config.copy()
+    cp_config['group_by'] = grp_by
 
-    report_data = calculate_reports_data(data, config).to_pandas()
+    report_data = calculate_reports_data(data, cp_config).to_pandas()
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
@@ -1335,9 +1354,10 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if not xplot_col in grp_by:
         grp_by.append(xplot_col)
 
-    config['group_by'] = grp_by
+    cp_config = config.copy()
+    cp_config['group_by'] = grp_by
 
-    report_data = calculate_reports_data(data, config).to_pandas()
+    report_data = calculate_reports_data(data, cp_config).to_pandas()
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
@@ -1641,7 +1661,8 @@ def eng_conv_ml_scatter_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      animation_group=config['animation_group'],
                      size=config['size'], color=config['color'],
                      hover_name=config['animation_group'],
-                     size_max=100, log_x=strtobool(config['log_x']),
+                     size_max=100, log_x=strtobool(config.get('log_x', False)),
+                     log_y=strtobool(config.get('log_y', False)),
                      range_y=[ih_analysis[config['y']].min(), ih_analysis[config['y']].max()],
                      range_x=[ih_analysis[config['x']].min(), ih_analysis[config['x']].max()],
                      height=640)
@@ -1897,7 +1918,6 @@ def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
         grp_by.append(config['theta'])
     if not config['color'] in grp_by:
         grp_by.append(config['color'])
-    config['group_by'] = grp_by
 
     if grp_by:
         if isinstance(data, pd.DataFrame):

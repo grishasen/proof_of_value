@@ -8,6 +8,8 @@ import polars_ds as pds
 from polars import Series
 from polars import selectors as cs
 from polars_ds import weighted_mean
+from polars_tdigest import estimate_quantile, merge_tdigests, tdigest
+from scipy.interpolate import interp1d
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize

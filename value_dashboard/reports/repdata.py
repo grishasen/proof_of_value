@@ -505,8 +505,8 @@ def calculate_descriptive_scores(
         .select(cs.ends_with("_a"))
         .rename(lambda column_name: column_name.removesuffix("_a"))
     )
-    copy_data = data.join(grouped_mean, on=grp_by)
-    copy_data = copy_data.with_columns(
+    cdata = data.join(grouped_mean, on=grp_by)
+    cdata = cdata.with_columns(
         [
             # (n_i - 1) * variance_i
             ((pl.col(f"{c}_Count") - 1) * pl.col(f"{c}_Var")).alias(
@@ -525,12 +525,14 @@ def calculate_descriptive_scores(
     )
     logger.debug("Mean and Var calculated... ")
     if not use_t_digest:
-        copy_data = (
-            copy_data.group_by(grp_by)
+        cdata = (
+            cdata.group_by(grp_by)
             .agg(
                 [
                     (cs.ends_with("Count").sum()).name.suffix("_a"),
                     (cs.ends_with("Sum").sum()).name.suffix("_a"),
+                    (cs.ends_with("Min").min()).name.suffix("_a"),
+                    (cs.ends_with("Max").max()).name.suffix("_a"),
                     pl.col(grp_by).first().name.suffix("_a"),
                 ]
                 + [
@@ -628,6 +630,8 @@ def calculate_descriptive_scores(
         non_tdigest_aggs = [
             (cs.ends_with("Count").sum()).name.suffix("_a"),
             (cs.ends_with("Sum").sum()).name.suffix("_a"),
+            (cs.ends_with("Min").min()).name.suffix("_a"),
+            (cs.ends_with("Max").max()).name.suffix("_a"),
             pl.col(grp_by).first().name.suffix("_a"),
         ]
 
@@ -638,17 +642,15 @@ def calculate_descriptive_scores(
                 pl.col(f"{c}_n_mean_diff_sq").sum().alias(f"{c}_sum_n_mean_diff_sq_tmp_a"),
             ])
 
-        df_non_tdigest = copy_data.group_by(grp_by).agg(non_tdigest_aggs)
-        logger.debug("Non digest properties aggregated...")
         quantiles = [
             (0.5, "Median"),
             (0.25, "p25"),
             (0.75, "p75"),
             (0.90, "p90"),
             (0.95, "p95"),
+            (0.0, "p0"),
+            (1.0, "p100")
         ]
-
-        copy_data = copy_data.group_by(grp_by)
         tdigest_aggs = []
         for c in num_columns:
             for quantile, suffix in quantiles:
@@ -660,13 +662,10 @@ def calculate_descriptive_scores(
                         return_dtype=pl.Float64
                     ).alias(f'{c}_{suffix}_a')
                 )
-        df_tdigest = copy_data.agg(tdigest_aggs)
-        df_non_tdigest = df_non_tdigest.join(df_tdigest, on=grp_by)
 
-        logger.debug("T-digest properties aggregated...")
-        copy_data = df_non_tdigest
-        copy_data = (
-            copy_data.select(cs.ends_with("_a"))
+        cdata = cdata.group_by(grp_by).agg(non_tdigest_aggs + tdigest_aggs)
+        cdata = (
+            cdata.select(cs.ends_with("_a"))
             .rename(lambda column_name: column_name.removesuffix("_a"))
             .select(~cs.ends_with("_tdigest"))
             .with_columns(
@@ -701,7 +700,7 @@ def calculate_descriptive_scores(
             .sort(grp_by, descending=False)
         )
     # logger.debug("End calculate_descriptive_scores ...")
-    return copy_data
+    return cdata
 
 
 def calculate_clv_scores(

@@ -24,7 +24,9 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
         pl.col(columns).count().name.suffix('_Count'),
         num_selector.sum().name.suffix('_Sum'),
         num_selector.mean().name.suffix('_Mean'),
-        num_selector.var().name.suffix('_Var')
+        num_selector.var().name.suffix('_Var'),
+        num_selector.min().name.suffix('_Min'),
+        num_selector.max().name.suffix('_Max')
     ]
     if use_t_digest:
         t_digest_aggs = [
@@ -94,6 +96,8 @@ def compact_descriptive_data(data: pl.DataFrame,
     common_aggs = [
         (cs.ends_with('Count').sum()).name.suffix("_a"),
         (cs.ends_with('Sum').sum()).name.suffix("_a"),
+        (cs.ends_with('Min').min()).name.suffix("_a"),
+        (cs.ends_with('Max').max()).name.suffix("_a"),
         pl.col(grp_by).first().name.suffix("_a")
     ]
 

@@ -2,6 +2,7 @@ import os
 import tempfile
 import tomllib
 import uuid
+from traceback import print_stack
 
 import polars as pl
 import streamlit as st
@@ -65,10 +66,12 @@ with st.sidebar:
         with open(template_config_file, mode="rb") as fp:
             template_config = tomllib.load(fp)
     except FileNotFoundError:
+        print_stack()
         st.error(f"Configuration file not found: {template_config_file}")
         st.stop()
     except tomllib.TOMLDecodeError as e:
-        st.error("Configuration file is not valid TOML.")
+        print_stack()
+        st.error(f"Configuration file is not valid TOML. {e}")
         st.stop()
 
     api_key_input = st.text_input(
@@ -154,14 +157,17 @@ if not df.is_empty():
         ], strict=False)
         .collect()
     )
-
+    df = df.select(sorted(df.columns))
     schema_df = schema_with_unique_counts(df).sort('Column')
     st.subheader("Schema", divider=True)
     st.data_editor(schema_df,
                    use_container_width=True,
                    disabled=True, height=300, hide_index=True)
     st.subheader("Data Summary", divider=True)
-    st.write(df.describe())
+    st.dataframe(df.describe())
+
+    with st.expander("View Data Sample", expanded=False, icon=":material/analytics:"):
+        st.dataframe(df)
 
     with pl.Config(tbl_cols=len(schema_df), tbl_rows=len(schema_df)):
         prompt = f"""

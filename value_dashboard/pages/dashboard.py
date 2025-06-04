@@ -133,4 +133,5 @@ st.data_editor(format_dates(filtered_rep_data.head(dataset_max_rows)).map(highli
                column_order=column_order,
                height=640 if filtered_rep_data.shape[0] > 15 else None,
                hide_index=True,
-               disabled=True)
+               disabled=True,
+               key='dashboard-data')
