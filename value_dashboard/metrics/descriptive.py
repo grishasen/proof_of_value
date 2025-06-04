@@ -4,7 +4,7 @@ import polars as pl
 from polars import selectors as cs
 from polars_ds import weighted_mean
 
-from value_dashboard.utils.polars_utils import build_req_floats_sketch, merge_req_floats_sketches
+from value_dashboard.utils.polars_utils import build_kll_sketch, merge_kll_sketches
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
@@ -30,8 +30,9 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
         t_digest_aggs = [
             pl.map_groups(
                 exprs=[pl.col(c)],
-                function=lambda s: build_req_floats_sketch(s),
-                return_dtype=pl.Binary
+                function=lambda s: build_kll_sketch(s),
+                return_dtype=pl.Binary,
+                returns_scalar=True
             ).alias(f'{c}_tdigest') for c in num_columns
         ]
         agg_exprs = common_aggs + t_digest_aggs
@@ -124,8 +125,9 @@ def compact_descriptive_data(data: pl.DataFrame,
         extra_aggs = [
             pl.map_groups(
                 exprs=[pl.col(f'{c}_tdigest')],
-                function=lambda s: merge_req_floats_sketches(s),
-                return_dtype=pl.Binary
+                function=lambda s: merge_kll_sketches(s),
+                return_dtype=pl.Binary,
+                returns_scalar=True
             ).alias(f'{c}_tdigest_a') for c in num_columns
         ]
 

@@ -1,10 +1,10 @@
 import traceback
 from typing import List
 
+import datasketches
 import numpy as np
 import polars as pl
 import polars_ds as pds
-from datasketches import req_floats_sketch
 from polars import Series
 from polars import selectors as cs
 from polars_ds import weighted_mean
@@ -13,7 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
 from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME
-from value_dashboard.utils.polars_utils import REQ_SKETCH_K, merge_req_floats_sketches, build_req_floats_sketch
+from value_dashboard.utils.polars_utils import merge_kll_sketches, build_kll_sketch
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
@@ -234,22 +234,13 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
             'recall': [0.0],
         }
 
-    a = np.linspace(0, 1, num=200, endpoint=False)
-    thresholds = [round(float(t), 4) for t in a]
+    thresholds = [round(float(t), 4) for t in np.linspace(0, 1, num=101)]
 
-    all_pos = args[0].to_list()[0]
-    all_neg = args[1].to_list()[0]
+    all_pos = args[0]
+    all_neg = args[1]
 
-    def _merge(sketches: List[req_floats_sketch]) -> req_floats_sketch:
-        if not sketches:
-            return req_floats_sketch(k=REQ_SKETCH_K, is_hra=False)
-        merged = req_floats_sketch.deserialize(sketches[0])
-        for sk in sketches[1:]:
-            merged.merge(req_floats_sketch.deserialize(sk))
-        return merged
-
-    pos_sk = _merge(all_pos)
-    neg_sk = _merge(all_neg)
+    pos_sk = datasketches.kll_doubles_sketch.deserialize(merge_kll_sketches([all_pos]))
+    neg_sk = datasketches.kll_doubles_sketch.deserialize(merge_kll_sketches([all_neg]))
 
     if pos_sk.is_empty() or neg_sk.is_empty():
         return {
@@ -331,14 +322,16 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             pl.map_groups(
                 exprs=[pl.col("Propensity")
                        .filter(pl.col("Outcome_Boolean") == True)],
-                function=lambda s: build_req_floats_sketch(s),
-                return_dtype=pl.Binary
+                function=lambda s: build_kll_sketch(s),
+                return_dtype=pl.Binary,
+                returns_scalar=True
             ).alias('tdigest_positives'),
             pl.map_groups(
                 exprs=[pl.col("Propensity")
                        .filter(pl.col("Outcome_Boolean") == False)],
-                function=lambda s: build_req_floats_sketch(s),
-                return_dtype=pl.Binary
+                function=lambda s: build_kll_sketch(s),
+                return_dtype=pl.Binary,
+                returns_scalar=True
             ).alias('tdigest_negatives'),
         ]
         agg_exprs = common_aggs + t_digest_aggs
@@ -409,8 +402,9 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
                 [
                     pl.map_groups(
                         exprs=["tdigest_positives"],
-                        function=merge_req_floats_sketches,
-                        return_dtype=pl.Binary
+                        function=merge_kll_sketches,
+                        return_dtype=pl.Binary,
+                        returns_scalar=True
                     ).alias("tdigest_positives_a")
                 ] if use_t_digest else []
             )
@@ -419,8 +413,9 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
                 [
                     pl.map_groups(
                         exprs=["tdigest_negatives"],
-                        function=merge_req_floats_sketches,
-                        return_dtype=pl.Binary
+                        function=merge_kll_sketches,
+                        return_dtype=pl.Binary,
+                        returns_scalar=True
                     ).alias("tdigest_negatives_a")
                 ] if use_t_digest else []
             )

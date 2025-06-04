@@ -8,7 +8,7 @@ import polars as pl
 from value_dashboard.utils.logger import get_logger
 
 T_DIGEST_COMPRESSION = 500
-REQ_SKETCH_K = 12
+KLL_SKETCH_K = 256
 logger = get_logger(__name__, logging.DEBUG)
 
 
@@ -55,27 +55,27 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
     return pl.DataFrame(records)
 
 
-def build_req_floats_sketch(args: List[pl.Series]) -> bytes:
-    arr = np.array(args[0].drop_nulls(), dtype=np.float32)
-    sketch = datasketches.req_floats_sketch(k=REQ_SKETCH_K, is_hra=False)
+def build_kll_sketch(args: List[pl.Series]) -> bytes:
+    arr = np.array(args[0].drop_nulls(), dtype=np.float64)
+    sketch = datasketches.kll_doubles_sketch(k=KLL_SKETCH_K)
     sketch.update(arr)
     return sketch.serialize()
 
 
-def merge_req_floats_sketches(args: List[pl.Series]
-                              ) -> bytes:
-    sketch_bytes_list = args[0].to_list()[0]
-    merged = datasketches.req_floats_sketch.deserialize(sketch_bytes_list[0])
+def merge_kll_sketches(args: List[pl.Series]
+                       ) -> bytes:
+    sketch_bytes_list = args[0].to_list()
+    merged = datasketches.kll_doubles_sketch.deserialize(sketch_bytes_list[0])
     for b in sketch_bytes_list[1:]:
-        other = datasketches.req_floats_sketch.deserialize(b)
+        other = datasketches.kll_doubles_sketch.deserialize(b)
         merged.merge(other)
     return merged.serialize()
 
 
-def estimate_quantile(args: List[pl.Series], quantile: float) -> float:
-    sketch_bytes_list = args[0].to_list()[0]
-    merged = datasketches.req_floats_sketch.deserialize(sketch_bytes_list[0])
+def estimate_kll_sketch_quantile(args: List[pl.Series], quantile: float) -> float:
+    sketch_bytes_list = args[0].to_list()
+    merged = datasketches.kll_doubles_sketch.deserialize(sketch_bytes_list[0])
     for b in sketch_bytes_list[1:]:
-        other = datasketches.req_floats_sketch.deserialize(b)
+        other = datasketches.kll_doubles_sketch.deserialize(b)
         merged.merge(other)
     return merged.get_quantile(quantile)
