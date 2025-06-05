@@ -7,7 +7,7 @@ import polars as pl
 
 from value_dashboard.utils.logger import get_logger
 
-T_DIGEST_COMPRESSION = 200
+T_DIGEST_COMPRESSION = 500
 REQ_SKETCH_ACCURACY = 24
 logger = get_logger(__name__, logging.DEBUG)
 
