@@ -22,7 +22,7 @@ from value_dashboard.metrics.descriptive import descriptive
 from value_dashboard.metrics.engagement import engagement
 from value_dashboard.metrics.experiment import experiment
 from value_dashboard.metrics.ml import model_ml_scores
-from value_dashboard.pipeline.datatools import collect_ih_metrics_data, collect_reports_data
+from value_dashboard.pipeline.datatools import collect_ih_metrics_data
 from value_dashboard.pipeline.datatools import compact_data
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.db_utils import save_file_meta, get_file_meta, drop_all_tables
@@ -289,8 +289,3 @@ def read_file_group(files: typing.Iterable,
     ih_group = ih_group.collect(engine="streaming" if streaming else "auto").lazy()
     logger.debug(f"Pre-processing: {(time.time() - start) * 10 ** 3:.03f}ms")
     return ih_group
-
-
-@st.cache_data(show_spinner=False, ttl=timedelta(hours=data_cache_hours))
-def get_reports_data():
-    return collect_reports_data(load_data())

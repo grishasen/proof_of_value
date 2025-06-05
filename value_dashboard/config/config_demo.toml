@@ -42,7 +42,7 @@ columns = """[pl.col('PurchasedDate').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.
 global_filters = ["Channel", "Year", "CustomerType"]
 
 [metrics.model_ml_scores]
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "ModelCategory"]
+group_by = ["Month", "Year", "Quarter", "Channel", "CustomerType", "Placement", "ModelCategory"]
 filter = ""
 use_t_digest = "true"
 scores = ["roc_auc", "average_precision", "personalization", "novelty"]

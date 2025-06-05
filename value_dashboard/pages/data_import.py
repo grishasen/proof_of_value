@@ -8,7 +8,7 @@ import zipfile
 import streamlit as st
 
 from value_dashboard.pipeline.holdings import load_holdings_data
-from value_dashboard.pipeline.ih import load_data, get_reports_data
+from value_dashboard.pipeline.ih import load_data
 from value_dashboard.utils.config import ih_metrics_avail, clv_metrics_avail, is_demo_mode
 from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.plotly_utils import init_plotly_theme
@@ -139,7 +139,6 @@ def import_data():
         time.sleep(1)
         msg.toast('Generating plots...', icon="📈")
         time.sleep(1)
-        report_data = get_reports_data()
         msg.toast('Dashboard ready.', icon="📊")
         if not use_aggregated:
             download_collected_metrics("collected_ih_metrics_data.json", data_loaded)

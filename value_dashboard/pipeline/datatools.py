@@ -12,8 +12,6 @@ from value_dashboard.metrics.descriptive import compact_descriptive_data
 from value_dashboard.metrics.engagement import compact_engagement_data
 from value_dashboard.metrics.experiment import compact_experiment_data
 from value_dashboard.metrics.ml import compact_model_ml_scores_data
-from value_dashboard.reports.repdata import group_model_ml_scores_data, group_experiment_data, group_engagement_data, \
-    group_conversion_data, group_descriptive_data
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.timer import timed
@@ -43,9 +41,12 @@ def collect_ih_metrics_data(loop, ih: pl.DataFrame | pl.LazyFrame,
                             config: dict,
                             metric_coroutines_map: dict):
     metrics = config["metrics"]
+    global_filters = metrics["global_filters"]
     coroutines = []
     for metric in metric_coroutines_map.keys():
         params = metrics[metric]
+        add_grp_by = list(set(global_filters) - set(params['group_by']))
+        params['group_by'] = params['group_by'] + add_grp_by
         coroutines.append(
             data_collection_async(
                 ih, params, metric, streaming, background, metric_coroutines_map.get(metric)
@@ -121,20 +122,44 @@ def collect_reports_data(collected_metrics_data: typing.Dict[str, pl.DataFrame])
     for report in report_params:
         params = report_params[report]
         if params['metric'].startswith("engagement"):
-            report_data = group_engagement_data(collected_metrics_data[params['metric']], params)
+            report_data = collected_metrics_data[params['metric']].clone()
             reports_data[report] = (report_data, params)
         elif params['metric'].startswith("model_ml_scores"):
-            report_data = group_model_ml_scores_data(collected_metrics_data[params['metric']], params)
+            report_data = collected_metrics_data[params['metric']].clone()
             reports_data[report] = (report_data, params)
         elif params['metric'].startswith("conversion"):
-            report_data = group_conversion_data(collected_metrics_data[params['metric']], params)
+            report_data = collected_metrics_data[params['metric']].clone()
             reports_data[report] = (report_data, params)
         elif params['metric'].startswith("descriptive"):
-            report_data = group_descriptive_data(collected_metrics_data[params['metric']], params)
+            report_data = collected_metrics_data[params['metric']].clone()
             reports_data[report] = (report_data, params)
         elif params['metric'].startswith("experiment"):
-            report_data = group_experiment_data(collected_metrics_data[params['metric']], params)
+            report_data = collected_metrics_data[params['metric']].clone()
             reports_data[report] = (report_data, params)
+    return reports_data
+
+
+@timed
+def get_reports_data_by_name(report_name: str, collected_metrics_data: typing.Dict[str, pl.DataFrame]) -> tuple[
+    pl.DataFrame, dict]:
+    report_params = get_config()["reports"]
+    reports_data: tuple[DataFrame, Any] = ()
+    params = report_params[report_name]
+    if params['metric'].startswith("engagement"):
+        report_data = collected_metrics_data[params['metric']].clone()
+        reports_data = (report_data, params)
+    elif params['metric'].startswith("model_ml_scores"):
+        report_data = collected_metrics_data[params['metric']].clone()
+        reports_data = (report_data, params)
+    elif params['metric'].startswith("conversion"):
+        report_data = collected_metrics_data[params['metric']].clone()
+        reports_data = (report_data, params)
+    elif params['metric'].startswith("descriptive"):
+        report_data = collected_metrics_data[params['metric']].clone()
+        reports_data = (report_data, params)
+    elif params['metric'].startswith("experiment"):
+        report_data = collected_metrics_data[params['metric']].clone()
+        reports_data = (report_data, params)
     return reports_data
 
 

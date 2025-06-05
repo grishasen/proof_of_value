@@ -10,7 +10,8 @@ from streamlit_dynamic_filters import DynamicFilters
 from streamlit_option_menu import option_menu
 from streamlit_theme import st_theme
 
-from value_dashboard.pipeline.ih import get_reports_data
+from value_dashboard.pipeline.datatools import get_reports_data_by_name
+from value_dashboard.pipeline.ih import load_data
 from value_dashboard.reports.reports import get_figures
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.st_utils import highlight_and_format, format_dates
@@ -40,8 +41,6 @@ if "data_profiling" in get_config()["ux"].keys():
     data_profiling = strtobool(get_config()["ux"]["data_profiling"])
 if data_profiling:
     import hvplot as hv
-
-reports_data = get_reports_data()
 
 st.markdown("""
         <style>
@@ -100,14 +99,13 @@ with st.sidebar:
     st.session_state['dashboard_last_access_time'] = time.time()
     st.session_state['selected_report'] = selected_report
 
-df = reports_data[reports_name_map[selected_report]][0].to_pandas()
-dynamic_filters = DynamicFilters(df,
+df, params = get_reports_data_by_name(reports_name_map[selected_report], load_data())
+dynamic_filters = DynamicFilters(df.to_pandas(),
                                  filters=get_config()["metrics"]["global_filters"])
 with st.sidebar:
     st.write("Filter data globally 👇")
     dynamic_filters.display_filters()
 
-params = reports_data[reports_name_map[selected_report]][1]
 globally_filtered_data = dynamic_filters.filter_df()
 filtered_rep_data = figures[reports_name_map[selected_report]](globally_filtered_data, params)
 

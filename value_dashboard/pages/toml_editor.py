@@ -9,14 +9,12 @@ import tomlkit
 from streamlit_tags import st_tags
 
 from value_dashboard.pipeline import holdings
-from value_dashboard.pipeline import ih
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.string_utils import strtobool, isBool
 
 
 def clear_config_cache():
     get_config.clear()
-    ih.get_reports_data.clear()
     holdings.get_reports_data.clear()
 
 
