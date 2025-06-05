@@ -41,6 +41,7 @@ def highlight_and_format(val):
 
 
 def align_column_types(df: pd.DataFrame):
+    df = df.reindex(sorted(df.columns), axis=1)
     return df.convert_dtypes()
 
 

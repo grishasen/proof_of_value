@@ -24,8 +24,9 @@ from value_dashboard.utils.timer import timed
 @timed
 def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                               config: dict) -> pd.DataFrame:
-    report_data = calculate_reports_data(data, config).to_pandas()
-    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+    ih_analysis = data.copy()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    ih_analysis = calculate_reports_data(ih_analysis, config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
@@ -340,8 +341,9 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
 
-    report_data = calculate_reports_data(data, cp_config).to_pandas()
-    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+    ih_analysis = data.copy()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
@@ -511,8 +513,9 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
 
-    report_data = calculate_reports_data(data, cp_config).to_pandas()
-    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+    ih_analysis = data.copy()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
@@ -1308,8 +1311,9 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
 
-    report_data = calculate_reports_data(data, cp_config).to_pandas()
-    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+    ih_analysis = data.copy()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
@@ -1467,8 +1471,9 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
 
-    report_data = calculate_reports_data(data, cp_config).to_pandas()
-    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+    ih_analysis = data.copy()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
@@ -1632,8 +1637,9 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
 
-    report_data = calculate_reports_data(data, cp_config).to_pandas()
-    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+    ih_analysis = data.copy()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
