@@ -12,7 +12,7 @@ from value_dashboard.metrics.constants import MODELCONTROLGROUP
 from value_dashboard.metrics.ml import binary_metrics_tdigest
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.logger import get_logger
-from value_dashboard.utils.polars_utils import merge_kll_sketches, estimate_kll_sketch_quantile
+from value_dashboard.utils.polars_utils import merge_digests, estimate_quantile
 from value_dashboard.utils.stats import chi2_test, g_test, z_test, proportions_ztest
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
@@ -80,7 +80,7 @@ def group_model_ml_scores_data(
                 [
                     pl.map_groups(
                         exprs=["tdigest_positives"],
-                        function=merge_kll_sketches,
+                        function=merge_digests,
                         return_dtype=pl.Binary,
                         returns_scalar=True
                     ).alias("tdigest_positives_a")
@@ -92,7 +92,7 @@ def group_model_ml_scores_data(
                 [
                     pl.map_groups(
                         exprs=["tdigest_negatives"],
-                        function=merge_kll_sketches,
+                        function=merge_digests,
                         return_dtype=pl.Binary,
                         returns_scalar=True
                     ).alias("tdigest_negatives_a")
@@ -657,7 +657,7 @@ def calculate_descriptive_scores(
                 tdigest_aggs.append(
                     pl.map_groups(
                         exprs=[f"{c}_tdigest"],
-                        function=partial(estimate_kll_sketch_quantile, quantile=quantile),
+                        function=partial(estimate_quantile, quantile=quantile),
                         returns_scalar=True,
                         return_dtype=pl.Float64
                     ).alias(f'{c}_{suffix}_a')

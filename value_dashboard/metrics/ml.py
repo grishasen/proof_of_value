@@ -13,7 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
 from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME
-from value_dashboard.utils.polars_utils import merge_kll_sketches, build_kll_sketch
+from value_dashboard.utils.polars_utils import merge_digests, build_digest
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
@@ -239,8 +239,8 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     all_pos = args[0]
     all_neg = args[1]
 
-    pos_sk = datasketches.kll_doubles_sketch.deserialize(merge_kll_sketches([all_pos]))
-    neg_sk = datasketches.kll_doubles_sketch.deserialize(merge_kll_sketches([all_neg]))
+    pos_sk = datasketches.tdigest_double.deserialize(merge_digests([all_pos]))
+    neg_sk = datasketches.tdigest_double.deserialize(merge_digests([all_neg]))
 
     if pos_sk.is_empty() or neg_sk.is_empty():
         return {
@@ -252,8 +252,8 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
             'recall': [0.0],
         }
 
-    pos_count = pos_sk.n
-    neg_count = neg_sk.n
+    pos_count = pos_sk.get_total_weight()
+    neg_count = neg_sk.get_total_weight()
 
     cdf_pos = np.array(pos_sk.get_cdf(thresholds))
     cdf_neg = np.array(neg_sk.get_cdf(thresholds))
@@ -322,14 +322,14 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
             pl.map_groups(
                 exprs=[pl.col("Propensity")
                        .filter(pl.col("Outcome_Boolean") == True)],
-                function=lambda s: build_kll_sketch(s),
+                function=lambda s: build_digest(s),
                 return_dtype=pl.Binary,
                 returns_scalar=True
             ).alias('tdigest_positives'),
             pl.map_groups(
                 exprs=[pl.col("Propensity")
                        .filter(pl.col("Outcome_Boolean") == False)],
-                function=lambda s: build_kll_sketch(s),
+                function=lambda s: build_digest(s),
                 return_dtype=pl.Binary,
                 returns_scalar=True
             ).alias('tdigest_negatives'),
@@ -402,7 +402,7 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
                 [
                     pl.map_groups(
                         exprs=["tdigest_positives"],
-                        function=merge_kll_sketches,
+                        function=merge_digests,
                         return_dtype=pl.Binary,
                         returns_scalar=True
                     ).alias("tdigest_positives_a")
@@ -413,7 +413,7 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
                 [
                     pl.map_groups(
                         exprs=["tdigest_negatives"],
-                        function=merge_kll_sketches,
+                        function=merge_digests,
                         return_dtype=pl.Binary,
                         returns_scalar=True
                     ).alias("tdigest_negatives_a")

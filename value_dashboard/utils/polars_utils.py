@@ -7,8 +7,8 @@ import polars as pl
 
 from value_dashboard.utils.logger import get_logger
 
-T_DIGEST_COMPRESSION = 500
-KLL_SKETCH_K = 256
+T_DIGEST_COMPRESSION = 200
+REQ_SKETCH_ACCURACY = 24
 logger = get_logger(__name__, logging.DEBUG)
 
 
@@ -70,27 +70,27 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
     return pl.DataFrame(records)
 
 
-def build_kll_sketch(args: List[pl.Series]) -> bytes:
+def build_digest(args: List[pl.Series]) -> bytes:
     arr = np.array(args[0].drop_nulls(), dtype=np.float64)
-    sketch = datasketches.kll_doubles_sketch(k=KLL_SKETCH_K)
+    sketch = datasketches.tdigest_double(k=T_DIGEST_COMPRESSION)
     sketch.update(arr)
     return sketch.serialize()
 
 
-def merge_kll_sketches(args: List[pl.Series]
-                       ) -> bytes:
+def merge_digests(args: List[pl.Series]
+                  ) -> bytes:
     sketch_bytes_list = args[0].to_list()
-    merged = datasketches.kll_doubles_sketch.deserialize(sketch_bytes_list[0])
+    merged = datasketches.tdigest_double.deserialize(sketch_bytes_list[0])
     for b in sketch_bytes_list[1:]:
-        other = datasketches.kll_doubles_sketch.deserialize(b)
+        other = datasketches.tdigest_double.deserialize(b)
         merged.merge(other)
     return merged.serialize()
 
 
-def estimate_kll_sketch_quantile(args: List[pl.Series], quantile: float) -> float:
+def estimate_quantile(args: List[pl.Series], quantile: float) -> float:
     sketch_bytes_list = args[0].to_list()
-    merged = datasketches.kll_doubles_sketch.deserialize(sketch_bytes_list[0])
+    merged = datasketches.tdigest_double.deserialize(sketch_bytes_list[0])
     for b in sketch_bytes_list[1:]:
-        other = datasketches.kll_doubles_sketch.deserialize(b)
+        other = datasketches.tdigest_double.deserialize(b)
         merged.merge(other)
     return merged.get_quantile(quantile)
