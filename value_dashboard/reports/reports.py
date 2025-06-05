@@ -314,7 +314,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             xplot_y_log = st.radio(
                 'Y Axis scale',
                 ('Linear', 'Logarithmic'),
-                horizontal=False,
+                horizontal=True,
                 help="Select axis scale.",
                 # label_visibility='collapsed'
             )
@@ -840,7 +840,7 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             xplot_y_log = st.radio(
                 'Y-Axis scale',
                 ('Linear', 'Logarithmic'),
-                horizontal=False,
+                horizontal=True,
                 help="Select axis scale.",
                 # label_visibility='collapsed'
             )
