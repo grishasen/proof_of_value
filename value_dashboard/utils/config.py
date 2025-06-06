@@ -1,3 +1,4 @@
+import os
 import tomllib
 from traceback import print_stack
 
@@ -15,7 +16,9 @@ def get_config() -> dict:
     if "app_config" in st.session_state.keys():
         config_file = st.session_state["app_config"]
     if not config_file:
-        config_file = "value_dashboard/config/config_template.toml"
+        package_dir = os.path.dirname(__file__)
+        config_file = os.path.join(package_dir, "../config", "config_template.toml")
+        #config_file = "value_dashboard/config/config_template.toml"
 
     logger.debug("Config file: " + config_file)
 
