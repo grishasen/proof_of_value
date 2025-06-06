@@ -6,7 +6,6 @@ authors = ["Grigoriy Sen <grigoriy.sen@pega.com>"]
 license = "MIT"
 readme = "README.md"
 exclude = [
-    "value_dashboard/config",
     "db",
     "data",
     "temp_configs",
