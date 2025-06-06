@@ -31,7 +31,7 @@ Go to [Wiki page](https://github.com/grishasen/proof_of_value/wiki) for addition
     - View the visualized data and apply various filters to interactively explore and analyze the data.
     - Use "Chat with data" with own OpenAI key.
 
-## Installation
+## Installation (from source)
 
 To run the CDH Value Dashboard Application locally from source, follow these steps:
 
@@ -65,6 +65,18 @@ To run the CDH Value Dashboard Application locally from source, follow these ste
    ```bash
    streamlit run vd_app.py -- --config=<config_file_path.toml>
    ```
+## Installation (python package)
+
+Install the package with PIP:
+```bash
+  pip install cdhdashboard
+```
+
+To verify that the package has been installed successfully, you can test your package by running. For example:
+
+```bash
+  cdhdashboard run  -- --config <config_file_path.toml>
+```
 
 ## Using Poetry to Build and Install Wheel
 
