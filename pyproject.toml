@@ -8,12 +8,12 @@ readme = "README.md"
 exclude = [
     "db",
     "data",
-    "temp_configs",
-
+    "temp_configs"
 ]
 packages = [
     { include = "vd_app.py", from = "." },
     { include = "__init__.py", from = "." },
+    { include = ".streamlit", from = "." },
     { include = "value_dashboard", from = "." }
 ]
 
@@ -42,11 +42,8 @@ psutil = "^7.0.0"
 hvplot = "^0.11.2"
 duckdb = ">=1.2.2,<2.0.0"
 lifetimes = ">=0.11.3"
-pandasai = { version = "^3.0.0b17", optional = true }
-kaleido = { version = "^1.0.0rc13", optional = true }
-
-[tool.poetry.extras]
-chat = ["pandasai", "kaleido"]
+pandasai = { version = "^3.0.0b17"}
+kaleido = { version = "^1.0.0rc13"}
 
 [tool.poetry.scripts]
 cdhdashboard = "value_dashboard.utils.cli:main"
