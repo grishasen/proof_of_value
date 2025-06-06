@@ -8,12 +8,13 @@ readme = "README.md"
 exclude = [
     "db",
     "data",
-    "temp_configs"
+    "temp_configs",
+    "cache",
+    "exports",
+    "tests"
 ]
 packages = [
-    { include = "vd_app.py", from = "." },
-    { include = "__init__.py", from = "." },
-    { include = ".streamlit", from = "." },
+    { include = "*", from = "." },
     { include = "value_dashboard", from = "." }
 ]
 
