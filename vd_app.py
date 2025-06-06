@@ -8,6 +8,8 @@ from value_dashboard.utils.config import clv_metrics_avail, ih_metrics_avail, ch
 from value_dashboard.utils.logger import configure_logging
 from value_dashboard.utils.st_utils import get_page_configs
 
+st.set_option("client.showErrorDetails", 'full')
+st.set_option("client.toolbarMode", 'minimal')
 st.set_page_config(**get_page_configs())
 
 
@@ -50,7 +52,9 @@ except SystemExit as e:
 if args.logging_config:
     configure_logging(config_path=args.logging_config)
 else:
-    configure_logging()
+    package_dir = os.path.dirname(__file__)
+    config_file = os.path.join(package_dir, "value_dashboard/config", "logging_config.yaml")
+    configure_logging(config_path=config_file)
 pages = get_pages()
 pg = st.navigation(pages, expanded=False)
 pg.run()
