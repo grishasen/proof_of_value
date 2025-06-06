@@ -8,14 +8,16 @@ readme = "README.md"
 exclude = [
     "db",
     "data",
-    "temp_configs",
-    "cache",
-    "exports",
-    "tests"
+    "temp_configs"
 ]
 packages = [
-    { include = "*", from = "." },
+    { include = "vd_app.py", from = "." },
+    { include = "__init__.py", from = "." },
     { include = "value_dashboard", from = "." }
+]
+
+include = [
+  { path = ".streamlit", format = ["sdist", "wheel"] }
 ]
 
 [tool.poetry.dependencies]
