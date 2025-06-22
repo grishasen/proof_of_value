@@ -25,7 +25,9 @@ def clv(holdings: pl.LazyFrame, config: dict, streaming=False, background=False)
     mand_props_grp_by = config['group_by'] + [customer_id_col, 'Year', 'Quarter']
 
     if "filter" in config:
-        holdings = holdings.filter(config["filter"])
+        filter_exp_cmp = config["filter"]
+        if not isinstance(filter_exp_cmp, str):
+            holdings = holdings.filter(config["filter"])
 
     holdings = holdings.filter(pl.col(purchase_date_col) > (datetime.datetime.now() - relativedelta(years=lifespan)))
     holdings = holdings.with_columns(pl.col(monetary_value_col).cast(pl.Float64))

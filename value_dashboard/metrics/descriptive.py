@@ -17,7 +17,9 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
     num_columns = [col for col in columns if col in ih.select(cs.numeric()).collect_schema().names()]
 
     if "filter" in config:
-        ih = ih.filter(config["filter"])
+        filter_exp_cmp = config["filter"]
+        if not isinstance(filter_exp_cmp, str):
+            ih = ih.filter(config["filter"])
 
     num_selector = cs.numeric() & cs.by_name(columns, require_all=True)
     common_aggs = [

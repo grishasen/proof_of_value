@@ -114,8 +114,6 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
                 if isinstance(filter_exp_cmp, str):
                     if filter_exp_cmp:
                         params["filter"] = eval(filter_exp_cmp)
-                    else:
-                        params["filter"] = True
 
     metric_coroutines_map = {}
     for metric in metrics:

@@ -300,7 +300,9 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else False
 
     if "filter" in config:
-        ih = ih.filter(config["filter"])
+        filter_exp_cmp = config["filter"]
+        if not isinstance(filter_exp_cmp, str):
+            ih = ih.filter(config["filter"])
 
     common_aggs = [
         pl.len().alias('Count'),

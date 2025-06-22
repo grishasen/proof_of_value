@@ -14,7 +14,9 @@ def conversion(ih: pl.LazyFrame, config: dict, streaming=False, background=False
     positive_model_response = config['positive_model_response']
 
     if "filter" in config:
-        ih = ih.filter(config["filter"])
+        filter_exp_cmp = config["filter"]
+        if not isinstance(filter_exp_cmp, str):
+            ih = ih.filter(config["filter"])
 
     try:
         ih_analysis = (

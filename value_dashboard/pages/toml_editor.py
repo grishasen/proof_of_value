@@ -66,12 +66,12 @@ def display_dict(name, data, read_only=False, level=0):
             else:
                 if len(str(value)) < 80:
                     updated_data[key] = st.text_input(
-                        f"{' ' * level * 2}- {name}-{key}", value, disabled=ro
+                        f"{' ' * level * 2}- {name}-{key}", str(value), disabled=ro
                     )
                 else:
                     updated_data[key] = st.text_area(
                         label=f"{' ' * level * 2}- {name}-{key}",
-                        value=value,
+                        value=str(value),
                         disabled=ro,
                     )
 
