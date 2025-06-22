@@ -290,6 +290,7 @@ def calculate_engagement_scores(
     column_name_map = {"z_score": "Lift_Z_Score", "z_p_val": "Lift_P_Val"}
 
     grp_by = config["group_by"]
+    ret_dtype = pl.Struct({"z_score": pl.Float64, "z_p_val": pl.Float64})
     if grp_by:
         data_copy = (
             data_copy.with_columns(
@@ -361,7 +362,8 @@ def calculate_engagement_scores(
                         x["Negatives_Test"],
                         x["Negatives_Control"],
                     ),
-                    return_dtype=pl.Struct,
+                    return_dtype=ret_dtype,
+                    returns_scalar=True
                 )
                 .alias("Z_Test")
             )
