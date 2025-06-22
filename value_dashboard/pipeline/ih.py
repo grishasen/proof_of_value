@@ -229,7 +229,7 @@ def read_file_group(files: typing.Iterable,
     start: float = time.time()
     for file in files:
         if filetype == 'parquet':
-            ih = pl.scan_parquet(file, cache=False, hive_partitioning=hive_partitioning, allow_missing_columns=True)
+            ih = pl.scan_parquet(file, cache=False, hive_partitioning=hive_partitioning, missing_columns='insert')
         elif filetype == 'pega_ds_export':
             ih = read_dataset_export(file, lazy=True)
         else:

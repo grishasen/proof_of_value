@@ -39,7 +39,7 @@ def read_holdings_file_group(files: typing.Iterable,
     for file in files:
         if filetype == 'parquet':
             product_holdings = pl.scan_parquet(file, cache=False, hive_partitioning=hive_partitioning,
-                                               allow_missing_columns=True)
+                                               missing_columns='insert')
         elif filetype == 'pega_ds_export':
             product_holdings = read_dataset_export(file, lazy=True)
         elif filetype == 'csv':
