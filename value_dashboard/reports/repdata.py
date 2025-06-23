@@ -712,6 +712,4 @@ def calculate_clv_scores(
         exp_data = pl.from_pandas(exp_data)
     m_config = get_config()["metrics"][config["metric"]]
     totals_frame = rfm_summary(exp_data, m_config)
-    if "x" in config.keys():
-        totals_frame = totals_frame.sort(config["x"], descending=True)
     return totals_frame

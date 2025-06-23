@@ -17,13 +17,13 @@ INTERACTION_ID = "InteractionID"
 _scores = [''.join(p) for p in product('1234', repeat=3)]
 
 _default_rfm_config_retail = {}
-_champ = [s for s in _scores if int(s[0]) >= 3 and int(s[1]) >= 3 and int(s[2]) >= 3]
+_champ = [s for s in _scores if int(s[0]) >= 4 and int(s[1]) >= 4 and int(s[2]) >= 4]
 _loyal = [s for s in _scores
           if int(s[0]) >= 2 and int(s[1]) >= 3 and int(s[2]) >= 2
           and s not in _champ]
 _pot = [s for s in _scores
         if int(s[0]) >= 3 and int(s[1]) >= 2 and int(s[2]) >= 2
-        and s not in _champ]
+        and s not in _champ + _loyal]
 _risk = [s for s in _scores if int(s[0]) <= 2 and int(s[1]) >= 2 and int(s[2]) >= 2]
 _dorm = [s for s in _scores if s not in (_champ + _loyal + _pot + _risk)]
 

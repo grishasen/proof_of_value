@@ -44,7 +44,6 @@ def clv(holdings: pl.LazyFrame, config: dict, streaming=False, background=False)
             .group_by(mand_props_grp_by)
             .agg(
                 [
-                    pl.count().alias('Count'),
                     pl.col(holding_id_col).n_unique().alias("unique_holdings"),
                     pl.sum(monetary_value_col).alias('lifetime_value'),
                     pl.min(purchase_date_col).alias("MinPurchasedDate"),
@@ -147,9 +146,9 @@ def rfm_summary(holdings_aggr: pl.DataFrame, config: dict):
         .group_by(mand_props_grp_by)
         .agg(
             [
-                pl.col('Count').sum(),
-                pl.col("unique_holdings").sum(),
-                pl.col('lifetime_value').sum(),
+                pl.col(customer_id_col).n_unique().alias('customers_count'),
+                pl.col("unique_holdings").sum().round(2),
+                pl.col('lifetime_value').sum().round(2),
                 pl.col("MinPurchasedDate").min(),
                 pl.col("MaxPurchasedDate").max()
             ])
@@ -184,11 +183,21 @@ def rfm_summary(holdings_aggr: pl.DataFrame, config: dict):
                     pl.col("m_quartile")
                 ],
                 separator="",
-            ).alias("rfm_score")
+            ).alias("rfm_seg")
         )
         .with_columns(
-            pl.col("rfm_score").replace(segment_names, default="Unknown").alias("rfm_segment")
+            pl.col("rfm_seg").replace(segment_names, default="Unknown").alias("rfm_segment")
         )
-        .drop(["MinPurchasedDate", "MaxPurchasedDate", "rfm_score"])
+        .with_columns(
+            pl.mean_horizontal(
+                [
+                    pl.col("r_quartile").cast(pl.String).str.to_decimal(),
+                    pl.col("f_quartile").cast(pl.String).str.to_decimal(),
+                    pl.col("m_quartile").cast(pl.String).str.to_decimal()
+                ]
+            ).round(2).alias("rfm_score")
+        )
+        .sort(mand_props_grp_by, descending=True)
+        .drop(["MinPurchasedDate", "MaxPurchasedDate", "rfm_seg"])
     )
     return summary

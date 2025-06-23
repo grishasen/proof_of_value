@@ -18,7 +18,7 @@ def get_config() -> dict:
     if not config_file:
         package_dir = os.path.dirname(__file__)
         config_file = os.path.join(package_dir, "../config", "config_template.toml")
-        #config_file = "value_dashboard/config/config_template.toml"
+        # config_file = "value_dashboard/config/config_template.toml"
 
     logger.debug("Config file: " + config_file)
 

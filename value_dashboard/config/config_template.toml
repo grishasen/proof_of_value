@@ -303,15 +303,11 @@ x = 'frequency'
 color = 'ControlGroup'
 
 
-[reports.clv_polar_bar_segments]
+[reports.clv_treemap_segments]
 metric = 'clv'
-type = 'bar_polar'
+type = 'treemap'
 description = '[BIZ] RFM Segmentation'
 group_by = ['ControlGroup']
-r = 'unique_holdings'
-theta = 'rfm_segment'
-color = 'rfm_segment'
-showlegend = 'False'
 
 [reports.clv_exposure]
 metric = 'clv'

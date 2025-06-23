@@ -67,7 +67,7 @@ def filter_dataframe(df: pd.DataFrame, case: bool = True) -> pd.DataFrame:
         pd.DataFrame: Filtered dataframe
     """
 
-    random_key_base = pd.util.hash_pandas_object(df)
+    random_key_base = pd.util.hash_pandas_object(df, encoding='utf8', categorize=True)
 
     df = df.copy()
 
@@ -95,7 +95,7 @@ def filter_dataframe(df: pd.DataFrame, case: bool = True) -> pd.DataFrame:
         filters: Dict[str, Any] = dict()
         for column in to_filter_columns:
             left, right = st.columns((1, 20))
-            if isinstance(df[column], pd.CategoricalDtype) or df[column].nunique() < 15:
+            if isinstance(df[column], pd.CategoricalDtype) or df[column].nunique() < 10:
                 left.write("↳")
                 filters[column] = right.multiselect(
                     f"Values for {column}",

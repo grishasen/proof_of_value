@@ -2207,10 +2207,12 @@ def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
             data
             .group_by(grp_by)
             .agg(
-                pl.sum("Count").alias("Count"),
+                pl.sum("customers_count").alias("Customers count"),
                 pl.sum("lifetime_value").alias("lifetime_value"),
                 pl.sum("unique_holdings").alias("unique_holdings"),
-                pl.mean("monetary_value").alias("monetary_value")
+                pl.mean("monetary_value").alias("monetary_value"),
+                pl.mean("frequency").alias("Avg frequency"),
+                pl.mean("rfm_score").alias("Avg rfm score")
             )
             .sort(grp_by)
         )
@@ -2245,6 +2247,50 @@ def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
         margin=dict(b=25, t=50, l=0, r=0),
         showlegend=strtobool(config["showlegend"])
     )
+    st.plotly_chart(fig, use_container_width=True)
+    return ih_analysis
+
+
+@timed
+def clv_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
+                     config: dict) -> pd.DataFrame:
+    clv_totals_cards_subplot(data, config)
+    data = calculate_reports_data(data, config)
+    grp_by = ['rfm_segment'] + config['group_by']
+    if grp_by:
+        if isinstance(data, pd.DataFrame):
+            data = pl.from_pandas(data)
+        report_data = (
+            data
+            .group_by(grp_by)
+            .agg(
+                pl.sum("customers_count").round(2).alias("Customers count"),
+                pl.sum("lifetime_value").round(2).alias("lifetime_value"),
+                pl.sum("unique_holdings").round(2).alias("unique_holdings"),
+                pl.mean("monetary_value").round(2).alias("monetary_value"),
+                pl.mean("frequency").round(2).alias("Avg frequency"),
+                pl.mean("rfm_score").round(2).alias("Avg rfm score")
+            )
+            .sort(grp_by)
+        )
+    else:
+        report_data = data
+    report_data = report_data.to_pandas()
+    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+
+    if ih_analysis.shape[0] == 0:
+        st.warning("No data available.")
+        st.stop()
+    fig = px.treemap(ih_analysis, path=[px.Constant(" ")] + grp_by, values='Customers count',
+                     color="Avg rfm score",
+                     color_continuous_scale=["#D61F1F", "#E03C32", "#FFD301", "#639754", "#006B3D"],
+                     title=config['description'],
+                     hover_data=['lifetime_value', 'unique_holdings', 'monetary_value', "Avg frequency",
+                                 "Avg rfm score"],
+                     height=640,
+                     )
+    fig.update_traces(textinfo="label+text+value+percent root", root_color="lightgrey")
+    fig.update_layout(margin=dict(t=50, l=25, r=25, b=25))
     st.plotly_chart(fig, use_container_width=True)
     return ih_analysis
 
@@ -2648,8 +2694,8 @@ def get_figures() -> dict:
         elif params['metric'].startswith("clv"):
             if params['type'] == 'histogram':
                 figures[report] = histogram_plot
-            elif params['type'] == 'bar_polar':
-                figures[report] = clv_polarbar_plot
+            elif params['type'] == 'treemap':
+                figures[report] = clv_treemap_plot
             elif params['type'] == 'exposure':
                 figures[report] = clv_exposure_plot
             elif params['type'] == 'corr':

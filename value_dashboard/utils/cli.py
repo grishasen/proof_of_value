@@ -27,13 +27,14 @@ def run(*args):
             sys.argv.append("""--""")
             sys.argv.extend(script_args)
         except IndexError:
-                sys.argv.extend(args[1:])
+            sys.argv.extend(args[1:])
     else:
         sys.argv.extend(list(args))
         sys.argv.append(filename)
 
     print(sys.argv)
     sys.exit(stcli.main())
+
 
 if __name__ == '__main__':
     main()
