@@ -1811,11 +1811,11 @@ def eng_conv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
-    theme = st.session_state['theme']
+    theme = st.context.theme.type
     if theme is None:
         template = 'none'
     else:
-        if theme['base'] == 'dark':
+        if theme == 'dark':
             template = 'plotly_dark'
         else:
             template = 'none'
@@ -2222,11 +2222,11 @@ def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
-    theme = st.session_state['theme']
+    theme = st.context.theme.type
     if theme is None:
         template = 'none'
     else:
-        if theme['base'] == 'dark':
+        if theme == 'dark':
             template = 'plotly_dark'
         else:
             template = 'none'

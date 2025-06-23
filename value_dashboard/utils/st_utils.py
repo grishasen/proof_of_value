@@ -26,11 +26,11 @@ def highlight_and_format(val):
     """
     if pd.isna(val):
         bg = 'background-color: lightgrey;'
-        theme = st.session_state['theme']
+        theme = st.context.theme.type
         if theme is None:
             bg = 'background-color: lightgrey;'
         else:
-            if theme['base'] == 'dark':
+            if theme == 'dark':
                 bg = 'background-color: darkgrey;'
         return bg
     elif isinstance(val, (int, float)):

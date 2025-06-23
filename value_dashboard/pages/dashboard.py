@@ -8,7 +8,6 @@ from streamlit_autorefresh import st_autorefresh
 from streamlit_dimensions import st_dimensions
 from streamlit_dynamic_filters import DynamicFilters
 from streamlit_option_menu import option_menu
-from streamlit_theme import st_theme
 
 from value_dashboard.pipeline.datatools import get_reports_data_by_name
 from value_dashboard.pipeline.ih import load_data
@@ -23,8 +22,6 @@ pd.options.styler.format.precision = 5
 dataset_max_rows = 1000
 pd.set_option("styler.render.max_elements", dataset_max_rows * 100)
 
-theme = st_theme(key='dashboard')
-st.session_state['theme'] = theme
 dims = st_dimensions()
 st.session_state['dashboard_dims'] = dims
 
