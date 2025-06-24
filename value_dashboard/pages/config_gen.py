@@ -11,7 +11,6 @@ from pandasai.helpers.memory import Memory
 from pandasai_openai import OpenAI
 
 from value_dashboard.pipeline import holdings
-from value_dashboard.pipeline import ih
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.file_utils import read_dataset_export
 from value_dashboard.utils.logger import get_logger
@@ -23,7 +22,6 @@ logger = get_logger(__name__)
 
 def set_config(cfg_file: str):
     del st.session_state.app_config
-    ih.get_reports_data.clear()
     holdings.get_reports_data.clear()
     st.session_state.app_config = cfg_file
     get_config.clear()
