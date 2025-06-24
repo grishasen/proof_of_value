@@ -59,7 +59,8 @@ def generate_new_config(llm, prompt):
 
 f"""## ✨ GenAI Config Generator"""
 with st.sidebar:
-    template_config_file = "value_dashboard/config/config_template.toml"
+    package_dir = os.path.dirname(__file__)
+    template_config_file = os.path.join(package_dir, "../config", "config_template.toml")
     try:
         with open(template_config_file, mode="rb") as fp:
             template_config = tomllib.load(fp)
