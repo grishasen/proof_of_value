@@ -431,7 +431,7 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
     adv_on = st.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
                        help="Show advanced reporting options")
     report_grp_by = config['group_by'] + get_config()["metrics"]["global_filters"]
-    report_grp_by = list(set(report_grp_by))
+    report_grp_by = sorted(list(set(report_grp_by)))
     xplot_y_bool = False
     color = config['color']
     xplot_col = color
@@ -752,7 +752,7 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     num_columns = [col for col in columns_conf if (col + '_Mean') in data.columns]
 
     report_grp_by = m_config['group_by'] + config['group_by'] + get_config()["metrics"]["global_filters"]
-    report_grp_by = list(set(report_grp_by))
+    report_grp_by = sorted(list(set(report_grp_by)))
 
     title = config['description']
     y = config['y']
@@ -780,6 +780,7 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                 help="Select X-Axis."
             )
         with c1:
+            columns = sorted(columns)
             config['y'] = st.selectbox(
                 label="## Select data property ",
                 options=columns,
@@ -792,6 +793,7 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             for sc in scores:
                 if config['y'] in num_columns:
                     opts.append(sc)
+            opts = sorted(opts)
             option = st.selectbox(
                 label="**" + config['y'] + "** score",
                 options=opts,
@@ -947,7 +949,7 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
     num_columns = [col for col in columns_conf if (col + '_Mean') in data.columns]
 
     report_grp_by = m_config['group_by'] + config['group_by'] + get_config()["metrics"]["global_filters"]
-    report_grp_by = list(set(report_grp_by))
+    report_grp_by = sorted(list(set(report_grp_by)))
 
     title = config['description']
     y = config['y']
@@ -973,6 +975,7 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
                 help="Select X-Axis."
             )
         with c1:
+            num_columns = sorted(num_columns)
             config['y'] = st.selectbox(
                 label="## Select data property ",
                 options=num_columns,
@@ -1384,7 +1387,7 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
 def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                               config: dict) -> pd.DataFrame:
     report_grp_by = config['group_by'] + get_config()["metrics"]["global_filters"]
-    report_grp_by = list(set(report_grp_by))
+    report_grp_by = sorted(list(set(report_grp_by)))
     toggle1, toggle2 = st.columns(2)
     cards_on = toggle1.toggle("Metric totals", value=True, key="Metrics" + config['description'],
                               help="Show aggregated metric values with difference from mean")
@@ -1555,7 +1558,7 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     adv_on = st.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
                        help="Show advanced reporting options")
     report_grp_by = config['group_by'] + get_config()["metrics"]["global_filters"]
-    report_grp_by = list(set(report_grp_by))
+    report_grp_by = sorted(list(set(report_grp_by)))
     xplot_y_bool = False
     color = config['color']
     xplot_col = color
