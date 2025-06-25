@@ -297,7 +297,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
     grp_by = config['group_by']
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
-    use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else False
+    use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
 
     if "filter" in config:
         filter_exp_cmp = config["filter"]
@@ -376,7 +376,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
 def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
                                  config: dict) -> pl.DataFrame:
     auc_data = model_roc_auc_data.filter(pl.col("Count") > 0)
-    use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else False
+    use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
 
     grp_by = config['group_by']
     scores = config["scores"]

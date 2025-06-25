@@ -13,7 +13,7 @@ from value_dashboard.utils.timer import timed
 def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
     mand_props_grp_by = config['group_by']
     columns = config['columns']
-    use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else False
+    use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
     num_columns = [col for col in columns if col in ih.select(cs.numeric()).collect_schema().names()]
 
     if "filter" in config:
@@ -65,7 +65,7 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
 @timed
 def compact_descriptive_data(data: pl.DataFrame,
                              config: dict) -> pl.DataFrame:
-    use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else False
+    use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
     columns_conf = config['columns']
     scores = config['scores']
     num_columns = [col for col in columns_conf if (col + '_Mean') in data.columns]

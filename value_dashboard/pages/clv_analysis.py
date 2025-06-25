@@ -9,7 +9,7 @@ from streamlit_dimensions import st_dimensions
 from streamlit_option_menu import option_menu
 
 from value_dashboard.pipeline.holdings import get_reports_data
-from value_dashboard.reports.reports import get_figures
+from value_dashboard.reports.registry import get_figures
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.st_utils import highlight_and_format, format_dates
 from value_dashboard.utils.string_utils import strtobool

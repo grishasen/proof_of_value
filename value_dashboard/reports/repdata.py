@@ -46,6 +46,8 @@ def group_model_ml_scores_data(
 ) -> pl.DataFrame:
     if isinstance(model_roc_auc_data, pd.DataFrame):
         model_roc_auc_data = pl.from_pandas(model_roc_auc_data)
+    if isinstance(model_roc_auc_data, pl.DataFrame):
+        model_roc_auc_data = model_roc_auc_data.clone()
 
     auc_data = model_roc_auc_data.filter(pl.col("Count") > 0)
 
@@ -53,7 +55,7 @@ def group_model_ml_scores_data(
     use_t_digest = (
         strtobool(m_config["use_t_digest"])
         if "use_t_digest" in m_config.keys()
-        else False
+        else True
     )
     logger.debug("Use t-digest for scores: " + str(use_t_digest))
 
@@ -114,6 +116,8 @@ def group_experiment_data(
 ) -> pl.DataFrame:
     if isinstance(exp_data, pd.DataFrame):
         exp_data = pl.from_pandas(exp_data)
+    if isinstance(exp_data, pl.DataFrame):
+        exp_data = exp_data.clone()
 
     m_config = get_config()["metrics"][config["metric"]]
     grp_by = (
@@ -144,6 +148,8 @@ def calculate_experiment_scores(
 ) -> pl.DataFrame:
     if isinstance(exp_data, pd.DataFrame):
         exp_data = pl.from_pandas(exp_data)
+    if isinstance(exp_data, pl.DataFrame):
+        exp_data = exp_data.clone()
     sort_list = []
     if "facet_row" in config.keys():
         sort_list.append(config["facet_row"])
@@ -211,6 +217,8 @@ def calculate_model_ml_scores(
 ) -> pl.DataFrame:
     if isinstance(model_roc_auc_data, pd.DataFrame):
         model_roc_auc_data = pl.from_pandas(model_roc_auc_data)
+    if isinstance(model_roc_auc_data, pl.DataFrame):
+        model_roc_auc_data = model_roc_auc_data.clone()
 
     grp_by = config["group_by"]
     m_config = get_config()["metrics"][config["metric"]]
@@ -218,7 +226,7 @@ def calculate_model_ml_scores(
     use_t_digest = (
         strtobool(m_config["use_t_digest"])
         if "use_t_digest" in m_config.keys()
-        else False
+        else True
     )
     logger.debug("Use t-digest for scores: " + str(use_t_digest))
 
@@ -275,6 +283,9 @@ def calculate_engagement_scores(
 ) -> pl.DataFrame:
     if isinstance(ih_analysis, pd.DataFrame):
         ih_analysis = pl.from_pandas(ih_analysis)
+
+    if isinstance(ih_analysis, pl.DataFrame):
+        ih_analysis = ih_analysis.clone()
 
     sort_list = []
     if "x" in config.keys():
@@ -390,6 +401,8 @@ def calculate_conversion_scores(
 ) -> pl.DataFrame:
     if isinstance(ih_analysis, pd.DataFrame):
         ih_analysis = pl.from_pandas(ih_analysis)
+    if isinstance(ih_analysis, pl.DataFrame):
+        ih_analysis = ih_analysis.clone()
 
     grp_by = config["group_by"]
     metric = config["metric"]
@@ -429,6 +442,8 @@ def group_engagement_data(
 ) -> pl.DataFrame:
     if isinstance(eng_data, pd.DataFrame):
         eng_data = pl.from_pandas(eng_data)
+    if isinstance(eng_data, pl.DataFrame):
+        eng_data = eng_data.clone()
 
     grp_by = config["group_by"] + get_config()["metrics"]["global_filters"]
     grp_by = list(set(grp_by))
@@ -450,6 +465,8 @@ def group_conversion_data(
 ) -> pl.DataFrame:
     if isinstance(conv_data, pd.DataFrame):
         conv_data = pl.from_pandas(conv_data)
+    if isinstance(conv_data, pl.DataFrame):
+        conv_data = conv_data.clone()
 
     data_copy = conv_data.filter(pl.col("Negatives") > 0)
 
@@ -472,6 +489,8 @@ def group_descriptive_data(
 ) -> pl.DataFrame:
     if isinstance(data, pd.DataFrame):
         data = pl.from_pandas(data)
+    if isinstance(data, pl.DataFrame):
+        data = data.clone()
     return data
 
 
@@ -480,12 +499,14 @@ def calculate_descriptive_scores(
 ) -> pl.DataFrame:
     if isinstance(data, pd.DataFrame):
         data = pl.from_pandas(data)
+    if isinstance(data, pl.DataFrame):
+        data = data.clone()
 
     m_config = get_config()["metrics"][config["metric"]]
     use_t_digest = (
         strtobool(m_config["use_t_digest"])
         if "use_t_digest" in m_config.keys()
-        else False
+        else True
     )
     logger.debug("Use t-digest for scores: " + str(use_t_digest))
     columns_conf = m_config["columns"]
@@ -706,10 +727,12 @@ def calculate_descriptive_scores(
 
 
 def calculate_clv_scores(
-        exp_data: Union[pl.DataFrame, pd.DataFrame], config: dict
+        data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
-    if isinstance(exp_data, pd.DataFrame):
-        exp_data = pl.from_pandas(exp_data)
+    if isinstance(data, pd.DataFrame):
+        data = pl.from_pandas(data)
+    if isinstance(data, pl.DataFrame):
+        data = data.clone()
     m_config = get_config()["metrics"][config["metric"]]
-    totals_frame = rfm_summary(exp_data, m_config)
+    totals_frame = rfm_summary(data, m_config)
     return totals_frame
