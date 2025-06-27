@@ -3,12 +3,13 @@ import traceback
 import polars as pl
 
 from value_dashboard.metrics.constants import MODELCONTROLGROUP, INTERACTION_ID, NAME, RANK, OUTCOME
+from value_dashboard.utils.config import get_config
 from value_dashboard.utils.timer import timed
 
 
 @timed
 def engagement(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
-    mand_props_grp_by = config['group_by'] + [MODELCONTROLGROUP]
+    mand_props_grp_by = list(set(get_config()["metrics"]["global_filters"] + config['group_by'] + [MODELCONTROLGROUP]))
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
 
@@ -48,7 +49,7 @@ def engagement(ih: pl.LazyFrame, config: dict, streaming=False, background=False
 @timed
 def compact_engagement_data(eng_data: pl.DataFrame,
                             config: dict) -> pl.DataFrame:
-    grp_by = config['group_by']
+    grp_by = config['group_by'] + get_config()["metrics"]["global_filters"]
     grp_by = list(set(grp_by))
     data_copy = (
         eng_data

@@ -195,6 +195,21 @@ description = "[REC] Novelty score"
 group_by = ["Channel", "CustomerType", "Placement", "ModelCategory"]
 color = "novelty"
 
+[reports.generic_eng]
+metric = "engagement"
+type = "generic"
+description = "[ENG] Engagement metrics"
+
+[reports.generic_ml]
+metric = "model_ml_scores"
+type = "generic"
+description = "[ENG] ML metrics"
+
+[reports.generic_conv]
+metric = "conversion"
+type = "generic"
+description = "[ENG] Conversion metrics"
+
 [reports.daily_ctr]
 metric = "engagement"
 type = "line"
@@ -447,7 +462,7 @@ group_by = []
 [variants]
 name = "Demo"
 description = "This dashboard configuration was designed for demos"
-demo_mode = "false"
+demo_mode = "true"
 
 [chat_with_data]
 agent_prompt = """You are a data analysis agent. Your main goal is to help non-technical users to analyze interaction history and product holdings data from Pega Customer Decision Hub application.

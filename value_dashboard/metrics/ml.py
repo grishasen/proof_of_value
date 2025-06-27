@@ -13,6 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
 from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME
+from value_dashboard.utils.config import get_config
 from value_dashboard.utils.polars_utils import merge_digests, build_digest
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
@@ -294,7 +295,7 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
 
 @timed
 def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
-    grp_by = config['group_by']
+    grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
@@ -378,7 +379,7 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
     auc_data = model_roc_auc_data.filter(pl.col("Count") > 0)
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
 
-    grp_by = config['group_by']
+    grp_by = config['group_by'] + get_config()["metrics"]["global_filters"]
     scores = config["scores"]
     grp_by = list(set(grp_by))
     auc_data = (

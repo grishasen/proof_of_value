@@ -34,8 +34,7 @@ def get_figures() -> dict:
             elif params['type'] == 'scatter':
                 figures[report] = eng_conv_ml_scatter_plot
             else:
-                raise Exception(params['type'] + " is not supported type for plot " + params['type'] +
-                                " and metric: " + params['metric'])
+                figures[report] = default_bar_line_plot
         elif params['metric'].startswith("model_ml_scores"):
             if params['type'] == 'heatmap':
                 figures[report] = eng_conv_ml_heatmap_plot
@@ -44,12 +43,15 @@ def get_figures() -> dict:
             elif params['type'] == 'treemap':
                 figures[report] = model_ml_treemap_plot
             else:
-                if params['y'] == "roc_auc":
-                    figures[report] = model_ml_scores_line_plot_roc_pr_curve
-                elif params['y'] == "average_precision":
-                    figures[report] = model_ml_scores_line_plot_roc_pr_curve
+                if 'y' in params.keys():
+                    if params['y'] == "roc_auc":
+                        figures[report] = model_ml_scores_line_plot_roc_pr_curve
+                    elif params['y'] == "average_precision":
+                        figures[report] = model_ml_scores_line_plot_roc_pr_curve
+                    else:
+                        figures[report] = default_bar_line_plot
                 else:
-                    figures[report] = model_ml_scores_line_plot
+                    figures[report] = default_bar_line_plot
         elif params['metric'].startswith("conversion"):
             if params['type'] == 'heatmap':
                 figures[report] = eng_conv_ml_heatmap_plot
@@ -62,13 +64,15 @@ def get_figures() -> dict:
             elif params['type'] == 'bar_polar':
                 figures[report] = eng_conv_polarbar_plot
             else:
-                if params['y'] == "ConversionRate":
-                    figures[report] = conversion_rate_line_plot
-                elif params['y'] == "Revenue":
-                    figures[report] = conversion_revenue_line_plot
+                if 'y' in params.keys():
+                    if params['y'] == "ConversionRate":
+                        figures[report] = conversion_rate_line_plot
+                    elif params['y'] == "Revenue":
+                        figures[report] = conversion_revenue_line_plot
+                    else:
+                        figures[report] = default_bar_line_plot
                 else:
-                    raise Exception(params['y'] + " is not supported parameter for plot " + params['type'] +
-                                    " and metric: " + params['metric'])
+                    figures[report] = default_bar_line_plot
         elif params['metric'].startswith("descriptive"):
             if params['type'] == 'line':
                 figures[report] = descriptive_line_plot
@@ -77,15 +81,17 @@ def get_figures() -> dict:
             elif params['type'] == 'funnel':
                 figures[report] = descriptive_funnel
             else:
-                raise Exception(params['type'] + " is not supported type for metric: " + params['metric'])
+                figures[report] = default_bar_line_plot
         elif params['metric'].startswith("experiment"):
-            if params['x'] == "z_score":
-                figures[report] = experiment_z_score_bar_plot
-            elif params['x'].startswith("g") | params['x'].startswith("chi2"):
-                figures[report] = experiment_odds_ratio_plot
+            if 'x' in params.keys():
+                if params['x'] == "z_score":
+                    figures[report] = experiment_z_score_bar_plot
+                elif params['x'].startswith("g") | params['x'].startswith("chi2"):
+                    figures[report] = experiment_odds_ratio_plot
+                else:
+                    figures[report] = default_bar_line_plot
             else:
-                raise Exception(params['x'] + " is not supported parameter for plot " + params['type'] +
-                                " and metric: " + params['metric'])
+                figures[report] = default_bar_line_plot
         elif params['metric'].startswith("clv"):
             if params['type'] == 'histogram':
                 figures[report] = clv_histogram_plot

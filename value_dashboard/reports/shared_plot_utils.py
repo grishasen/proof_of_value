@@ -6,6 +6,7 @@ import polars as pl
 import streamlit as st
 
 from value_dashboard.reports.repdata import calculate_reports_data
+from value_dashboard.utils.config import get_config
 from value_dashboard.utils.st_utils import filter_dataframe, align_column_types
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
@@ -141,3 +142,210 @@ def eng_conv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
     )
     st.plotly_chart(fig, use_container_width=True)
     return ih_analysis
+
+
+@timed
+def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
+                          config: dict) -> pd.DataFrame:
+    adv_on = st.toggle("Advanced options", value=True, key="Advanced options" + config['description'],
+                       help="Show advanced reporting options")
+    xplot_y_bool = False
+    xplot_col = config.get('color', None)
+    facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
+    facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
+    x_axis = config.get('x', None)
+    y_axis = config.get('y', None)
+
+    if adv_on:
+        plot_menu = get_plot_parameters_menu(config=config, is_y_axis_required=True)
+        x_axis = plot_menu['x']
+        y_axis = plot_menu['y']
+        facet_column = plot_menu['facet_col']
+        facet_row = plot_menu['facet_row']
+        xplot_col = plot_menu['color']
+        xplot_y_bool = plot_menu['log_y']
+
+    grp_by = [x_axis]
+    if not (facet_column == '---'):
+        if not facet_column in grp_by:
+            grp_by.append(facet_column)
+    else:
+        facet_column = None
+    if not (facet_row == '---'):
+        if not facet_row in grp_by:
+            grp_by.append(facet_row)
+    else:
+        facet_row = None
+
+    if not xplot_col in grp_by:
+        grp_by.append(xplot_col)
+
+    cp_config = config.copy()
+    cp_config['group_by'] = grp_by
+    cp_config['x'] = x_axis
+    cp_config['y'] = y_axis
+    cp_config['color'] = xplot_col
+
+    if (x_axis is None) or (y_axis is None):
+        st.warning("Please select X and Y Axis.")
+        st.stop()
+
+    ih_analysis = data.copy()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
+    if ih_analysis.shape[0] == 0:
+        st.warning("No data available.")
+        st.stop()
+
+    if len(ih_analysis[x_axis].unique()) < 25:
+        fig = px.bar(ih_analysis,
+                     x=x_axis,
+                     y=y_axis,
+                     color=xplot_col,
+                     facet_col=facet_column,
+                     facet_row=facet_row,
+                     barmode="group",
+                     title=config['description'],
+                     custom_data=[xplot_col],
+                     log_y=xplot_y_bool
+                     )
+        fig.update_layout(
+            xaxis_title=x_axis,
+            yaxis_title=y_axis,
+            hovermode="x unified",
+            updatemenus=[
+                dict(
+                    buttons=list([
+                        dict(
+                            args=["type", "bar"],
+                            label="Bar",
+                            method="restyle"
+                        ),
+                        dict(
+                            args=["type", "line"],
+                            label="Line",
+                            method="restyle"
+                        )
+                    ]),
+                    direction="down",
+                    showactive=True,
+                ),
+            ]
+        )
+    else:
+        fig = px.line(
+            ih_analysis,
+            x=x_axis,
+            y=y_axis,
+            color=xplot_col,
+            title=config['description'],
+            facet_col=facet_column,
+            facet_row=facet_row,
+            custom_data=[xplot_col],
+            log_y=xplot_y_bool,
+        )
+    fig.update_xaxes(tickfont=dict(size=10))
+    yaxis_names = ['yaxis'] + [axis_name for axis_name in fig.layout._subplotid_props if 'yaxis' in axis_name]
+    # yaxis_layout_dict = {yaxis_name + "_tickformat": ',.2%' for yaxis_name in yaxis_names}
+    # fig.update_layout(yaxis_layout_dict)
+    height = 640
+    if facet_row:
+        height = max(640, 300 * len(ih_analysis[facet_row].unique()))
+
+    fig.update_layout(
+        xaxis_title=x_axis,
+        yaxis_title=y_axis,
+        hovermode="x unified",
+        height=height
+    )
+    fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+    fig = fig.update_traces(hovertemplate=x_axis + ' : %{x}' + '<br>' +
+                                          xplot_col + ' : %{customdata[0]}' + '<br>' +
+                                          y_axis + ' : %{y:.4}' + '<br>' +
+                                          '<extra></extra>'
+                            )
+    st.plotly_chart(fig, use_container_width=True)
+    return ih_analysis
+
+
+def get_plot_parameters_menu(config: dict, is_y_axis_required: bool = True):
+    metric = config["metric"]
+    m_config = get_config()["metrics"][metric]
+    report_grp_by = m_config['group_by']
+    report_grp_by = sorted(report_grp_by)
+    scores = m_config['scores']
+
+    xplot_y_bool = False
+    xplot_col = config.get('color', None)
+    facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
+    facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
+    x_axis = config.get('x', None)
+    y_axis = config.get('y', None)
+
+    cols = st.columns(6 if is_y_axis_required else 5)
+    with cols[0]:
+        x_axis = st.selectbox(
+            label='X-Axis',
+            options=report_grp_by,
+            index=report_grp_by.index(x_axis) if x_axis else 0,
+            help="Select X-Axis."
+        )
+    with cols[1]:
+        xplot_col = st.selectbox(
+            label='Colour By',
+            options=report_grp_by,
+            index=report_grp_by.index(xplot_col) if xplot_col else 0,
+            help="Select color."
+        )
+    with cols[2]:
+        options_row = ['---'] + report_grp_by
+        if 'facet_row' in config.keys():
+            facet_row = st.selectbox(
+                label='Row Facets',
+                options=options_row,
+                index=options_row.index(config['facet_row']),
+                help="Select data column."
+            )
+        else:
+            facet_row = st.selectbox(
+                label='Row Facets',
+                options=options_row,
+                help="Select data column."
+            )
+    with cols[3]:
+        options_col = ['---'] + report_grp_by
+        if 'facet_column' in config.keys():
+            facet_column = st.selectbox(
+                label='Column Facets',
+                options=options_col,
+                index=options_col.index(config['facet_column']),
+                help="Select data column."
+            )
+        else:
+            facet_column = st.selectbox(
+                label='Column Facets',
+                options=options_col,
+                help="Select data column."
+            )
+    if is_y_axis_required:
+        with cols[4]:
+            y_axis = st.selectbox(
+                label='Y-Axis',
+                options=scores,
+                index=scores.index(y_axis) if y_axis else 0,
+                help="Select Y-Axis."
+            )
+    with cols[len(cols) - 1]:
+        xplot_y_log = st.radio(
+            'Y Axis scale',
+            ('Linear', 'Log'),
+            horizontal=True,
+            help="Select axis scale.",
+        )
+        if xplot_y_log == 'Linear':
+            xplot_y_bool = False
+        elif xplot_y_log == 'Log':
+            xplot_y_bool = True
+
+    return {'x': x_axis, 'color': xplot_col, 'facet_row': facet_row, 'facet_col': facet_column, 'y': y_axis,
+            'log_y': xplot_y_bool}

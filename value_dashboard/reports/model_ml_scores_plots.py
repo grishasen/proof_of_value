@@ -1,6 +1,5 @@
 from value_dashboard.reports.repdata import calculate_model_ml_scores
 from value_dashboard.reports.shared_plot_utils import *
-from value_dashboard.utils.config import get_config
 
 
 @timed
@@ -12,11 +11,14 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
+    y_axis = config.get('y', None)
+    x_axis = config.get('x', None)
     fig = px.line(
         ih_analysis,
-        x=config['x'],
-        y=config['y'],
+        x=x_axis,
+        y=y_axis,
         color=config['color'],
+        log_y=config.get('log_y', False),
         title=config['description'],
         facet_row=config['facet_row'] if 'facet_row' in config.keys() else None,
         facet_col=config['facet_column'] if 'facet_column' in config.keys() else None,
@@ -31,15 +33,15 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         height = max(640, 300 * len(ih_analysis[config['facet_row']].unique()))
 
     fig.update_layout(
-        xaxis_title=config['x'],
-        yaxis_title=config['y'],
+        xaxis_title=x_axis,
+        yaxis_title=y_axis,
         hovermode="x unified",
         height=height
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-    fig = fig.update_traces(hovertemplate=config['x'] + ' : %{x}' + '<br>' +
+    fig = fig.update_traces(hovertemplate=x_axis + ' : %{x}' + '<br>' +
                                           config['color'] + ' : %{customdata[0]}' + '<br>' +
-                                          config['y'] + ' : %{y:.2%}' + '<extra></extra>')
+                                          y_axis + ' : %{y:.2%}' + '<extra></extra>')
 
     st.plotly_chart(fig, use_container_width=True)
     return ih_analysis
@@ -48,7 +50,8 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFrame],
                                            config: dict) -> pd.DataFrame:
-    if config['y'] == "roc_auc":
+    y_axis = config.get('y', None)
+    if y_axis == "roc_auc":
         x = 'fpr'
         y = 'tpr'
         title = config['description'] + ": ROC Curve"
@@ -58,7 +61,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
         y0 = 0
         x1 = 1
         y1 = 1
-    elif config['y'] == "average_precision":
+    elif y_axis == "average_precision":
         x = 'recall'
         y = 'precision'
         title = config['description'] + ": Precision-Recall Curve Curve"
@@ -79,63 +82,23 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
     adv_on = toggle2.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
                             help="Show advanced reporting options")
 
-    metric = config["metric"]
-    m_config = get_config()["metrics"][metric]
-    report_grp_by = m_config['group_by'] + config['group_by'] + get_config()["metrics"]["global_filters"]
-    report_grp_by = sorted(list(set(report_grp_by)))
-
-    color = config['color']
-    xplot_col = color
+    xplot_y_bool = False
+    xplot_col = config.get('color', None)
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
-    if adv_on:
-        c0, c1, c2, c3 = st.columns(4)
-        with c0:
-            config['x'] = st.selectbox(
-                label='X-Axis',
-                options=report_grp_by,
-                index=report_grp_by.index(config['x']),
-                help="Select X-Axis."
-            )
-        with c1:
-            xplot_col = st.selectbox(
-                label='Colour By',
-                options=report_grp_by,
-                index=report_grp_by.index(color),
-                help="Select color."
-            )
-        with c2:
-            options_row = ['---'] + report_grp_by
-            if 'facet_row' in config.keys():
-                facet_row = st.selectbox(
-                    label=config['y'] + ' plot rows',
-                    options=options_row,
-                    index=options_row.index(config['facet_row']),
-                    help="Select data column."
-                )
-            else:
-                facet_row = st.selectbox(
-                    label=config['y'] + ' plot rows',
-                    options=options_row,
-                    help="Select data column."
-                )
-        with c3:
-            options_col = ['---'] + report_grp_by
-            if 'facet_column' in config.keys():
-                facet_column = st.selectbox(
-                    label=config['y'] + ' plot columns',
-                    options=options_col,
-                    index=options_col.index(config['facet_column']),
-                    help="Select data column."
-                )
-            else:
-                facet_column = st.selectbox(
-                    label=config['y'] + ' plot columns',
-                    options=options_col,
-                    help="Select data column."
-                )
+    x_axis = config.get('x', None)
+    y_axis = config.get('y', None)
 
-    grp_by = [config['x']]
+    if adv_on:
+        plot_menu = get_plot_parameters_menu(config=config, is_y_axis_required=False)
+        x_axis = plot_menu['x']
+        y_axis = plot_menu['y']
+        facet_column = plot_menu['facet_col']
+        facet_row = plot_menu['facet_row']
+        xplot_col = plot_menu['color']
+        xplot_y_bool = plot_menu['log_y']
+
+    grp_by = [x_axis]
     if not (facet_column == '---'):
         if not facet_column in grp_by:
             grp_by.append(facet_column)
@@ -151,11 +114,12 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
         grp_by.append(xplot_col)
 
     cp_config = config.copy()
-    cp_config['x'] = config['x']
+    cp_config['x'] = x_axis
     cp_config['group_by'] = grp_by
     cp_config['color'] = xplot_col
     cp_config['facet_row'] = facet_row
     cp_config['facet_column'] = facet_column
+    cp_config['log_y'] = xplot_y_bool
 
     ih_analysis = pd.DataFrame()
     if curves_on:
@@ -178,12 +142,13 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
                       x=x, y=y,
                       title=title,
                       color=xplot_col,
+                      log_y=xplot_y_bool,
                       facet_col=facet_column,
                       facet_row=facet_row,
                       height=len(
                           report_data[facet_row].unique()) * 400 if facet_row is not None else 640
                       )
-        if config['y'] == "roc_auc":
+        if y_axis == "roc_auc":
             fig.add_shape(
                 type="line", line=dict(dash='dash', color="darkred"),
                 row='all', col='all', x0=x0, y0=y0, x1=x1, y1=y1

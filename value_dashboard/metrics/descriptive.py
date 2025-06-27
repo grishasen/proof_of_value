@@ -4,6 +4,7 @@ import polars as pl
 from polars import selectors as cs
 from polars_ds import weighted_mean
 
+from value_dashboard.utils.config import get_config
 from value_dashboard.utils.polars_utils import build_digest, merge_digests
 from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
@@ -11,7 +12,7 @@ from value_dashboard.utils.timer import timed
 
 @timed
 def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
-    mand_props_grp_by = config['group_by']
+    mand_props_grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
     columns = config['columns']
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
     num_columns = [col for col in columns if col in ih.select(cs.numeric()).collect_schema().names()]
@@ -69,7 +70,7 @@ def compact_descriptive_data(data: pl.DataFrame,
     columns_conf = config['columns']
     scores = config['scores']
     num_columns = [col for col in columns_conf if (col + '_Mean') in data.columns]
-    grp_by = config['group_by']
+    grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
 
     grouped_mean = (
         data

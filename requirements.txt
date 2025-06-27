@@ -1,13 +1,13 @@
 numpy>=1.26.0
-plotly>=6.0.1
-polars>=1.29.0
+plotly>=6.2.0
+polars>=1.31.0
 pandas>=2.2.3
 polars_ds>=0.8.3
 datasketches>=5.2.0
 scikit-learn>=1.6.1
 scipy>=1.10.1
 st-pages>=1.0.1
-streamlit>=1.45.0
+streamlit>=1.46.1
 streamlit_dynamic_filters>=0.1.9
 streamlit-option-menu>=0.4.0
 streamlit-dimensions>=0.0.1

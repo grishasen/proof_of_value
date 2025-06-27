@@ -83,7 +83,7 @@ def display_reports(metrics, reports):
     report_data = []
     metrics_list = [k for k in metrics.keys() if isinstance(metrics[k], dict)]
     report_types = set([k["type"] for k in reports.values()]).union(
-        ["line", "bar_polar", "treemap", "heatmap", "gauge", "boxplot", "histogram", "scatter", "funnel"]
+        ["line", "bar_polar", "treemap", "heatmap", "gauge", "boxplot", "histogram", "scatter", "funnel", "generic"]
     )
     for key, report in reports.items():
         other_params = {

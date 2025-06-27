@@ -704,14 +704,14 @@ files = [
 
 [[package]]
 name = "holoviews"
-version = "1.20.2"
+version = "1.21.0"
 description = "A high-level plotting API for the PyData ecosystem built on HoloViews."
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "holoviews-1.20.2-py3-none-any.whl", hash = "sha256:1f892c04bc23e8a3a9cde082b606b9463c9ff78c3d0c00e2ddcc41fe6e738458"},
-    {file = "holoviews-1.20.2.tar.gz", hash = "sha256:8c78b798601ce3af31523667c6d1cb40df8d781249ebebbdb2c5f6143565e6d8"},
+    {file = "holoviews-1.21.0-py3-none-any.whl", hash = "sha256:74f3c01f35b9e8e2a8d6eb457a7ef05727de2a2a56509d59d7dc0d0409bc91c0"},
+    {file = "holoviews-1.21.0.tar.gz", hash = "sha256:837885ab2fa376677f21dae0b2a2aeb94ba6db96e9fcb3824cdb899538ee5032"},
 ]
 
 [package.dependencies]
@@ -726,7 +726,6 @@ pyviz-comms = ">=2.1"
 
 [package.extras]
 recommended = ["matplotlib (>=3)", "plotly (>=4.0)"]
-tests = ["pytest", "pytest-asyncio", "pytest-rerunfailures"]
 
 [[package]]
 name = "httpcore"
@@ -1425,14 +1424,14 @@ files = [
 
 [[package]]
 name = "openai"
-version = "1.91.0"
+version = "1.92.2"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "openai-1.91.0-py3-none-any.whl", hash = "sha256:207f87aa3bc49365e014fac2f7e291b99929f4fe126c4654143440e0ad446a5f"},
-    {file = "openai-1.91.0.tar.gz", hash = "sha256:d6b07730d2f7c6745d0991997c16f85cddfc90ddcde8d569c862c30716b9fc90"},
+    {file = "openai-1.92.2-py3-none-any.whl", hash = "sha256:abb64bee7f2571709edf9a856f598ffe871730129a7d807a8a4d8d2958f5c842"},
+    {file = "openai-1.92.2.tar.gz", hash = "sha256:b571a79fc7e165e7d00e6963a8a95eb5f42b60ac89fd316f1dc0a2dac5c6fae1"},
 ]
 
 [package.dependencies]
@@ -1679,14 +1678,14 @@ typing-extensions = ">=4.0.0,<5.0.0"
 
 [[package]]
 name = "panel"
-version = "1.7.1"
+version = "1.7.2"
 description = "The powerful data exploration & web app framework for Python."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "panel-1.7.1-py3-none-any.whl", hash = "sha256:80cebb88e3310887d386c882f894b137a377035561a0609908fe2d1f542b588c"},
-    {file = "panel-1.7.1.tar.gz", hash = "sha256:eadc6a10b6cd3a474a4dceeb3f4258265bbd55f5e8a8b94dfca8efa0c461641d"},
+    {file = "panel-1.7.2-py3-none-any.whl", hash = "sha256:e60141a84ba93febff5beb567bec7dc1271e8d325cbdaa655edb751a27686b3a"},
+    {file = "panel-1.7.2.tar.gz", hash = "sha256:889a808aa1c1dacfb68cbdac4fe147d9caceb19cc9485124528f8e24a765278b"},
 ]
 
 [package.dependencies]
@@ -1831,14 +1830,14 @@ xmp = ["defusedxml"]
 
 [[package]]
 name = "plotly"
-version = "6.1.2"
+version = "6.2.0"
 description = "An open-source interactive data visualization library for Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "plotly-6.1.2-py3-none-any.whl", hash = "sha256:f1548a8ed9158d59e03d7fed548c7db5549f3130d9ae19293c8638c202648f6d"},
-    {file = "plotly-6.1.2.tar.gz", hash = "sha256:4fdaa228926ba3e3a213f4d1713287e69dcad1a7e66cf2025bd7d7026d5014b4"},
+    {file = "plotly-6.2.0-py3-none-any.whl", hash = "sha256:32c444d4c940887219cb80738317040363deefdfee4f354498cc0b6dab8978bd"},
+    {file = "plotly-6.2.0.tar.gz", hash = "sha256:9dfa23c328000f16c928beb68927444c1ab9eae837d1fe648dbcda5360c7953d"},
 ]
 
 [package.dependencies]
@@ -1846,9 +1845,12 @@ narwhals = ">=1.15.1"
 packaging = "*"
 
 [package.extras]
-dev = ["black (==25.1.0)"]
+dev = ["plotly[dev-optional]"]
+dev-build = ["build", "jupyter", "plotly[dev-core]"]
+dev-core = ["pytest", "requests", "ruff (==0.11.12)"]
+dev-optional = ["anywidget", "colorcet", "fiona (<=1.9.6) ; python_version <= \"3.8\"", "geopandas", "inflect", "numpy", "orjson", "pandas", "pdfrw", "pillow", "plotly-geo", "plotly[dev-build]", "plotly[kaleido]", "polars[timezone]", "pyarrow", "pyshp", "pytz", "scikit-image", "scipy", "shapely", "statsmodels", "vaex ; python_version <= \"3.9\"", "xarray"]
 express = ["numpy"]
-kaleido = ["kaleido (==1.0.0rc13)"]
+kaleido = ["kaleido (>=1.0.0)"]
 
 [[package]]
 name = "polars"
@@ -1896,22 +1898,22 @@ xlsxwriter = ["xlsxwriter"]
 
 [[package]]
 name = "polars-ds"
-version = "0.8.3"
+version = "0.10.0"
 description = ""
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "polars_ds-0.8.3-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:d74777d4f1ba4818deccad48ad434bae9f2c0e7b53b89215487063e20b6df857"},
-    {file = "polars_ds-0.8.3-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:d15cfc40e349522f0a118ff9459833d5338b1082b06c78ffdfd9ff3aa768b2ee"},
-    {file = "polars_ds-0.8.3-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ef6fb7b0871dc0232363e10daf9d78ec3032879b59c5a540eaa2f6b5c34dcb3d"},
-    {file = "polars_ds-0.8.3-cp39-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:1e6cb71869392ac9925394366aceb3f7db0d83cec70555edf2b5ee4ad66bb858"},
-    {file = "polars_ds-0.8.3-cp39-abi3-win_amd64.whl", hash = "sha256:8cfd9be2ee1b39ec39f955610bb44bc8fd1433c2244d61f27249c010989478c9"},
-    {file = "polars_ds-0.8.3.tar.gz", hash = "sha256:b9114c2c14f28346ceb92405628f884cfb53e636d84715593df938d61b375243"},
+    {file = "polars_ds-0.10.0-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:2f72619d4fe2ad9fe7d38f7168d594e13c05626a6418ecc48bac3a39ccb362aa"},
+    {file = "polars_ds-0.10.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:d700dd87b31cda2fc8df8c31a5e5f6321feda6bc5423524addb1f85be1705077"},
+    {file = "polars_ds-0.10.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b56166e47c7ccb9493ef038b47333a3ed7fcbd23db629b4617f56da0553a593a"},
+    {file = "polars_ds-0.10.0-cp39-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:a152f1da214d7d0b15cc08ac37a98e0c149d4627ddc909514a7d62f74c59a891"},
+    {file = "polars_ds-0.10.0-cp39-abi3-win_amd64.whl", hash = "sha256:f4ea9802e216175ac51ae255eed477af815c28e2e5697092b797a8b3a91c326c"},
+    {file = "polars_ds-0.10.0.tar.gz", hash = "sha256:1f743b42d81bab2c8331e02cefaf7035e3f62f8b06e42d0771b70e044fdbf0f2"},
 ]
 
 [package.dependencies]
-polars = ">=1.4.0,<1.25.0 || >1.25.0"
+polars = ">=1.4.0,<1.25 || >1.25,<1.26 || >1.26"
 typing-extensions = {version = "*", markers = "python_version <= \"3.11\""}
 
 [package.extras]
@@ -2772,14 +2774,14 @@ streamlit = ">=1.36.0"
 
 [[package]]
 name = "streamlit"
-version = "1.46.0"
+version = "1.46.1"
 description = "A faster way to build and share data apps"
 optional = false
 python-versions = "!=3.9.7,>=3.9"
 groups = ["main"]
 files = [
-    {file = "streamlit-1.46.0-py3-none-any.whl", hash = "sha256:f8624acabafcf18611a0fac2635cf181a7ba922b45bd131ae15fc8f80e1a5482"},
-    {file = "streamlit-1.46.0.tar.gz", hash = "sha256:0b2734b48f11f1e5c8046011b6b1a2274982dc657eef2ade8db70f0e1dc53dda"},
+    {file = "streamlit-1.46.1-py3-none-any.whl", hash = "sha256:dffa373230965f87ccc156abaff848d7d731920cf14106f3b99b1ea18076f728"},
+    {file = "streamlit-1.46.1.tar.gz", hash = "sha256:2cc4ad01cfeded9ad953a21829eb879b90aa77af4068c68397411c2d5c8862cf"},
 ]
 
 [package.dependencies]
@@ -3133,4 +3135,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">3.10,<3.12"
-content-hash = "18df45595af5242acc5a7c7df86822aaf3247ed6c159367ec0c1a10067ce23f6"
+content-hash = "f839bba6c5949d345fbdc810e91de8ee132481eb4b6e93bc9a07e2e1314cdd84"

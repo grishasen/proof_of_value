@@ -4,12 +4,13 @@ import polars as pl
 
 from value_dashboard.metrics.constants import INTERACTION_ID, NAME, RANK, OUTCOME
 from value_dashboard.metrics.constants import REVENUE_PROP_NAME
+from value_dashboard.utils.config import get_config
 from value_dashboard.utils.timer import timed
 
 
 @timed
 def conversion(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
-    mand_props_grp_by = config['group_by']
+    mand_props_grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
 
@@ -52,7 +53,7 @@ def compact_conversion_data(conv_data: pl.DataFrame,
                             config: dict) -> pl.DataFrame:
     data_copy = conv_data.filter(pl.col("Negatives") > 0)
 
-    grp_by = config['group_by']
+    grp_by = config['group_by'] + get_config()["metrics"]["global_filters"]
     grp_by = list(set(grp_by))
     if grp_by:
         data_copy = (

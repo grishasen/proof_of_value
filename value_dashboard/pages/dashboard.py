@@ -107,9 +107,6 @@ globally_filtered_data = dynamic_filters.filter_df()
 filtered_rep_data = figures[reports_name_map[selected_report]](globally_filtered_data, params)
 
 # dt, *other = st.tabs(tabs)
-grp_by = reports[reports_name_map[selected_report]]["group_by"]
-cols = list(set(filtered_rep_data.columns.tolist()) - set(grp_by))
-column_order = grp_by + sorted(cols)
 c1, c2 = st.columns([0.7, 0.3], vertical_alignment="center")
 c1.write("#### 🗃 Data Overview")
 # col_order_on = c2.toggle("Reorder columns", value=False, help="Change dataframe table columns order.")
@@ -123,6 +120,9 @@ if data_profiling:
 
 # if col_order_on:
 #    column_order = sort_items(items=column_order, header="Columns order: ")
+grp_by = reports[reports_name_map[selected_report]].get("group_by", filtered_rep_data.columns.tolist())
+cols = list(set(filtered_rep_data.columns.tolist()) - set(grp_by))
+column_order = grp_by + sorted(cols)
 st.data_editor(format_dates(filtered_rep_data.head(dataset_max_rows)).map(highlight_and_format),
                use_container_width=True,
                column_order=column_order,

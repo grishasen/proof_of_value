@@ -106,14 +106,14 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         with c6:
             xplot_y_log = st.radio(
                 'Y-Axis scale',
-                ('Linear', 'Logarithmic'),
+                ('Linear', 'Log'),
                 horizontal=True,
                 help="Select axis scale.",
                 # label_visibility='collapsed'
             )
             if xplot_y_log == 'Linear':
                 xplot_y_bool = False
-            elif xplot_y_log == 'Logarithmic':
+            elif xplot_y_log == 'Log':
                 xplot_y_bool = True
 
     grp_by = [config['x']]

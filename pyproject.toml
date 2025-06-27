@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cdhdashboard"
-version = "0.1.5"
+version = "0.1.6"
 description = "The CDH Value Dashboard Application is an open-source prototype designed to provide customizable metrics and insights for linking marketing actions to business outcomes, such as customer lifetime value (CLV) and conversion rates."
 authors = ["Grigoriy Sen <grigoriy.sen@pega.com>"]
 license = "MIT"
@@ -24,13 +24,13 @@ include = [
 [tool.poetry.dependencies]
 python = ">3.10,<3.12"
 numpy = "^1.26.4"
-polars = "^1.29.0"
-polars-ds = "^0.8.3"
+polars = "^1.31.0"
+polars-ds = "^0.10.0"
 datasketches = "^5.2.0"
 pandas = "^2.2.3"
-plotly = "^6.0.1"
-streamlit = "^1.45.0"
-scikit-learn = "^1.6.1"
+plotly = "^6.2.0"
+streamlit = "^1.46.1"
+scikit-learn = "^1.7.0"
 scipy = "^1.10.1"
 st-pages = "^1.0.1"
 streamlit-dynamic-filters = "^0.1.9"
@@ -45,7 +45,7 @@ psutil = "^7.0.0"
 hvplot = "^0.11.2"
 duckdb = ">=1.2.2,<2.0.0"
 lifetimes = ">=0.11.3"
-pandasai = { version = "^3.0.0b17"}
+pandasai = { version = "^3.0.0b18"}
 kaleido = { version = "^1.0.0rc13"}
 pandasai-openai = "^0.1.6"
 
