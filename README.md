@@ -153,10 +153,12 @@ If application starts as expected, your wheel installation was successful.
 - **value_dashboard/pages/clv_analysis.py**: Contains the dashboard for Product Holdings data and CLV-related metrics.
 - **value_dashboard/pages/chat_with_data.py**: Chat with your data (enagagement, conversion, experiment).
 - **value_dashboard/pages/toml_editor.py**: Configuration page for customizing application settings.
+- **value_dashboard/pages/config_gen.py**: Generate config from data sample using Gen AI LLM
 - **value_dashboard/metrics/**: Calculation of various metrics supported by the application.
 - **value_dashboard/pipeline/**: Data loading and processing steps.
 - **value_dashboard/reports/**: Plots and data visualization functions.
 - **value_dashboard/utils/**: Utility functions for configuration and Streamlit components.
+- **value_dashboard/datalake/**: Persistent cache based on Duck DB
 
 ## Metrics
 
@@ -411,6 +413,8 @@ The supported report types are defined under the `type` property in the configur
 - **bar_polar**: Polar bar charts for categorical data visualization.
 - **treemap**: Treemaps for hierarchical data representation.
 - **heatmap**: Heatmaps for showing data density or correlation.
+- **scatter**: Scatter plot.
+- **generic**: Plot constructor, allowing use any of available dimensions and scores.
 
 #### 3. Description
 
@@ -458,6 +462,9 @@ functionality of the dashboard.
 
     - **Definition**: The `description` property provides a narrative or context regarding the purpose or target
       audience of this dashboard configuration variant.
+
+- **demo_mode**
+    - **Definition**: The `demo_mode` property allows to use sample data provided in `data` directory automatically (data must be unarchived).
 
 ---
 
