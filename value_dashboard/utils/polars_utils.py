@@ -38,7 +38,15 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
     schema = df.schema
     records = []
     for col, dtype in schema.items():
-        if dtype == pl.Utf8:
+        if col.lower().endswith('id'):
+            records.append({
+                "Column": col,
+                "Data Type": str(dtype),
+                "Unique Count": "N/A",
+                "Mode": "N/A",
+                "Values": ''
+            })
+        elif dtype == pl.Utf8:
             unique_count = df[col].n_unique()
             mode = df[col].mode().to_list()
             unique = df[col].unique().to_list()
