@@ -1,6 +1,6 @@
 import numpy as np
 import plotly.graph_objs as go
-import polars_ds as pds
+import polars_ds.sample_and_split as pds
 from lifetimes import BetaGeoFitter, ParetoNBDFitter, GammaGammaFitter
 from plotly.subplots import make_subplots
 
