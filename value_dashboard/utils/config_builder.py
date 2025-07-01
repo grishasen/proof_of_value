@@ -154,7 +154,7 @@ def render_section(section: dict, path=""):
         elif isinstance(v, dict) and k == 'default_values':
             st.markdown(f"{'######'} **{k}**:")
             updated[k] = display_dict_as_table(v, read_only=False)
-        elif k == "filter" or k == "columns":
+        elif (k == "filter" or k == "columns") and "extensions" in path:
             updated[k] = st.text_area(k, value=str(v), key=f"{path}.{k}")
         else:
             updated[k] = render_value(k, v, path)
