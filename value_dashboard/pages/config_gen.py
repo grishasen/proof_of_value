@@ -10,22 +10,13 @@ import tomlkit
 from pandasai.helpers.memory import Memory
 from pandasai_openai import OpenAI
 
-from value_dashboard.pipeline import holdings
-from value_dashboard.utils.config import get_config
+from value_dashboard.utils.config import get_config, set_config
 from value_dashboard.utils.file_utils import read_dataset_export
 from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.polars_utils import schema_with_unique_counts
 from value_dashboard.utils.string_utils import capitalize
 
 logger = get_logger(__name__)
-
-
-def set_config(cfg_file: str):
-    del st.session_state.app_config
-    holdings.get_reports_data.clear()
-    st.session_state.app_config = cfg_file
-    get_config.clear()
-    get_config()
 
 
 @st.fragment()

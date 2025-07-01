@@ -14,14 +14,25 @@ chat_with_data = "true"
 file_type = "pega_ds_export"
 file_pattern = "**/*.json"
 ih_group_pattern = "(.*)"
-hive_partitioning = "false"
-streaming = "true"
-background = "false"
+hive_partitioning = false
+streaming = true
+background = false
 
 [ih.extensions]
-default_values = { 'HoldOutControlGroup' = 'Test', 'ModelControlGroup' = 'Test', 'PlacementType' = 'NA', 'ExperimentName' = 'N/A', 'ExperimentGroup' = 'N/A', 'FinalPropensity' = 0.0, 'Priority' = 1e-10, 'Revenue' = 0.0, "PropensitySource" = "NA" }
-filter = """pl.col("Channel").is_not_null()"""
-columns = """"""
+filter = "pl.col(\"Channel\").is_not_null()"
+columns = ""
+
+[ih.extensions.default_values]
+HoldOutControlGroup = 'Test'
+ModelControlGroup = 'Test'
+PlacementType = 'NA'
+ExperimentName = 'N/A'
+ExperimentGroup = 'N/A'
+FinalPropensity = "0.0"
+Priority = "1e-10"
+Revenue = "0.0"
+PropensitySource = "NA"
+ABGroup = "NA"
 
 [holdings]
 file_type = "pega_ds_export" # parquet, pega_ds_export, csv, xlsx
@@ -32,10 +43,11 @@ streaming = "false"
 background = "false"
 
 [holdings.extensions]
-default_values = { 'Channel' = 'N/A' }
-filter = """"""
-columns = """[pl.col('PurchasedDate').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").dt.date().alias('PurchasedDateTime')]"""
+filter = ""
+columns = ["[pl.col('PurchasedDate').str.strptime(pl.Datetime", "\"%Y%m%dT%H%M%S%.3f %Z\").dt.date().alias('PurchasedDateTime')]"]
 
+[holdings.extensions.default_values]
+Channel = 'N/A'
 [metrics]
 global_filters = ["Channel", "Year", "PlacementType", "PropensitySource"]
 

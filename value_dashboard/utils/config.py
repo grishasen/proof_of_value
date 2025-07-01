@@ -67,3 +67,12 @@ def is_demo_mode() -> bool:
 def chat_with_data() -> bool:
     ux = get_config()["ux"]
     return strtobool(ux.get("chat_with_data", False))
+
+
+def set_config(cfg_file: str):
+    del st.session_state.app_config
+    from value_dashboard.pipeline import holdings
+    holdings.get_reports_data.clear()
+    st.session_state.app_config = cfg_file
+    get_config.clear()
+    get_config()
