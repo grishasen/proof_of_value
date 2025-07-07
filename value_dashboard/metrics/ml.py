@@ -1,5 +1,5 @@
 import traceback
-from typing import List
+from typing import List, Sequence
 
 import datasketches
 import numpy as np
@@ -117,32 +117,7 @@ def personalization_optimized(args: List[Series]) -> pl.Float64:
     return personalization_score
 
 
-def novelty(args: List[Series]) -> pl.Float64:
-    """
-    Computes the novelty for a list of recommendations
-    Inspired by implementation at https://github.com/statisticianinstilettos/recmetrics.git (unfortunately could not use it in polars context)
-    Parameters
-    ----------
-    args : a 2-elements list of Series with CustomerID and Action Name
-
-    pop: dictionary
-        A dictionary of all items alongside of its occurrences counter in the training data
-        example: {1198: 893, 1270: 876, 593: 876, 2762: 867}
-    u: integer
-        The number of users in the training data
-    n: integer
-        The length of recommended lists per user
-    Returns
-    ----------
-    novelty:
-        The novelty of the recommendations in system level
-    ----------
-    Metric Defintion:
-    Zhou, T., Kuscsik, Z., Liu, J. G., Medo, M., Wakeling, J. R., & Zhang, Y. C. (2010).
-    Solving the apparent diversity-accuracy dilemma of recommender systems.
-    Proceedings of the National Academy of Sciences, 107(10), 4511-4515.
-    """
-
+def novelty(args: Sequence[Series]) -> float:
     if len(args) < 2:
         return 0.0
     df = pl.DataFrame(args, schema=[CUSTOMER_ID, INTERACTION_ID, NAME])
@@ -154,73 +129,25 @@ def novelty(args: List[Series]) -> pl.Float64:
     else:
         df = df.slice(round(height / 2), 50000)
     u = df.n_unique(subset=[CUSTOMER_ID])
-    item_counts = (
-        df.group_by(NAME)
-        .agg(pl.len().alias("ActionCount"))
-    )
-    item_counts = item_counts.with_columns(
-        (
-                pl.col("ActionCount")
-                * -((pl.col("ActionCount") / u).log(base=2) + 1e-10)
-        ).alias("total_self_info")
-    )
-    total_self_info = item_counts.select(pl.col("total_self_info").sum()).item()
-    rec_lengths = (
-        df.group_by(INTERACTION_ID)
-        .agg(pl.len().alias("RecLength"))
-    )
-    n = rec_lengths.select(pl.col("RecLength").max()).item()
-    novelty_score = total_self_info / (u * n)
-    return float(novelty_score)
-
-
-def novelty_optimized(args: List[Series]) -> pl.Float64:
-    """
-    Computes novelty based on item popularity within the recommendation set.
-    Optimized by removing sampling and using total recommendations for normalization.
-
-    Parameters
-    ----------
-    args : a 3-elements list of Series with CustomerID, InteractionID, and Action Name
-
-    Returns
-    ----------
-    novelty: float
-        The novelty score. Higher means more niche items recommended.
-    """
-    if len(args) < 3:
-        return 0.0
-
-    df = pl.DataFrame(args, schema=[CUSTOMER_ID, INTERACTION_ID, NAME])
-    total_recommendations = df.height
-
-    if total_recommendations == 0:
-        return 0.0
-
-    u = df.n_unique(subset=[CUSTOMER_ID])
     if u == 0:
         return 0.0
-
     item_counts = (
         df.group_by(NAME)
         .agg(pl.len().alias("ActionCount"))
         .with_columns(
-            (pl.col("ActionCount") / u).alias("P_i")
-        )
-        .with_columns(
-            (
-                    pl.col("ActionCount")
-                    * -(pl.col("P_i").log(base=2.0) + 1e-10)
-            ).alias("item_self_info_contribution")
+            (pl.col("ActionCount") * -((pl.col("ActionCount") / u).log(base=2) + 1e-10)).alias("total_self_info")
         )
     )
-
-    total_self_info = item_counts.select(
-        pl.sum("item_self_info_contribution")
-    ).item()
-    novelty_score = total_self_info / total_recommendations
-
-    return float(novelty_score) if np.isfinite(novelty_score) else 0.0
+    total_self_info = item_counts["total_self_info"].sum()
+    n = (
+        df.group_by(INTERACTION_ID)
+        .agg(pl.len().alias("RecLength"))
+        ["RecLength"].max()
+    )
+    if n == 0:
+        return 0.0
+    novelty_score = total_self_info / (u * n)
+    return float(novelty_score)
 
 
 def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
