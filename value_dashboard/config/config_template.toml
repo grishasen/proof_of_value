@@ -28,11 +28,13 @@ ModelControlGroup = 'Test'
 PlacementType = 'NA'
 ExperimentName = 'N/A'
 ExperimentGroup = 'N/A'
-FinalPropensity = "0.0"
-Priority = "1e-10"
-Revenue = "0.0"
+FinalPropensity = 0.0
+Priority = 1e-10
+Revenue = 0.0
 PropensitySource = "NA"
-ABGroup = "NA"
+Value = 0.0 #.Value
+Weight = 0.0  #.Weight - All levers combined
+OutcomeWeight = 0.0 #.OutcomeWeight - Influencers (Outcome Weighting)
 
 [holdings]
 file_type = "pega_ds_export" # parquet, pega_ds_export, csv, xlsx
@@ -49,7 +51,7 @@ columns = ["[pl.col('PurchasedDate').str.strptime(pl.Datetime", "\"%Y%m%dT%H%M%S
 [holdings.extensions.default_values]
 Channel = 'N/A'
 [metrics]
-global_filters = ["Channel", "Year", "PlacementType", "PropensitySource"]
+global_filters = ["Channel", "Year", "PlacementType", "Issue", "PropensitySource"]
 
 [metrics.model_ml_scores]
 group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group"]
@@ -77,7 +79,7 @@ negative_model_response = ["Impression"]
 group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group", "Outcome"]
 filter = """"""
 use_t_digest = "true"
-columns = ['Outcome', 'Propensity', 'FinalPropensity', 'Priority', 'ResponseTime']
+columns = ['Outcome', 'Propensity', 'FinalPropensity', 'Priority', 'ResponseTime', 'Weight', 'OutcomeWeight']
 scores = ['Count', 'Sum', 'Mean', 'Median', 'p25', 'p75', 'p90', 'p95', 'Std', 'Var', 'Skew', 'Min', 'Max']
 
 [metrics.experiment]
