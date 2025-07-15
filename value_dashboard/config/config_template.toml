@@ -280,6 +280,15 @@ color = 'Issue'
 facet_row = "Channel"
 facet_column = "PlacementType"
 
+[reports.describe_histogram]
+metric = 'descriptive'
+type = 'histogram'
+description = '[DESC] Univariate analysis: Histogram'
+group_by = ['Channel', 'PlacementType']
+x = 'Propensity'
+facet_column = "Channel"
+facet_row = "PlacementType"
+
 [reports.describe_outcome_funnel]
 metric = 'descriptive'
 type = 'funnel'

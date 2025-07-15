@@ -736,3 +736,43 @@ def calculate_clv_scores(
     m_config = get_config()["metrics"][config["metric"]]
     totals_frame = rfm_summary(data, m_config)
     return totals_frame
+
+
+def merge_descriptive_digests(
+        data: Union[pl.DataFrame, pd.DataFrame], config: dict) -> pl.DataFrame:
+    if isinstance(data, pd.DataFrame):
+        data = pl.from_pandas(data)
+    if isinstance(data, pl.DataFrame):
+        data = data.clone()
+
+    m_config = get_config()["metrics"][config["metric"]]
+    use_t_digest = (
+        strtobool(m_config["use_t_digest"])
+        if "use_t_digest" in m_config.keys()
+        else True
+    )
+    logger.debug("Use t-digest for scores: " + str(use_t_digest))
+    columns_conf = m_config["columns"]
+    num_columns = [col for col in columns_conf if (col + "_Mean") in data.columns]
+    grp_by = config["group_by"]
+
+    cdata = data.clone()
+    if not use_t_digest:
+        return pl.DataFrame()
+    else:
+        tdigest_aggs = [
+            pl.map_groups(
+                exprs=[pl.col(f'{c}_tdigest')],
+                function=lambda s: merge_digests(s),
+                return_dtype=pl.Binary,
+                returns_scalar=True
+            ).alias(f'{c}_tdigest_a') for c in num_columns
+        ]
+
+        cdata = cdata.group_by(grp_by).agg([pl.col(grp_by).first().name.suffix("_a")] + tdigest_aggs)
+        cdata = (
+            cdata.select(cs.ends_with("_a"))
+            .rename(lambda column_name: column_name.removesuffix("_a"))
+            .sort(grp_by, descending=False)
+        )
+    return cdata

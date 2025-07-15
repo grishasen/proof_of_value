@@ -1,9 +1,12 @@
+import numpy as np
 import plotly.graph_objs as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
 
+from value_dashboard.reports.repdata import merge_descriptive_digests
 from value_dashboard.reports.shared_plot_utils import *
 from value_dashboard.utils.config import get_config
+from value_dashboard.utils.polars_utils import digest_to_histogram
 
 
 @timed
@@ -485,3 +488,166 @@ def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
     st.plotly_chart(fig, use_container_width=True)
     return ih_analysis
+
+
+@timed
+def descriptive_hist_plot(data: Union[pl.DataFrame, pd.DataFrame],
+                          config: dict) -> pd.DataFrame:
+    metric = config["metric"]
+    m_config = get_config()["metrics"][metric]
+    columns_conf = m_config['columns']
+    num_columns = [col for col in columns_conf if (col + '_Mean') in data.columns]
+
+    report_grp_by = m_config['group_by'] + config['group_by'] + get_config()["metrics"]["global_filters"]
+    report_grp_by = sorted(list(set(report_grp_by)))
+
+    title = config['description']
+    adv_on = st.toggle("Advanced options", value=True, key="Advanced options" + config['description'],
+                       help="Show advanced reporting options")
+    facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
+    facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
+    if adv_on:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            num_columns = sorted(num_columns)
+            config['x'] = st.selectbox(
+                label="## Select data property ",
+                options=num_columns,
+                index=num_columns.index(config['x']),
+                label_visibility='visible',
+                help="Select score to visualize."
+            )
+        with c2:
+            options_row = ['---'] + report_grp_by
+            if 'facet_row' in config.keys():
+                facet_row = st.selectbox(
+                    label='Plot rows',
+                    options=options_row,
+                    index=options_row.index(config['facet_row']),
+                    help="Select data column."
+                )
+            else:
+                facet_row = st.selectbox(
+                    label='Plot rows',
+                    options=options_row,
+                    help="Select data column."
+                )
+        with c3:
+            options_col = ['---'] + report_grp_by
+            if 'facet_column' in config.keys():
+                facet_column = st.selectbox(
+                    label='Plot columns',
+                    options=options_col,
+                    index=options_col.index(config['facet_column']),
+                    help="Select data column."
+                )
+            else:
+                facet_column = st.selectbox(
+                    label='Plot columns',
+                    options=options_col,
+                    help="Select data column."
+                )
+
+    grp_by = []
+    if not (facet_column == '---'):
+        if not facet_column in grp_by:
+            grp_by.append(facet_column)
+    else:
+        facet_column = None
+    if not (facet_row == '---'):
+        if not facet_row in grp_by:
+            grp_by.append(facet_row)
+    else:
+        facet_row = None
+
+    cp_config = config.copy()
+    cp_config['group_by'] = grp_by
+
+    report_data = merge_descriptive_digests(data, cp_config)
+    ih_analysis = report_data.to_pandas()
+    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+
+    if ih_analysis.shape[0] == 0:
+        st.warning("No data available.")
+        st.stop()
+
+    if facet_row:
+        height = max(640, 350 * len(ih_analysis[facet_row].unique()))
+    else:
+        height = 640
+
+    num_rows = 1
+    if facet_row:
+        categories_row = ih_analysis[facet_row].unique()
+        num_rows = len(categories_row)
+    else:
+        categories_row = ['']
+
+    num_cols = 1
+    if facet_column:
+        categories_col = ih_analysis[facet_column].unique()
+        num_cols = len(categories_col)
+    else:
+        categories_col = ['']
+
+    fig = make_subplots(rows=num_rows,
+                        cols=num_cols,
+                        shared_xaxes=True,
+                        shared_yaxes=False,
+                        vertical_spacing=0.05
+                        )
+
+    row_col_map = {(row, col): (i + 1, j + 1) for i, row in enumerate(categories_row) for j, col in
+                   enumerate(categories_col)}
+
+    for item in ih_analysis.to_dict('records'):
+        bin_edges, bin_counts = digest_to_histogram(item[config['x'] + '_tdigest'], bins=100)
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+        row = item[facet_row] if facet_row else ''
+        col = item[facet_column] if facet_column else ''
+        subplot_row, subplot_col = row_col_map[(row, col)]
+
+        fig.add_bar(
+            x=bin_centers, y=bin_counts, width=np.diff(bin_edges),
+            name=' ',
+            row=subplot_row,
+            col=subplot_col
+        )
+
+    fig.update_xaxes(tickfont=dict(size=8))
+    fig.update_layout(
+        height=height,
+        title_text=title
+    )
+    for i, row in enumerate(categories_row):
+        delta = 1 / (2 * len(categories_row))
+        fig.add_annotation(
+            dict(
+                text=f"{row}",
+                xref="paper",
+                yref="paper",
+                x=1.02, y=(1 - ((i + 1) / len(categories_row)) + delta),
+                showarrow=False,
+                font=dict(size=14),
+                xanchor="right",
+                yanchor="middle",
+                textangle=90
+            )
+        )
+    for j, col in enumerate(categories_col):
+        fig.add_annotation(
+            dict(
+                text=f"{col}",
+                xref="paper", yref="paper",
+                x=(j / len(categories_col) + 0.5 / len(categories_col)), y=1.0,
+                showarrow=False,
+                font=dict(size=14),
+                xanchor="center", yanchor="bottom"
+            )
+        )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    report_data = calculate_reports_data(data, cp_config)
+    report_data = report_data.to_pandas()
+    return report_data

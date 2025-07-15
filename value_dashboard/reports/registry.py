@@ -80,6 +80,8 @@ def get_figures() -> dict:
                 figures[report] = descriptive_box_plot
             elif params['type'] == 'funnel':
                 figures[report] = descriptive_funnel
+            elif params['type'] == 'histogram':
+                figures[report] = descriptive_hist_plot
             else:
                 figures[report] = default_bar_line_plot
         elif params['metric'].startswith("experiment"):

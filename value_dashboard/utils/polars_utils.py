@@ -102,3 +102,24 @@ def estimate_quantile(args: List[pl.Series], quantile: float) -> float:
         other = datasketches.tdigest_double.deserialize(b)
         merged.merge(other)
     return merged.get_quantile(quantile)
+
+
+def estimate_quantiles_arr(args: List[pl.Series], quantiles: List[float]) -> List[float]:
+    sketch_bytes_list = args[0].to_list()
+    merged = datasketches.tdigest_double.deserialize(sketch_bytes_list[0])
+    for b in sketch_bytes_list[1:]:
+        other = datasketches.tdigest_double.deserialize(b)
+        merged.merge(other)
+    return [merged.get_quantile(quantile) for quantile in quantiles]
+
+
+def digest_to_histogram(tdigest: bytes, bins: int = 30, value_range: tuple[float, float] = None):
+    tdigest = datasketches.tdigest_double.deserialize(tdigest)
+    if value_range is None:
+        value_range = (tdigest.get_quantile(0), tdigest.get_quantile(1))
+    bin_edges = np.linspace(*value_range, bins + 1)
+    bin_counts = []
+    for left, right in zip(bin_edges[:-1], bin_edges[1:]):
+        count = tdigest.get_cdf([right])[0] - tdigest.get_cdf([left])[0]
+        bin_counts.append(count)
+    return bin_edges, bin_counts
