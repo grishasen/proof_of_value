@@ -6,7 +6,6 @@ version_date = "2024-07-07"
 [ux]
 refresh_dashboard = "true"
 refresh_interval = 180000
-data_profiling = "false"
 data_cache_hours = 8
 chat_with_data = "true"
 

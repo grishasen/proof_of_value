@@ -6,7 +6,6 @@ polars_ds>=0.8.3
 datasketches>=5.2.0
 scikit-learn>=1.6.1
 scipy>=1.10.1
-st-pages>=1.0.1
 streamlit>=1.46.1
 streamlit_dynamic_filters>=0.1.9
 streamlit-option-menu>=0.4.0
@@ -17,7 +16,6 @@ streamlit-sortables>=0.3.1
 pillow>=10.4.0
 tomlkit>=0.13.2
 psutil>=7.0.0
-hvplot>=0.11.2
 python-dotenv>=1.1.0
 pandasai>=3.0.0b17
 pandasai-openai

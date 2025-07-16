@@ -320,7 +320,6 @@ These settings control the behavior of the application's user interface.
   Possible values are "true" or "false".
 - **refresh_interval**: The time interval (in milliseconds) for refreshing the dashboard automatically. The default
   value is 120000, which equals 2 minutes.
-- **data_profiling**: true/false - show additional EDA page
 - **data_cache_hours**: Cache processed data for N hours
 - **chat_with_data**: true/false - enable "Chat with your data" option
 

@@ -33,12 +33,6 @@ if strtobool(get_config()["ux"]["refresh_dashboard"]):
     count = st_autorefresh(interval=get_config()["ux"]["refresh_interval"], key="dashboard-counter")
 
 tabs = ["🗃 Data Overview"]
-data_profiling = False
-if "data_profiling" in get_config()["ux"].keys():
-    data_profiling = strtobool(get_config()["ux"]["data_profiling"])
-if data_profiling:
-    import hvplot as hv
-
 st.markdown("""
         <style>
                .block-container {
@@ -106,20 +100,8 @@ with st.sidebar:
 globally_filtered_data = dynamic_filters.filter_df()
 filtered_rep_data = figures[reports_name_map[selected_report]](globally_filtered_data, params)
 
-# dt, *other = st.tabs(tabs)
 c1, c2 = st.columns([0.7, 0.3], vertical_alignment="center")
 c1.write("#### 🗃 Data Overview")
-# col_order_on = c2.toggle("Reorder columns", value=False, help="Change dataframe table columns order.")
-if data_profiling:
-    def click_button():
-        explorer = hv.explorer(filtered_rep_data)
-        explorer.show(title=f"""📋 Exploratory Data Analysis""", open=True)
-
-
-    st.button(f"""📋 Exploratory Data Analysis""", on_click=click_button, type='secondary')
-
-# if col_order_on:
-#    column_order = sort_items(items=column_order, header="Columns order: ")
 grp_by = reports[reports_name_map[selected_report]].get("group_by", filtered_rep_data.columns.tolist())
 cols = list(set(filtered_rep_data.columns.tolist()) - set(grp_by))
 column_order = grp_by + sorted(cols)
