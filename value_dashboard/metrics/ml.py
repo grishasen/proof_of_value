@@ -220,6 +220,78 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     }
 
 
+def calibration_tdigest(args: List[Series]) -> pl.Struct:
+    pos_series, neg_series = args[0], args[1]
+    if pos_series.len() == 0 or neg_series.len() == 0:
+        return {'calibration_bin': [0.0], 'calibration_proba': [0.0], 'calibration_rate': [0.0]}
+
+    thresholds = [round(float(t), 4) for t in np.linspace(0, 0.1, num=10, endpoint=False)] + [round(float(t), 4) for t
+                                                                                              in np.linspace(0.1, 1,
+                                                                                                             num=17)]
+
+    all_pos = args[0]
+    all_neg = args[1]
+
+    pos_sk = datasketches.tdigest_double.deserialize(merge_digests([all_pos]))
+    neg_sk = datasketches.tdigest_double.deserialize(merge_digests([all_neg]))
+
+    if pos_sk.is_empty() or neg_sk.is_empty():
+        return {'calibration_bin': [0.0], 'calibration_proba': [0.0], 'calibration_rate': [0.0]}
+
+    pos_count = pos_sk.get_total_weight()
+    neg_count = neg_sk.get_total_weight()
+    cdf_pos = np.array(pos_sk.get_cdf(thresholds))
+    cdf_neg = np.array(neg_sk.get_cdf(thresholds))
+    delta_pos = cdf_pos[1:] - cdf_pos[:-1]
+    delta_neg = cdf_neg[1:] - cdf_neg[:-1]
+
+    pos_in_bin = pos_count * delta_pos
+    neg_in_bin = neg_count * delta_neg
+    total_in_bin = pos_in_bin + neg_in_bin
+    positives_rate = pos_in_bin / total_in_bin
+
+    n_quantiles = 10
+    results_bin = []
+    results_proba = []
+    results_rate = []
+
+    for i in range(len(thresholds) - 1):
+        a, b = thresholds[i], thresholds[i + 1]
+        cdf_a_pos = pos_sk.get_cdf([a])[0]
+        cdf_b_pos = pos_sk.get_cdf([b])[0]
+        cdf_a_neg = neg_sk.get_cdf([a])[0]
+        cdf_b_neg = neg_sk.get_cdf([b])[0]
+
+        if (cdf_b_pos - cdf_a_pos) == 0 and (cdf_b_neg - cdf_a_neg) == 0:
+            mean_propensity = (a + b) / 2
+        else:
+            q_pos = np.linspace(cdf_a_pos, cdf_b_pos, n_quantiles, endpoint=False)
+            if q_pos.size > 0:
+                pos_vals = [pos_sk.get_quantile(q) for q in q_pos]
+                pos_bin_mean = np.mean(pos_vals)
+            else:
+                pos_bin_mean = 0.0
+
+            q_neg = np.linspace(cdf_a_neg, cdf_b_neg, n_quantiles, endpoint=False)
+            if q_neg.size > 0:
+                neg_vals = [neg_sk.get_quantile(q) for q in q_neg]
+                neg_bin_mean = np.mean(neg_vals)
+            else:
+                neg_bin_mean = 0.0
+
+            total = pos_in_bin[i] + neg_in_bin[i]
+            if total > 0:
+                mean_propensity = (pos_bin_mean * pos_in_bin[i] + neg_bin_mean * neg_in_bin[i]) / total
+            else:
+                mean_propensity = (a + b) / 2
+
+        results_bin.append((a + b) / 2)
+        results_proba.append(float(mean_propensity))
+        results_rate.append(float(positives_rate[i]) if total_in_bin[i] > 0 else 0.0)
+
+    return {'calibration_bin': results_bin, 'calibration_proba': results_proba, 'calibration_rate': results_rate}
+
+
 @timed
 def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
     grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))

@@ -276,7 +276,7 @@ def get_plot_parameters_menu(config: dict, is_y_axis_required: bool = True):
     scores = m_config['scores']
 
     xplot_y_bool = False
-    xplot_col = config.get('color', None)
+    xplot_col = config.get('color', '---')
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
     x_axis = config.get('x', None)

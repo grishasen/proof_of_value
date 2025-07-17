@@ -9,7 +9,7 @@ from polars_ds import weighted_mean
 
 from value_dashboard.metrics.clv import rfm_summary
 from value_dashboard.metrics.constants import MODELCONTROLGROUP
-from value_dashboard.metrics.ml import binary_metrics_tdigest
+from value_dashboard.metrics.ml import binary_metrics_tdigest, calibration_tdigest
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.polars_utils import merge_digests, estimate_quantile
@@ -260,17 +260,32 @@ def calculate_model_ml_scores(
                 if use_t_digest
                 else []
             )
+            + (
+                [
+                    pl.map_groups(
+                        exprs=["tdigest_positives",
+                               "tdigest_negatives"],
+                        function=calibration_tdigest,
+                        return_dtype=pl.Struct,
+                        returns_scalar=True,
+                    ).alias("calibration_tdigest_a")
+                ]
+                if use_t_digest
+                else []
+            )
         )
         .select(cs.ends_with("_a"))
         .rename(lambda column_name: column_name.removesuffix("_a"))
-        .unnest(["roc_auc_tdigest"] if use_t_digest else [])
+        .unnest(["roc_auc_tdigest", 'calibration_tdigest'] if use_t_digest else [])
         .sort(grp_by, descending=False)
     )
     if drop_fpr_tpr:
         auc_data = (
             auc_data
             .drop(
-                cs.by_name(['fpr', 'tpr', 'precision', 'recall'], require_all=False),
+                cs.by_name(
+                    ['fpr', 'tpr', 'precision', 'recall', 'calibration_bin', 'calibration_proba', 'calibration_rate'],
+                    require_all=False),
                 strict=False
             )
         )

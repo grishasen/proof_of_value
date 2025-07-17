@@ -75,12 +75,17 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
         ih_analysis = model_ml_scores_line_plot(data, config)
         return ih_analysis
 
-    toggle1, toggle2 = st.columns(2)
+    toggle1, toggle3, toggle2 = st.columns(3)
     curves_on = toggle1.toggle("Show as curves", value=False, help="Show as curve (ROC or PR).",
                                key="Curves" + config['description'])
-
+    calibration_on = toggle3.toggle("Calibration plot", value=False, help="Show calibration plot.",
+                                    key="Calibration" + config['description'])
     adv_on = toggle2.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
                             help="Show advanced reporting options")
+
+    if curves_on and calibration_on:
+        st.warning('Select either curves or calibration.')
+        st.stop()
 
     xplot_y_bool = False
     xplot_col = config.get('color', None)
@@ -110,8 +115,11 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
     else:
         facet_row = None
 
-    if not xplot_col in grp_by:
-        grp_by.append(xplot_col)
+    if not (xplot_col == '---'):
+        if not xplot_col in grp_by:
+            grp_by.append(xplot_col)
+    else:
+        xplot_col = None
 
     cp_config = config.copy()
     cp_config['x'] = x_axis
@@ -124,9 +132,9 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
     ih_analysis = pd.DataFrame()
     if curves_on:
         cp_config = config.copy()
-        cp_config['group_by'] = ([facet_row] if facet_row is not None else []) + (
+        cp_config['group_by'] = list(set(([facet_row] if facet_row is not None else []) + (
             [facet_column] if facet_column is not None else []) + (
-                                    [xplot_col] if xplot_col is not None else [])
+                                             [xplot_col] if xplot_col is not None else [])))
         if not cp_config['group_by']:
             cp_config['group_by'] = None
         report_data = calculate_model_ml_scores(data, cp_config, False)
@@ -153,6 +161,80 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
                 type="line", line=dict(dash='dash', color="darkred"),
                 row='all', col='all', x0=x0, y0=y0, x1=x1, y1=y1
             )
+        fig.update_layout(
+            xaxis=dict(
+                range=[0, 1]
+            ),
+            yaxis=dict(
+                range=[0, 1]
+            )
+        )
+        fig.for_each_xaxis(lambda x: x.update({'title': ''}))
+        fig.for_each_yaxis(lambda y: y.update({'title': ''}))
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+        fig.add_annotation(
+            showarrow=False,
+            xanchor='center',
+            xref='paper',
+            x=0.5,
+            yref='paper',
+            y=-0.05,
+            text=label_x
+        )
+        fig.add_annotation(
+            showarrow=False,
+            xanchor='center',
+            xref='paper',
+            x=-0.04,
+            yanchor='middle',
+            yref='paper',
+            y=0.5,
+            textangle=90,
+            text=label_y
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+    elif calibration_on:
+        x = 'calibration_proba'
+        y = 'calibration_rate'
+        title = config['description'] + ": Calibration Plot"
+        label_x = 'Probabilities'
+        label_y = 'Positives share'
+        x0 = 0
+        y0 = 0
+        x1 = 1
+        y1 = 1
+        cp_config = config.copy()
+        cp_config['group_by'] = list(set(([facet_row] if facet_row is not None else []) + (
+            [facet_column] if facet_column is not None else []) + (
+                                             [xplot_col] if xplot_col is not None else [])))
+        if not cp_config['group_by']:
+            cp_config['group_by'] = None
+        report_data = calculate_model_ml_scores(data, cp_config, False)
+        if cp_config['group_by'] is None:
+            report_data = (report_data
+                           .with_columns(
+                [
+                    pl.col(x).list.first().alias(x),
+                    pl.col(y).list.first().alias(y)
+                ]
+            )
+                           .sort(x, descending=False))
+        report_data = report_data.explode([x, y]).sort(x, descending=False)
+        fig = px.line(report_data,
+                      x=x, y=y,
+                      title=title,
+                      color=xplot_col,
+                      log_y=xplot_y_bool,
+                      facet_col=facet_column,
+                      facet_row=facet_row,
+                      height=len(
+                          report_data[facet_row].unique()) * 400 if facet_row is not None else 640
+                      )
+        fig.add_shape(
+            type="line", line=dict(dash='dash', color="darkred"),
+            row='all', col='all', x0=x0, y0=y0, x1=x1, y1=y1
+        )
         fig.update_layout(
             xaxis=dict(
                 range=[0, 1]
