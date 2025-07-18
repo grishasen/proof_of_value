@@ -12,7 +12,8 @@ from sklearn.feature_extraction import FeatureHasher
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
-from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME
+from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME, PROPENSITY, \
+    FINAL_PROPENSITY
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.polars_utils import merge_digests, build_digest
 from value_dashboard.utils.string_utils import strtobool
@@ -322,25 +323,39 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
     if use_t_digest:
         t_digest_aggs = [
             pl.map_groups(
-                exprs=[pl.col("Propensity")
+                exprs=[pl.col(PROPENSITY)
                        .filter(pl.col("Outcome_Boolean") == True)],
                 function=lambda s: build_digest(s),
                 return_dtype=pl.Binary,
                 returns_scalar=True
             ).alias('tdigest_positives'),
             pl.map_groups(
-                exprs=[pl.col("Propensity")
+                exprs=[pl.col(PROPENSITY)
                        .filter(pl.col("Outcome_Boolean") == False)],
                 function=lambda s: build_digest(s),
                 return_dtype=pl.Binary,
                 returns_scalar=True
             ).alias('tdigest_negatives'),
+            pl.map_groups(
+                exprs=[pl.col(FINAL_PROPENSITY)
+                       .filter(pl.col("Outcome_Boolean") == True)],
+                function=lambda s: build_digest(s),
+                return_dtype=pl.Binary,
+                returns_scalar=True
+            ).alias('tdigest_finalprop_positives'),
+            pl.map_groups(
+                exprs=[pl.col(FINAL_PROPENSITY)
+                       .filter(pl.col("Outcome_Boolean") == False)],
+                function=lambda s: build_digest(s),
+                return_dtype=pl.Binary,
+                returns_scalar=True
+            ).alias('tdigest_finalprop_negatives')
         ]
         agg_exprs = common_aggs + t_digest_aggs
     else:
         extra_aggs = [pds.query_binary_metrics(
             "Outcome_Boolean",
-            "Propensity",
+            PROPENSITY,
             threshold=0).alias("metrics")]
         agg_exprs = common_aggs + extra_aggs
 
@@ -380,6 +395,7 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
 
     grp_by = config['group_by'] + get_config()["metrics"]["global_filters"]
     scores = config["scores"]
+    tdigest_columns = [col for col in auc_data.collect_schema().names() if col.startswith("tdigest")]
     grp_by = list(set(grp_by))
     auc_data = (
         auc_data
@@ -403,22 +419,11 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
             (
                 [
                     pl.map_groups(
-                        exprs=["tdigest_positives"],
-                        function=merge_digests,
+                        exprs=[pl.col(f'{c}')],
+                        function=lambda s: merge_digests(s),
                         return_dtype=pl.Binary,
                         returns_scalar=True
-                    ).alias("tdigest_positives_a")
-                ] if use_t_digest else []
-            )
-            +
-            (
-                [
-                    pl.map_groups(
-                        exprs=["tdigest_negatives"],
-                        function=merge_digests,
-                        return_dtype=pl.Binary,
-                        returns_scalar=True
-                    ).alias("tdigest_negatives_a")
+                    ).alias(f'{c}_a') for c in tdigest_columns
                 ] if use_t_digest else []
             )
         )

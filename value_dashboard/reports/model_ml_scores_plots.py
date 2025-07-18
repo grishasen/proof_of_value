@@ -1,3 +1,4 @@
+from value_dashboard.metrics.constants import PROPENSITY, FINAL_PROPENSITY
 from value_dashboard.reports.repdata import calculate_model_ml_scores
 from value_dashboard.reports.shared_plot_utils import *
 
@@ -93,15 +94,16 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
     x_axis = config.get('x', None)
     y_axis = config.get('y', None)
+    property = PROPENSITY
 
     if adv_on:
-        plot_menu = get_plot_parameters_menu(config=config, is_y_axis_required=False)
+        plot_menu = get_plot_parameters_menu_ml(config=config, is_y_axis_required=False)
         x_axis = plot_menu['x']
         y_axis = plot_menu['y']
         facet_column = plot_menu['facet_col']
         facet_row = plot_menu['facet_row']
         xplot_col = plot_menu['color']
-        xplot_y_bool = plot_menu['log_y']
+        property = plot_menu['property']
 
     grp_by = [x_axis]
     if not (facet_column == '---'):
@@ -128,16 +130,19 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
     cp_config['facet_row'] = facet_row
     cp_config['facet_column'] = facet_column
     cp_config['log_y'] = xplot_y_bool
+    cp_config['property'] = property
 
     ih_analysis = pd.DataFrame()
     if curves_on:
+        report_data = data.copy()
+        report_data = filter_dataframe(align_column_types(report_data), case=False)
         cp_config = config.copy()
         cp_config['group_by'] = list(set(([facet_row] if facet_row is not None else []) + (
             [facet_column] if facet_column is not None else []) + (
                                              [xplot_col] if xplot_col is not None else [])))
         if not cp_config['group_by']:
             cp_config['group_by'] = None
-        report_data = calculate_model_ml_scores(data, cp_config, False)
+        report_data = calculate_model_ml_scores(report_data, cp_config, False)
         if cp_config['group_by'] is None:
             report_data = report_data.with_columns(
                 [
@@ -204,13 +209,16 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
         y0 = 0
         x1 = 1
         y1 = 1
+
+        report_data = data.copy()
+        report_data = filter_dataframe(align_column_types(report_data), case=False)
         cp_config = config.copy()
         cp_config['group_by'] = list(set(([facet_row] if facet_row is not None else []) + (
             [facet_column] if facet_column is not None else []) + (
                                              [xplot_col] if xplot_col is not None else [])))
         if not cp_config['group_by']:
             cp_config['group_by'] = None
-        report_data = calculate_model_ml_scores(data, cp_config, False)
+        report_data = calculate_model_ml_scores(report_data, cp_config, False)
         if cp_config['group_by'] is None:
             report_data = (report_data
                            .with_columns(
@@ -291,3 +299,81 @@ def model_ml_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
     fig.update_layout(margin=dict(t=50, l=25, r=25, b=25))
     st.plotly_chart(fig, use_container_width=True)
     return ih_analysis
+
+
+def get_plot_parameters_menu_ml(config: dict, is_y_axis_required: bool = True):
+    metric = config["metric"]
+    m_config = get_config()["metrics"][metric]
+    report_grp_by = m_config['group_by']
+    report_grp_by = sorted(report_grp_by)
+    scores = m_config['scores']
+
+    xplot_col = config.get('color', None)
+    facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
+    facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
+    x_axis = config.get('x', None)
+    y_axis = config.get('y', None)
+    property = PROPENSITY
+
+    cols = st.columns(6 if is_y_axis_required else 5)
+    with cols[0]:
+        x_axis = st.selectbox(
+            label='X-Axis',
+            options=report_grp_by,
+            index=report_grp_by.index(x_axis) if x_axis else 0,
+            help="Select X-Axis."
+        )
+    with cols[1]:
+        xplot_col = st.selectbox(
+            label='Colour By',
+            options=report_grp_by,
+            index=report_grp_by.index(xplot_col) if xplot_col else 0,
+            help="Select color."
+        )
+    with cols[2]:
+        options_row = ['---'] + report_grp_by
+        if 'facet_row' in config.keys():
+            facet_row = st.selectbox(
+                label='Row Facets',
+                options=options_row,
+                index=options_row.index(config['facet_row']),
+                help="Select data column."
+            )
+        else:
+            facet_row = st.selectbox(
+                label='Row Facets',
+                options=options_row,
+                help="Select data column."
+            )
+    with cols[3]:
+        options_col = ['---'] + report_grp_by
+        if 'facet_column' in config.keys():
+            facet_column = st.selectbox(
+                label='Column Facets',
+                options=options_col,
+                index=options_col.index(config['facet_column']),
+                help="Select data column."
+            )
+        else:
+            facet_column = st.selectbox(
+                label='Column Facets',
+                options=options_col,
+                help="Select data column."
+            )
+    if is_y_axis_required:
+        with cols[4]:
+            y_axis = st.selectbox(
+                label='Y-Axis',
+                options=scores,
+                index=scores.index(y_axis) if y_axis else 0,
+                help="Select Y-Axis."
+            )
+    with cols[len(cols) - 1]:
+        property = st.selectbox(
+            label='Property',
+            options=[PROPENSITY, FINAL_PROPENSITY],
+            help="Select Property."
+        )
+
+    return {'x': x_axis, 'color': xplot_col, 'facet_row': facet_row, 'facet_col': facet_column, 'y': y_axis,
+            'property': property}

@@ -13,6 +13,8 @@ CLV_MODEL = "non-contractual"
 ONE_TIME_COST = "OneTimeCost"
 HOLDING_ID = "HoldingID"
 INTERACTION_ID = "InteractionID"
+PROPENSITY = "Propensity"
+FINAL_PROPENSITY = "FinalPropensity"
 
 _scores = [''.join(p) for p in product('1234', repeat=3)]
 

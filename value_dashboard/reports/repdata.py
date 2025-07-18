@@ -8,7 +8,7 @@ from polars import selectors as cs
 from polars_ds import weighted_mean
 
 from value_dashboard.metrics.clv import rfm_summary
-from value_dashboard.metrics.constants import MODELCONTROLGROUP
+from value_dashboard.metrics.constants import MODELCONTROLGROUP, PROPENSITY
 from value_dashboard.metrics.ml import binary_metrics_tdigest, calibration_tdigest
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.logger import get_logger
@@ -230,6 +230,8 @@ def calculate_model_ml_scores(
     )
     logger.debug("Use t-digest for scores: " + str(use_t_digest))
 
+    property = 'tdigest' if config.get('property', PROPENSITY) == PROPENSITY else 'tdigest_finalprop'
+
     auc_data = (
         model_roc_auc_data
         .group_by(grp_by)
@@ -250,8 +252,8 @@ def calculate_model_ml_scores(
             + (
                 [
                     pl.map_groups(
-                        exprs=["tdigest_positives",
-                               "tdigest_negatives"],
+                        exprs=[f"{property}_positives",
+                               f"{property}_negatives"],
                         function=binary_metrics_tdigest,
                         return_dtype=pl.Struct,
                         returns_scalar=True,
@@ -263,8 +265,8 @@ def calculate_model_ml_scores(
             + (
                 [
                     pl.map_groups(
-                        exprs=["tdigest_positives",
-                               "tdigest_negatives"],
+                        exprs=[f"{property}_positives",
+                               f"{property}_negatives"],
                         function=calibration_tdigest,
                         return_dtype=pl.Struct,
                         returns_scalar=True,
