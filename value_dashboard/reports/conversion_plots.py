@@ -121,7 +121,7 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     fig = fig.update_traces(hovertemplate=x_axis + ' : %{x}' + '<br>' +
                                           xplot_col + ' : %{customdata[0]}' + '<br>' +
                                           y_axis + ' : %{y:.2%}' + '<extra></extra>')
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis
 
 
@@ -197,7 +197,7 @@ def conversion_rate_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
             trace1,
             row=(r + 1), col=(c + 1)
         )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     ih_analysis.drop(columns=['Name', 'CName', 'index'], inplace=True, errors='ignore')
     return ih_analysis
 
@@ -353,5 +353,5 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             height=640
         )
         fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis

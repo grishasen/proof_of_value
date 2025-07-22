@@ -13,8 +13,7 @@ def init_plotly_theme():
         "steelblue", "lightgreen", "lightblue", "#fffacd"
     ]
 
-    base = pio.templates["plotly_white"]
-    new_template = base.update(layout=go.Layout(colorway=adjusted_colors))
+    base = pio.templates.default #pio.templates["plotly_white"]
+    new_template = pio.templates[base].update(layout=go.Layout(colorway=adjusted_colors))
     pio.templates["cdhvd"] = new_template
-
     pio.templates.default = "cdhvd"

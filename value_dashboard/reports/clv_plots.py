@@ -81,7 +81,7 @@ def clv_histogram_plot(data: Union[pl.DataFrame, pd.DataFrame],
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
     fig.update_traces(marker_line_width=1, marker_line_color="white")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return rep_filtered_data
 
 
@@ -169,7 +169,7 @@ def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
         margin=dict(b=25, t=50, l=0, r=0),
         showlegend=strtobool(config["showlegend"])
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis
 
 
@@ -213,7 +213,7 @@ def clv_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      )
     fig.update_traces(textinfo="label+text+value+percent root", root_color="lightgrey")
     fig.update_layout(margin=dict(t=50, l=25, r=25, b=25))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis
 
 
@@ -229,7 +229,7 @@ def clv_exposure_plot(data: Union[pl.DataFrame, pd.DataFrame],
 
     clv_analysis = pds.sample(clv_analysis, 100).sort(['recency', 'tenure'])
     fig = clv_plot_customer_exposure(clv_analysis, linewidth=0.5, size=0.75)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return clv_analysis.to_pandas()
 
 
@@ -313,7 +313,7 @@ def clv_correlation_plot(data: Union[pl.DataFrame, pd.DataFrame],
     fig.update_layout(
         title=method.title() + " correlation between " + config['x'] + " and " + config['y']
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis
 
 
@@ -403,7 +403,7 @@ def clv_model_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      )
 
         fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     elif model == 'Pareto/NBD model':
         with st.spinner("Wait for it...", show_time=True):
             pnbmf = ParetoNBDFitter(penalizer_coef=0.001)
@@ -423,7 +423,7 @@ def clv_model_plot(data: Union[pl.DataFrame, pd.DataFrame],
                          )
 
             fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     else:
         with st.spinner("Wait for it...", show_time=True):
             ggf = GammaGammaFitter(penalizer_coef=0.01)
@@ -446,7 +446,7 @@ def clv_model_plot(data: Union[pl.DataFrame, pd.DataFrame],
                          )
 
             fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, theme="streamlit")
 
     return clv
 

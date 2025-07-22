@@ -62,7 +62,7 @@ def experiment_z_score_bar_plot(data: Union[pl.DataFrame, pd.DataFrame],
     fig.update_layout(
         showlegend=False
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis
 
 
@@ -130,6 +130,6 @@ def experiment_odds_ratio_plot(data: Union[pl.DataFrame, pd.DataFrame],
     fig.update_layout(
         showlegend=False
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     ih_analysis.drop(columns=['color'], inplace=True, errors='ignore')
     return ih_analysis

@@ -44,7 +44,7 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                                           config['color'] + ' : %{customdata[0]}' + '<br>' +
                                           y_axis + ' : %{y:.2%}' + '<extra></extra>')
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis
 
 
@@ -198,7 +198,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
             text=label_y
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     elif calibration_on:
         x = 'calibration_proba'
         y = 'calibration_rate'
@@ -275,7 +275,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
             text=label_y
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     else:
         ih_analysis = model_ml_scores_line_plot(data, cp_config)
     return ih_analysis
@@ -297,7 +297,7 @@ def model_ml_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      )
     fig.update_traces(textinfo="label+value+percent parent+percent root")
     fig.update_layout(margin=dict(t=50, l=25, r=25, b=25))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis
 
 
