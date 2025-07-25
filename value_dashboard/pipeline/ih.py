@@ -8,6 +8,7 @@ import time
 import typing
 from collections import defaultdict
 from datetime import timedelta
+from pathlib import Path
 
 import numpy as np
 import polars as pl
@@ -16,7 +17,7 @@ import streamlit as st
 from polars import LazyFrame
 
 from value_dashboard.datalake.df_db_proxy import PolarsDuckDBProxy
-from value_dashboard.metrics.constants import INTERACTION_ID, NAME, RANK, OUTCOME
+from value_dashboard.metrics.constants import INTERACTION_ID, RANK, OUTCOME
 from value_dashboard.metrics.conversion import conversion
 from value_dashboard.metrics.descriptive import descriptive
 from value_dashboard.metrics.engagement import engagement
@@ -83,6 +84,8 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
     if "streaming" in config['ih'].keys():
         streaming = strtobool(config['ih']['streaming'])
     logger.debug("Use polars streaming dataframe collect: " + str(streaming))
+    if streaming:
+        pl.Config.set_engine_affinity("streaming")
     background = False
     if "background" in config['ih'].keys():
         background = strtobool(config['ih']['background'])
@@ -98,7 +101,7 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
     if global_ih_filter:
         ih_filter_expr = eval(global_ih_filter)
     else:
-        ih_filter_expr = True
+        ih_filter_expr = pl.lit(True)
 
     if add_columns:
         add_columns_expr = eval(add_columns)
@@ -145,11 +148,11 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
         try:
             filedate = re.findall(config["ih"]["ih_group_pattern"], os.path.abspath(file))[0]
             if hive_partitioning:
-                file_groups[filedate].add(os.path.dirname(file))
+                file_groups[filedate].add(Path(file).parent)
             else:
-                file_groups[filedate].add(os.path.abspath(file))
+                file_groups[filedate].add(Path(file))
         except Exception as e:
-            file_groups[os.path.basename(file)].add(os.path.abspath(file))
+            file_groups[os.path.basename(file)].add(Path(file))
 
     file_groups = dict(sorted(file_groups.items(), reverse=True))
     size = len(file_groups.items())
@@ -168,7 +171,7 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
         i = i + 1
         progress_bar.progress(i / size, text=f"Processing: {key}")
         ih_group = read_file_group(
-            files_in_grp,
+            list(files_in_grp),
             filetype,
             streaming,
             config,
@@ -225,65 +228,57 @@ def read_file_group(files: typing.Iterable,
                     add_columns_expr: typing.Any,
                     ih_filter_expr: typing.Any
                     ) -> LazyFrame | None:
-    ih_list = []
     start: float = time.time()
-    for file in files:
-        if filetype == 'parquet':
-            ih = pl.scan_parquet(file, cache=False, hive_partitioning=hive_partitioning, missing_columns='insert')
-        elif filetype == 'pega_ds_export':
-            ih = read_dataset_export(file, lazy=True)
-        else:
-            raise Exception("File type not supported")
+    if filetype == 'parquet':
+        ih = pl.scan_parquet(files, cache=False, hive_partitioning=hive_partitioning, missing_columns='insert',
+                             extra_columns='ignore')
+    elif filetype == 'pega_ds_export':
+        ih = read_dataset_export(files, lazy=True)
+    else:
+        raise Exception("File type not supported")
+    logger.debug(f"Data unpacking and load: {(time.time() - start) * 10 ** 3:.03f}ms")
 
-        logger.debug(f"Data unpacking and load: {(time.time() - start) * 10 ** 3:.03f}ms")
+    dframe_columns = ih.collect_schema().names()
+    capitalized = capitalize(dframe_columns)
+    rename_map = dict(zip(dframe_columns, capitalized))
+    ih = ih.rename(rename_map)
 
-        dframe_columns = ih.collect_schema().names()
-        capitalized = capitalize(dframe_columns)
-        rename_map = dict(zip(dframe_columns, capitalized))
-        ih = ih.rename(rename_map)
+    with_cols_list = []
+    if 'default_values' in config["ih"]["extensions"].keys():
+        default_values = config["ih"]["extensions"]["default_values"]
+        for new_col in default_values.keys():
+            if new_col not in capitalized:
+                with_cols_list.append(pl.lit(default_values.get(new_col)).alias(new_col))
+            else:
+                with_cols_list.append(pl.col(new_col).fill_null(default_values.get(new_col)))
+    if with_cols_list:
+        ih = ih.with_columns(with_cols_list)
 
-        with_cols_list = []
-        if 'default_values' in config["ih"]["extensions"].keys():
-            default_values = config["ih"]["extensions"]["default_values"]
-            for new_col in default_values.keys():
-                if new_col not in capitalized:
-                    with_cols_list.append(pl.lit(default_values.get(new_col)).alias(new_col))
-                else:
-                    with_cols_list.append(pl.col(new_col).fill_null(default_values.get(new_col)))
-        if with_cols_list:
-            ih = ih.with_columns(with_cols_list)
+    ih = ih.filter(ih_filter_expr)
 
-        ih = ih.filter(ih_filter_expr)
-
-        ih = (
-            ih.with_columns([
-                pl.col('OutcomeTime').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('OutcomeDateTime'),
-                pl.col('DecisionTime').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('DecisionDateTime')
-            ])
-            .with_columns([
-                pl.col("OutcomeDateTime").dt.date().alias("Day"),
-                pl.col("OutcomeDateTime").dt.strftime("%Y-%m").alias("Month"),
-                pl.col("OutcomeDateTime").dt.year().cast(pl.Utf8).alias("Year"),
-                (pl.col("OutcomeDateTime").dt.year().cast(pl.Utf8) + "_Q" +
-                 pl.col("OutcomeDateTime").dt.quarter().cast(pl.Utf8)).alias("Quarter"),
-                (pl.col("OutcomeDateTime") - pl.col("DecisionDateTime")).dt.total_seconds().alias("ResponseTime")
-            ])
-            .unique(subset=[INTERACTION_ID, NAME, RANK, OUTCOME])
-            .drop([
-                "FactID", "Label", "UpdateDateTime", "OutcomeTime", "DecisionTime",
-                "OutcomeDateTime", "StreamPartition", "EvaluationCriteria", "Organization",
-                "Unit", "Division", "Component", "ApplicationVersion", "Strategy"
-            ], strict=False)
-        )
-
-        ih_list.append(ih)
-
-    if not ih_list:
-        return
-    ih_group = pl.concat(ih_list, how="diagonal")
+    ih = (
+        ih.with_columns([
+            pl.col('OutcomeTime').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('OutcomeDateTime'),
+            pl.col('DecisionTime').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('DecisionDateTime')
+        ])
+        .with_columns([
+            pl.col("OutcomeDateTime").dt.date().alias("Day"),
+            pl.col("OutcomeDateTime").dt.strftime("%Y-%m").alias("Month"),
+            pl.col("OutcomeDateTime").dt.year().cast(pl.Utf8).alias("Year"),
+            (pl.col("OutcomeDateTime").dt.year().cast(pl.Utf8) + "_Q" +
+             pl.col("OutcomeDateTime").dt.quarter().cast(pl.Utf8)).alias("Quarter"),
+            (pl.col("OutcomeDateTime") - pl.col("DecisionDateTime")).dt.total_seconds().alias("ResponseTime")
+        ])
+        .unique(subset=[INTERACTION_ID, RANK, OUTCOME])
+        .drop([
+            "FactID", "Label", "UpdateDateTime", "OutcomeTime", "DecisionTime",
+            "OutcomeDateTime", "StreamPartition", "EvaluationCriteria", "Organization",
+            "Unit", "Division", "Component", "ApplicationVersion", "Strategy"
+        ], strict=False)
+    )
     if add_columns_expr:
-        ih_group = ih_group.with_columns(add_columns_expr)
+        ih = ih.with_columns(add_columns_expr)
 
-    ih_group = ih_group.collect(engine="streaming" if streaming else "auto").lazy()
+    ih = ih.collect(engine="streaming" if streaming else "auto").lazy()
     logger.debug(f"Pre-processing: {(time.time() - start) * 10 ** 3:.03f}ms")
-    return ih_group
+    return ih

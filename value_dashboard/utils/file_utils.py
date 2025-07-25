@@ -39,97 +39,77 @@ def extract_compressed_file(file_path) -> str:
         raise Exception(f"File cannot be extracted: {file_path}")
 
 
-def read_dataset_export(file_name, src_folder=".",
-                        tmp_folder=None,
-                        lazy=False,
-                        verbose=False):
-    export_file = None
-    error_reason = ""
+def read_dataset_export(
+        file_names,
+        src_folder=".",
+        tmp_folder=None,
+        lazy=False,
+        verbose=False
+):
+    if isinstance(file_names, str):
+        file_names = [file_names]
+    if not file_names:
+        raise ValueError("No files provided.")
+
     tmp_folder = tmp_folder if tmp_folder else tempfile.gettempdir()
+    ext = os.path.splitext(file_names[0])[1].lower()
+    df = pl.DataFrame() if not lazy else pl.LazyFrame()
 
-    if file_name.endswith(".json"):
-        error_reason = "Error reading JSON file"
-        if os.path.exists(file_name):
-            export_file = file_name
-        elif os.path.exists(os.path.join(src_folder, file_name)):
-            export_file = os.path.join(src_folder, file_name)
-        if export_file and verbose:
-            print(error_reason, export_file)
-        if export_file:
-            if lazy:
-                df = pl.scan_ndjson(export_file)
-            else:
-                df = pl.read_ndjson(export_file)
-    elif file_name.endswith(".parquet"):
-        error_reason = "Error reading PARQUET file"
-        if os.path.exists(file_name):
-            export_file = file_name
-        elif os.path.exists(os.path.join(src_folder, file_name)):
-            export_file = os.path.join(src_folder, file_name)
-        if export_file and verbose:
-            print(error_reason, export_file)
-        if export_file:
-            if lazy:
-                df = pl.scan_parquet(export_file)
-            else:
-                df = pl.read_parquet(export_file)
-    elif file_name.endswith(".gzip") or file_name.endswith(".gz"):
-        error_reason = "Error reading GZIP file"
-        if os.path.exists(file_name):
-            export_file = file_name
-        elif os.path.exists(os.path.join(src_folder, file_name)):
-            export_file = os.path.join(src_folder, file_name)
-        if export_file and verbose:
-            print(error_reason, export_file)
-        if export_file:
-            output_file_or_dir = extract_compressed_file(export_file)
-            if lazy:
-                df = pl.read_ndjson(output_file_or_dir, infer_schema_length=100000)
-                os.remove(output_file_or_dir)
-                df = df.lazy()
-            else:
-                df = pl.read_ndjson(output_file_or_dir, infer_schema_length=100000)
-                os.remove(output_file_or_dir)
+    def resolve_path(f):
+        if os.path.exists(f):
+            return f
+        elif os.path.exists(os.path.join(src_folder, f)):
+            return os.path.join(src_folder, f)
+        return None
+
+    if ext in [".json"]:
+        files = [resolve_path(f) for f in file_names]
+        files = [f for f in files if f]
+        if not files:
+            raise Exception("No valid JSON files found.")
+        if verbose:
+            print("Reading JSON files:", files)
+        if lazy:
+            df = pl.scan_ndjson(files)
+        else:
+            df = pl.read_ndjson(files)
+    elif ext in [".parquet"]:
+        files = [resolve_path(f) for f in file_names]
+        files = [f for f in files if f]
+        if not files:
+            raise Exception("No valid Parquet files found.")
+        if verbose:
+            print("Reading Parquet files:", files)
+        if lazy:
+            df = pl.scan_parquet(files, cache=False, missing_columns='insert', extra_columns='ignore')
+        else:
+            df = pl.read_parquet(files, missing_columns='insert', extra_columns='ignore')
+    elif ext in [".gzip", ".gz", ".zip"]:
+        extracted_files = []
+        for f in file_names:
+            full_f = f if os.path.exists(f) else os.path.join(src_folder, f)
+            if not os.path.exists(full_f):
+                continue
+            if ext in [".gzip", ".gz"]:
+                extracted_path = extract_compressed_file(full_f, tmp_folder)
+                extracted_files.append(extracted_path)
+            elif ext == ".zip":
+                with zipfile.ZipFile(full_f, 'r') as zip_ref:
+                    json_files = [name for name in zip_ref.namelist() if name.endswith('.json')]
+                    for json_name in json_files:
+                        zip_ref.extract(json_name, tmp_folder)
+                        extracted_files.append(os.path.join(tmp_folder, json_name))
+        if not extracted_files:
+            raise Exception("No valid extracted files found in compressed archives.")
+        if lazy:
+            df = pl.scan_ndjson(extracted_files, infer_schema_length=100000)
+        else:
+            df = pl.read_ndjson(extracted_files, infer_schema_length=100000)
+            for f in extracted_files:
+                os.remove(f)
     else:
-        zip_file = file_name
-        if file_name.endswith(".zip"):
-            error_reason = "Error reading ZIP file"
-            if os.path.exists(file_name):
-                zip_file = file_name
-            elif os.path.exists(os.path.join(src_folder, file_name)):
-                zip_file = os.path.join(src_folder, file_name)
-            if verbose:
-                print(error_reason, zip_file)
+        raise Exception(f"Unsupported file extension: {ext}")
 
-            if os.path.exists(zip_file):
-                error_reason = "Error extracting data.json"
-                if verbose:
-                    print(error_reason, zip_file)
-
-                export_file = os.path.join(tmp_folder, "data.json")
-                if os.path.exists(export_file):
-                    os.remove(export_file)
-
-                with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-                    all_zip_entries = zip_ref.namelist()
-                    json_file_in_zip = [s for s in all_zip_entries if "data.json" in s]
-                    if verbose:
-                        print("data.json in zip file:", json_file_in_zip, zip_file)
-
-                    for file in json_file_in_zip:
-                        zip_ref.extract(file, tmp_folder)
-                        export_file = os.path.join(tmp_folder, file)
-
-                if not os.path.exists(export_file):
-                    raise Exception(f"Dataset zipfile {zip_file} does not have \"data.json\"")
-                if lazy:
-                    df = pl.scan_ndjson(export_file, infer_schema_length=100000)
-                else:
-                    df = pl.read_ndjson(export_file, infer_schema_length=100000)
-                    os.remove(export_file)
-
-    if export_file is None:
-        raise Exception(f"Dataset export not found {error_reason}")
     return df
 
 
