@@ -220,7 +220,7 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
     return collected_metrics_data
 
 
-def read_file_group(files: typing.Iterable,
+def read_file_group(files: typing.List,
                     filetype: str,
                     streaming: bool,
                     config: dict,
