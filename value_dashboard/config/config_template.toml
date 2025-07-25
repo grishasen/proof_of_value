@@ -12,7 +12,7 @@ chat_with_data = "true"
 [ih]
 file_type = "pega_ds_export"
 file_pattern = "**/*.zip"
-ih_group_pattern = "\\d{8}(?=\\\d{6}_)" #interaction-UID-yyyymmddhhMMss_SSS.json.zip file name as in interaction files
+ih_group_pattern = "\\d{8}(?=\\d{6}_)" #interaction-UID-yyyymmddhhMMss_SSS.json.zip file name as in interaction files
 hive_partitioning = false
 streaming = true
 background = false
