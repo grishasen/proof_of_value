@@ -426,13 +426,17 @@ def calculate_conversion_scores(
     copy_data = (
         ih_analysis.group_by(grp_by)
         .agg(
-            pl.sum("Negatives").alias("Negatives"),
-            pl.sum("Positives").alias("Positives"),
-            pl.sum("Count").alias("Count"),
-            pl.sum("Revenue").alias("Revenue"),
+            [
+                pl.col("Negatives").sum(),
+                pl.col("Positives").sum(),
+                pl.col("Count").sum(),
+                pl.col("Revenue").sum(),
+                pl.col('Touchpoints').sum()
+            ]
         )
         .with_columns(
-            [(pl.col("Positives") / (pl.col("Positives") + pl.col("Negatives"))).alias("ConversionRate")]
+            [(pl.col("Positives") / (pl.col("Positives") + pl.col("Negatives"))).alias("ConversionRate"),
+             (pl.col("Touchpoints") / pl.col("Positives")).alias("AvgTouchpoints")]
         )
         .with_columns(
             [

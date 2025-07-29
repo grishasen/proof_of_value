@@ -34,6 +34,7 @@ PropensitySource = "NA"
 Value = 0.0 #.Value
 Weight = 0.0  #.Weight - All levers combined
 OutcomeWeight = 0.0 #.OutcomeWeight - Influencers (Outcome Weighting)
+ConversionEventID = 'N/A'
 
 [holdings]
 file_type = "pega_ds_export" # parquet, pega_ds_export, csv, xlsx

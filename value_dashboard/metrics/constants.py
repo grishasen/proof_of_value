@@ -3,7 +3,11 @@ from itertools import product
 RECURRING_COST = "RecurringCost"
 RECURRING_PERIOD = "RecurringPeriod"
 NAME = "Name"
+ISSUE = "Issue"
+GROUP = "Group"
 RANK = "Rank"
+CHANNEL = "Channel"
+CONVERSION_EVENT_ID = "ConversionEventID"
 CUSTOMER_ID = "SubjectID"
 OUTCOME = "Outcome"
 MODELCONTROLGROUP = "ModelControlGroup"
@@ -15,6 +19,15 @@ HOLDING_ID = "HoldingID"
 INTERACTION_ID = "InteractionID"
 PROPENSITY = "Propensity"
 FINAL_PROPENSITY = "FinalPropensity"
+DECISION_TIME = 'DecisionTime'
+OUTCOME_TIME = 'OutcomeTime'
+DROP_IH_COLUMNS = [
+    "FactID", "Label", "UpdateDateTime",
+    "StreamPartition", "EvaluationCriteria", "Organization",
+    "Unit", "Division", "Component", "ApplicationVersion", "Strategy",
+    "Application", "Fulfilled", "IPAddress", "Interaction", "Latitude",
+    "Longitude", "Operator", "PartitionKey", "PyWorkID", "WorkID"
+]
 
 _scores = [''.join(p) for p in product('1234', repeat=3)]
 

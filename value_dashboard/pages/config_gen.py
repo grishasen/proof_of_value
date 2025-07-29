@@ -10,6 +10,7 @@ import tomlkit
 from pandasai.helpers.memory import Memory
 from pandasai_openai import OpenAI
 
+from value_dashboard.metrics.constants import DROP_IH_COLUMNS, OUTCOME_TIME, DECISION_TIME
 from value_dashboard.utils.config import get_config, set_config
 from value_dashboard.utils.file_utils import read_dataset_export
 from value_dashboard.utils.logger import get_logger
@@ -107,7 +108,7 @@ if uploaded_file:
     file_path = os.path.join(temp_dir.name, uploaded_file.name)
     with open(file_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
-    df = read_dataset_export(file_name=uploaded_file.name, src_folder=os.path.dirname(file_path), lazy=False)
+    df = read_dataset_export(file_names=uploaded_file.name, src_folder=os.path.dirname(file_path), lazy=False)
     dframe_columns = df.collect_schema().names()
     capitalized = capitalize(dframe_columns)
     rename_map = dict(zip(dframe_columns, capitalized))
@@ -129,22 +130,18 @@ if not df.is_empty():
 
     df = (
         df.with_columns([
-            pl.col('OutcomeTime').cast(str).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('OutcomeDateTime'),
-            pl.col('DecisionTime').cast(str).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('DecisionDateTime')
+            pl.col(OUTCOME_TIME).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z"),
+            pl.col(DECISION_TIME).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z")
         ])
         .with_columns([
-            pl.col("OutcomeDateTime").dt.date().alias("Day"),
-            pl.col("OutcomeDateTime").dt.strftime("%Y-%m").alias("Month"),
-            pl.col("OutcomeDateTime").dt.year().cast(pl.Utf8).alias("Year"),
-            (pl.col("OutcomeDateTime").dt.year().cast(pl.Utf8) + "_Q" +
-             pl.col("OutcomeDateTime").dt.quarter().cast(pl.Utf8)).alias("Quarter"),
-            (pl.col("OutcomeDateTime") - pl.col("DecisionDateTime")).dt.total_seconds().alias("ResponseTime")
+            pl.col(OUTCOME_TIME).dt.date().alias("Day"),
+            pl.col(OUTCOME_TIME).dt.strftime("%Y-%m").alias("Month"),
+            pl.col(OUTCOME_TIME).dt.year().cast(pl.Utf8).alias("Year"),
+            (pl.col(OUTCOME_TIME).dt.year().cast(pl.Utf8) + "_Q" +
+             pl.col(OUTCOME_TIME).dt.quarter().cast(pl.Utf8)).alias("Quarter"),
+            (pl.col(OUTCOME_TIME) - pl.col(DECISION_TIME)).dt.total_seconds().alias("ResponseTime")
         ])
-        .drop([
-            "FactID", "Label", "UpdateDateTime", "OutcomeTime", "DecisionTime",
-            "OutcomeDateTime", "StreamPartition", "EvaluationCriteria", "Organization",
-            "Unit", "Division", "Component", "ApplicationVersion", "Strategy"
-        ], strict=False)
+        .drop(DROP_IH_COLUMNS, strict=False)
         .collect()
     )
     df = df.select(sorted(df.columns))

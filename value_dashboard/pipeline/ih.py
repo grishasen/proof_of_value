@@ -17,7 +17,8 @@ import streamlit as st
 from polars import LazyFrame
 
 from value_dashboard.datalake.df_db_proxy import PolarsDuckDBProxy
-from value_dashboard.metrics.constants import INTERACTION_ID, RANK, OUTCOME
+from value_dashboard.metrics.constants import INTERACTION_ID, RANK, OUTCOME, DROP_IH_COLUMNS, OUTCOME_TIME, \
+    DECISION_TIME
 from value_dashboard.metrics.conversion import conversion
 from value_dashboard.metrics.descriptive import descriptive
 from value_dashboard.metrics.engagement import engagement
@@ -258,23 +259,19 @@ def read_file_group(files: typing.List,
 
     ih = (
         ih.with_columns([
-            pl.col('OutcomeTime').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('OutcomeDateTime'),
-            pl.col('DecisionTime').str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z").alias('DecisionDateTime')
+            pl.col(OUTCOME_TIME).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z"),
+            pl.col(DECISION_TIME).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z")
         ])
         .with_columns([
-            pl.col("OutcomeDateTime").dt.date().alias("Day"),
-            pl.col("OutcomeDateTime").dt.strftime("%Y-%m").alias("Month"),
-            pl.col("OutcomeDateTime").dt.year().cast(pl.Utf8).alias("Year"),
-            (pl.col("OutcomeDateTime").dt.year().cast(pl.Utf8) + "_Q" +
-             pl.col("OutcomeDateTime").dt.quarter().cast(pl.Utf8)).alias("Quarter"),
-            (pl.col("OutcomeDateTime") - pl.col("DecisionDateTime")).dt.total_seconds().alias("ResponseTime")
+            pl.col(OUTCOME_TIME).dt.date().alias("Day"),
+            pl.col(OUTCOME_TIME).dt.strftime("%Y-%m").alias("Month"),
+            pl.col(OUTCOME_TIME).dt.year().cast(pl.Utf8).alias("Year"),
+            (pl.col(OUTCOME_TIME).dt.year().cast(pl.Utf8) + "_Q" +
+             pl.col(OUTCOME_TIME).dt.quarter().cast(pl.Utf8)).alias("Quarter"),
+            (pl.col(OUTCOME_TIME) - pl.col(DECISION_TIME)).dt.total_seconds().alias("ResponseTime")
         ])
         .unique(subset=[INTERACTION_ID, RANK, OUTCOME])
-        .drop([
-            "FactID", "Label", "UpdateDateTime", "OutcomeTime", "DecisionTime",
-            "OutcomeDateTime", "StreamPartition", "EvaluationCriteria", "Organization",
-            "Unit", "Division", "Component", "ApplicationVersion", "Strategy"
-        ], strict=False)
+        .drop(DROP_IH_COLUMNS, strict=False)
     )
     if add_columns_expr:
         ih = ih.with_columns(add_columns_expr)
