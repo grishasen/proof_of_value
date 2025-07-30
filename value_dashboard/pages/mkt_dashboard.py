@@ -74,7 +74,7 @@ with mid_col2:
     config['metric'] = descriptive_metric
     config['type'] = 'funnel'
     config['description'] = 'Feedback Loop Funnel'
-    config['group_by'] = ['Channel', 'Issue']
+    config['group_by'] = ['Issue']
     config['stages'] = ['Impression', 'Clicked', 'Conversion']
     config['x'] = 'Outcome'
     config['color'] = 'Issue'
