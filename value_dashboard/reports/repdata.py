@@ -220,7 +220,12 @@ def calculate_model_ml_scores(
     if isinstance(model_roc_auc_data, pl.DataFrame):
         model_roc_auc_data = model_roc_auc_data.clone()
 
-    grp_by = config["group_by"]
+    grp_by = config.get("group_by", None)
+    if not grp_by:
+        grp_by = ['ALL']
+        model_roc_auc_data = model_roc_auc_data.with_columns(
+            pl.lit('ALL').alias('ALL')
+        )
     m_config = get_config()["metrics"][config["metric"]]
     scores = m_config["scores"]
     use_t_digest = (
@@ -317,7 +322,12 @@ def calculate_engagement_scores(
     data_copy = ih_analysis.filter(pl.col("Negatives") > 0)
     column_name_map = {"z_score": "Lift_Z_Score", "z_p_val": "Lift_P_Val"}
 
-    grp_by = config["group_by"]
+    grp_by = config.get("group_by", None)
+    if not grp_by:
+        grp_by = ['ALL']
+        data_copy = data_copy.with_columns(
+            pl.lit('ALL').alias('ALL')
+        )
     ret_dtype = pl.Struct({"z_score": pl.Float64, "z_p_val": pl.Float64})
     if grp_by:
         data_copy = (
@@ -407,7 +417,7 @@ def calculate_engagement_scores(
                 ]
             )
             .rename(lambda column_name: column_name_map.get(column_name, column_name))
-            .sort(config["group_by"], descending=False)
+            .sort(grp_by, descending=False)
         )
 
     return data_copy

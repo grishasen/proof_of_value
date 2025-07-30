@@ -3,34 +3,37 @@ import math
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 
+from value_dashboard.reports.repdata import calculate_engagement_scores
 from value_dashboard.reports.shared_plot_utils import *
 
 
 @timed
 def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
-                             config: dict) -> pd.DataFrame:
-    toggle1, toggle2 = st.columns(2)
-    cards_on = toggle1.toggle("Metric totals", value=True, key="Metric totals" + config['description'],
-                              help="Show aggregated metric values with difference from mean")
-
-    adv_on = toggle2.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
-                            help="Show advanced reporting options")
-
+                             config: dict, options_panel: bool = True) -> pd.DataFrame:
     xplot_y_bool = False
     xplot_col = config.get('color', None)
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
     x_axis = config.get('x', None)
     y_axis = config.get('y', None)
+    height = config.get('height', 640)
 
-    if adv_on:
-        plot_menu = get_plot_parameters_menu(config=config, is_y_axis_required=False)
-        x_axis = plot_menu['x']
-        y_axis = plot_menu['y']
-        facet_column = plot_menu['facet_col']
-        facet_row = plot_menu['facet_row']
-        xplot_col = plot_menu['color']
-        xplot_y_bool = plot_menu['log_y']
+    if options_panel:
+        toggle1, toggle2 = st.columns(2)
+        cards_on = toggle1.toggle("Metric totals", value=True, key="Metric totals" + config['description'],
+                                  help="Show aggregated metric values with difference from mean")
+
+        adv_on = toggle2.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
+                                help="Show advanced reporting options")
+
+        if adv_on:
+            plot_menu = get_plot_parameters_menu(config=config, is_y_axis_required=False)
+            x_axis = plot_menu['x']
+            y_axis = plot_menu['y']
+            facet_column = plot_menu['facet_col']
+            facet_row = plot_menu['facet_row']
+            xplot_col = plot_menu['color']
+            xplot_y_bool = plot_menu['log_y']
 
     grp_by = [config['x']]
     if not (facet_column == '---'):
@@ -51,12 +54,13 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     cp_config['group_by'] = grp_by
 
     ih_analysis = data.copy()
-    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    if options_panel:
+        ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
     ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
-    if cards_on:
+    if options_panel and cards_on:
         engagement_ctr_cards_subplot(ih_analysis, cp_config)
 
     ih_analysis['ConfInterval'] = ih_analysis['StdErr'] * 1.96
@@ -75,29 +79,30 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      #    xplot_col: sorted(ih_analysis[xplot_col].unique(), reverse=True)},
                      custom_data=[xplot_col, 'ConfInterval']
                      )
-        fig.update_layout(
-            xaxis_title=x_axis,
-            yaxis_title=y_axis,
-            hovermode="x unified",
-            updatemenus=[
-                dict(
-                    buttons=list([
-                        dict(
-                            args=["type", "bar"],
-                            label="Bar",
-                            method="restyle"
-                        ),
-                        dict(
-                            args=["type", "line"],
-                            label="Line",
-                            method="restyle"
-                        )
-                    ]),
-                    direction="down",
-                    showactive=True,
-                ),
-            ]
-        )
+        if options_panel:
+            fig.update_layout(
+                xaxis_title=x_axis,
+                yaxis_title=y_axis,
+                hovermode="x unified",
+                updatemenus=[
+                    dict(
+                        buttons=list([
+                            dict(
+                                args=["type", "bar"],
+                                label="Bar",
+                                method="restyle"
+                            ),
+                            dict(
+                                args=["type", "line"],
+                                label="Line",
+                                method="restyle"
+                            )
+                        ]),
+                        direction="down",
+                        showactive=True,
+                    ),
+                ]
+            )
     else:
         fig = px.line(
             ih_analysis,
@@ -114,9 +119,8 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     yaxis_names = ['yaxis'] + [axis_name for axis_name in fig.layout._subplotid_props if 'yaxis' in axis_name]
     yaxis_layout_dict = {yaxis_name + "_tickformat": ',.2%' for yaxis_name in yaxis_names}
     fig.update_layout(yaxis_layout_dict)
-    height = 640
     if facet_row:
-        height = max(640, 300 * len(ih_analysis[facet_row].unique()))
+        height = max(height, 300 * len(ih_analysis[facet_row].unique()))
 
     fig.update_layout(
         xaxis_title=x_axis,
@@ -483,3 +487,10 @@ def engagement_ctr_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame],
                                       delta='{:.2%}'.format(row["CTR"] - average))
         if (index + 1) % num_cols == 0:
             cols = st.columns(num_cols, vertical_alignment='center')
+
+
+def engagement_rate_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
+    df = calculate_engagement_scores(ih_analysis, dict())
+    st.metric(label="**Click-through Rate**", value='{:.2%}'.format(df["CTR"].item()), border=False,
+              delta='{:.2%}'.format(df["Lift"].item()) + ' vs random action',
+              help=f'Overall CTR and uplift vs random control group with p_val = {df["Lift_P_Val"].item()}')

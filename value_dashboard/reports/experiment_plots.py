@@ -3,9 +3,12 @@ from value_dashboard.reports.shared_plot_utils import *
 
 @timed
 def experiment_z_score_bar_plot(data: Union[pl.DataFrame, pd.DataFrame],
-                                config: dict) -> pd.DataFrame:
-    report_data = calculate_reports_data(data, config).to_pandas()
-    ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
+                                config: dict, options_panel: bool = True) -> pd.DataFrame:
+    ih_analysis = calculate_reports_data(data, config).to_pandas()
+    if options_panel:
+        ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    height = config.get('height', 640)
+
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
@@ -17,9 +20,10 @@ def experiment_z_score_bar_plot(data: Union[pl.DataFrame, pd.DataFrame],
     grp_by.append(config['x'])
     ih_analysis = ih_analysis.dropna().sort_values(by=grp_by, ascending=False)
     if 'facet_row' in config.keys():
-        height = max(600, 20 * len(ih_analysis[config['y']].unique()) * len(ih_analysis[config['facet_row']].unique()))
+        height = max(height,
+                     20 * len(ih_analysis[config['y']].unique()) * len(ih_analysis[config['facet_row']].unique()))
     else:
-        height = max(600, 20 * len(ih_analysis[config['y']].unique()))
+        height = max(height, 10 * len(ih_analysis[config['y']].unique()))
 
     fig = px.bar(ih_analysis,
                  x=config['x'],
@@ -32,31 +36,32 @@ def experiment_z_score_bar_plot(data: Union[pl.DataFrame, pd.DataFrame],
                  height=height,
                  )
 
-    fig.update_layout(
-        updatemenus=[
-            dict(
-                buttons=list([
-                    dict(
-                        args=["type", "bar"],
-                        label="Bar",
-                        method="restyle"
-                    ),
-                    dict(
-                        args=["type", "line"],
-                        label="Line",
-                        method="restyle"
-                    )
-                ]),
-                direction="down",
-                pad={"r": 10, "t": 20},
-                showactive=True,
-                x=0,
-                xanchor="left",
-                y=1.1,
-                yanchor="top"
-            ),
-        ]
-    )
+    if options_panel:
+        fig.update_layout(
+            updatemenus=[
+                dict(
+                    buttons=list([
+                        dict(
+                            args=["type", "bar"],
+                            label="Bar",
+                            method="restyle"
+                        ),
+                        dict(
+                            args=["type", "line"],
+                            label="Line",
+                            method="restyle"
+                        )
+                    ]),
+                    direction="down",
+                    pad={"r": 10, "t": 20},
+                    showactive=True,
+                    x=0,
+                    xanchor="left",
+                    y=1.1,
+                    yanchor="top"
+                ),
+            ]
+        )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
     fig.add_vrect(x0=-1.96, x1=1.96, line_width=0, fillcolor="red", opacity=0.1)
     fig.update_layout(

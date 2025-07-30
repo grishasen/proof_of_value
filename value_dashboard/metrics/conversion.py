@@ -63,8 +63,7 @@ def compact_conversion_data(conv_data: pl.DataFrame,
                             config: dict) -> pl.DataFrame:
     data_copy = conv_data.filter(pl.col("Negatives") > 0)
 
-    grp_by = config['group_by'] + get_config()["metrics"]["global_filters"]
-    grp_by = list(set(grp_by))
+    grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
     if grp_by:
         data_copy = (
             data_copy

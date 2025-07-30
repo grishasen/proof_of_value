@@ -377,3 +377,21 @@ def get_plot_parameters_menu_ml(config: dict, is_y_axis_required: bool = True):
 
     return {'x': x_axis, 'color': xplot_col, 'facet_row': facet_row, 'facet_col': facet_column, 'y': y_axis,
             'property': property}
+
+
+def ml_scores_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame], metric_name: str):
+    config = dict()
+    config['metric'] = metric_name
+    df = calculate_model_ml_scores(ih_analysis, config, True)
+    st.metric(label="**Model AUC**", value='{:.2%}'.format(df["roc_auc"].item()), border=False,
+              delta=f"Avg Precision = {'{:.2%}'.format(df['average_precision'].item())}", delta_color='off',
+              help=f'Model ROC AUC and Average Precision')
+
+
+def ml_scores_pers_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame], metric_name: str):
+    config = dict()
+    config['metric'] = metric_name
+    df = calculate_model_ml_scores(ih_analysis, config, True)
+    st.metric(label="**Personalization**", value='{:.2}'.format(df["personalization"].item()), border=False,
+              delta=f"Novelty = {'{:.2}'.format(df['novelty'].item())}", delta_color='off',
+              help=f'Personalization and Novelty')

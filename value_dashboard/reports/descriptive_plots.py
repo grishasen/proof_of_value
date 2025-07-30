@@ -432,7 +432,7 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
 
 @timed
 def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
-                       config: dict) -> pd.DataFrame:
+                       config: dict, options_panel: bool = True) -> pd.DataFrame:
     metric = config["metric"]
     m_config = get_config()["metrics"][metric]
     report_grp_by = config['group_by']
@@ -440,6 +440,7 @@ def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
     x = config['x']
     color = config['color']
     stages = config['stages']
+    height = config.get('height', 640)
     facet_row = None if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = None if not 'facet_column' in config.keys() else config['facet_column']
     copy_config = config.copy()
@@ -462,15 +463,16 @@ def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
         .rename({"value": "Count"})
     )
     ih_analysis = report_data.to_pandas()
-    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    if options_panel:
+        ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
 
     if facet_row:
-        height = max(640, 350 * len(ih_analysis[facet_row].unique()))
+        height = max(height, 350 * len(ih_analysis[facet_row].unique()))
     else:
-        height = 640
+        height = height
 
     fig = px.funnel(ih_analysis,
                     x='Count',

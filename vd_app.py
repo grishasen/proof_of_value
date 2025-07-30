@@ -24,11 +24,13 @@ def get_pages():
         create_page("value_dashboard/pages/data_import.py", "Data Import"),
     ]
     if ih_metrics_avail():
-        pages.append(create_page("value_dashboard/pages/dashboard.py", "Dashboard"))
+        pages.append(create_page("value_dashboard/pages/mkt_dashboard.py", "Dashboard"))
+    if ih_metrics_avail():
+        pages.append(create_page("value_dashboard/pages/ih_analysis.py", "Reports and Analysis"))
     if ih_metrics_avail() and chat_with_data():
         pages.append(create_page("value_dashboard/pages/chat_with_data.py", "Chat with data"))
     if clv_metrics_avail():
-        pages.append(create_page("value_dashboard/pages/clv_analysis.py", "CLV Analysis"))
+        pages.append(create_page("value_dashboard/pages/clv_analysis.py", "CLV Insights"))
     pages.append(create_page("value_dashboard/pages/toml_editor.py", "Configuration"))
     if not is_demo_mode():
         pages.append(create_page("value_dashboard/pages/config_gen.py", "GenAI Config"))

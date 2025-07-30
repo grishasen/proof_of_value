@@ -149,7 +149,7 @@ If application starts as expected, your wheel installation was successful.
 - **vd_app.py**: The main entry point of the application.
 - **value_dashboard/pages/home.py**: Application description.
 - **value_dashboard/pages/data_import.py**: Handles data import functionality.
-- **value_dashboard/pages/dashboard.py**: Contains the dashboard for IH data visualization and interaction.
+- **value_dashboard/pages/ih_analysis.py**: Contains the dashboard for IH data visualization and interaction.
 - **value_dashboard/pages/clv_analysis.py**: Contains the dashboard for Product Holdings data and CLV-related metrics.
 - **value_dashboard/pages/chat_with_data.py**: Chat with your data (enagagement, conversion, experiment).
 - **value_dashboard/pages/toml_editor.py**: Configuration page for customizing application settings.

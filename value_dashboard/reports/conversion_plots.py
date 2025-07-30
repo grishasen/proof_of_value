@@ -8,27 +8,30 @@ from value_dashboard.reports.shared_plot_utils import *
 
 @timed
 def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
-                              config: dict) -> pd.DataFrame:
-    toggle1, toggle2 = st.columns(2)
-    cards_on = toggle1.toggle("Metric totals", value=True, key="Metrics" + config['description'],
-                              help="Show aggregated metric values with difference from mean")
-    adv_on = toggle2.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
-                            help="Show advanced reporting options")
+                              config: dict, options_panel: bool = True) -> pd.DataFrame:
     xplot_y_bool = False
     xplot_col = config.get('color', None)
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
     x_axis = config.get('x', None)
     y_axis = config.get('y', None)
+    height = config.get('height', 640)
 
-    if adv_on:
-        plot_menu = get_plot_parameters_menu(config=config, is_y_axis_required=False)
-        x_axis = plot_menu['x']
-        y_axis = plot_menu['y']
-        facet_column = plot_menu['facet_col']
-        facet_row = plot_menu['facet_row']
-        xplot_col = plot_menu['color']
-        xplot_y_bool = plot_menu['log_y']
+    if options_panel:
+        toggle1, toggle2 = st.columns(2)
+        cards_on = toggle1.toggle("Metric totals", value=True, key="Metrics" + config['description'],
+                                  help="Show aggregated metric values with difference from mean")
+        adv_on = toggle2.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
+                                help="Show advanced reporting options")
+
+        if adv_on:
+            plot_menu = get_plot_parameters_menu(config=config, is_y_axis_required=False)
+            x_axis = plot_menu['x']
+            y_axis = plot_menu['y']
+            facet_column = plot_menu['facet_col']
+            facet_row = plot_menu['facet_row']
+            xplot_col = plot_menu['color']
+            xplot_y_bool = plot_menu['log_y']
 
     grp_by = [x_axis]
     if not (facet_column == '---'):
@@ -49,12 +52,13 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     cp_config['group_by'] = grp_by
 
     ih_analysis = data.copy()
-    ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
+    if options_panel:
+        ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
     ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         st.stop()
-    if cards_on:
+    if options_panel and cards_on:
         conversion_rate_cards_subplot(ih_analysis, cp_config)
 
     if len(ih_analysis[x_axis].unique()) < 30:
@@ -108,7 +112,6 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     yaxis_names = ['yaxis'] + [axis_name for axis_name in fig.layout._subplotid_props if 'yaxis' in axis_name]
     yaxis_layout_dict = {yaxis_name + "_tickformat": ',.2%' for yaxis_name in yaxis_names}
     fig.update_layout(yaxis_layout_dict)
-    height = 640
     if facet_row:
         height = max(640, 300 * len(ih_analysis[facet_row].unique()))
     fig.update_layout(
@@ -252,6 +255,35 @@ def conversion_rate_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame]
 
 
 @timed
+def conversion_rate_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
+    data_copy = (
+        ih_analysis
+        .select(["Positives", "Negatives", "Revenue"])
+        .sum()
+        .with_columns([
+            (pl.col("Positives") / (pl.col("Positives") + pl.col("Negatives"))).alias("ConversionRate")
+        ])
+    )
+    st.metric(label="**Conversion**", value='{:.2%}'.format(data_copy["ConversionRate"].item()), border=False,
+              help=f'Conversion rate', delta='Revenue {:,.0f}'.format(data_copy["Revenue"].item()), delta_color='off')
+
+
+@timed
+def conversion_touchpoints_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
+    data_copy = (
+        ih_analysis
+        .select(["Positives", "Touchpoints"])
+        .sum()
+        .with_columns([
+            (pl.col("Touchpoints") / pl.col("Positives")).alias("AvgTouchpoints")
+        ])
+    )
+    st.metric(label="**Total conversions**", value='{:,.0f}'.format(data_copy["Positives"].item()), border=False,
+              help=f'Conversions and touchpoints', delta=f'Avg Touchpoints: {data_copy["AvgTouchpoints"].item():.2}',
+              delta_color='off')
+
+
+@timed
 def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                                  config: dict) -> pd.DataFrame:
     adv_on = st.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
@@ -262,6 +294,7 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
     x_axis = config.get('x', None)
     y_axis = config.get('y', None)
+    height = config.get('height', 640)
 
     if adv_on:
         plot_menu = get_plot_parameters_menu(config=config, is_y_axis_required=False)
@@ -349,8 +382,8 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             yaxis_title=y_axis,
             hovermode="x unified",
             autosize=True,
-            minreducedheight=640,
-            height=640
+            minreducedheight=height,
+            height=height
         )
         fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
     st.plotly_chart(fig, use_container_width=True, theme="streamlit")
