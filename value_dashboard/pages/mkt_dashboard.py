@@ -1,4 +1,6 @@
+import polars as pl
 import streamlit as st
+from streamlit_dynamic_filters import DynamicFilters
 
 from value_dashboard.pipeline.ih import load_data
 from value_dashboard.reports.conversion_plots import conversion_rate_card, conversion_touchpoints_card, \
@@ -12,16 +14,6 @@ from value_dashboard.utils.config import get_config
 if "data_loaded" not in st.session_state:
     st.warning("Please configure your files in the `data import` tab.")
     st.stop()
-st.markdown(
-    """
-<style>
-[data-testid="stMarkdownContainer"] {
-    font-size: 24px;
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
 
 kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
 metrics = get_config()["metrics"]
@@ -42,6 +34,23 @@ for metric in metrics:
     if metric.startswith("descriptive"):
         df_descriptive = load_data()[metric].clone()
         descriptive_metric = metric
+
+with st.sidebar:
+    dynamic_filters = DynamicFilters(df_engagement.to_pandas(),
+                                     filters=get_config()["metrics"]["global_filters"])
+    st.write("Filter data 👇")
+    dynamic_filters.display_filters()
+
+df_engagement = pl.from_pandas(dynamic_filters.filter_df())
+dynamic_filters.df = df_conversion.to_pandas()
+df_conversion = pl.from_pandas(dynamic_filters.filter_df())
+dynamic_filters.df = df_ml.to_pandas()
+df_ml = pl.from_pandas(dynamic_filters.filter_df())
+dynamic_filters.df = df_experiments.to_pandas()
+df_experiments = pl.from_pandas(dynamic_filters.filter_df())
+dynamic_filters.df = df_descriptive.to_pandas()
+df_descriptive = pl.from_pandas(dynamic_filters.filter_df())
+
 with kpi1:
     conversion_rate_card(df_conversion)
 with kpi2:
@@ -56,7 +65,6 @@ with kpi5:
 mid_col1, mid_col2 = st.columns(2)
 plot_height = 420
 with mid_col1:
-    # st.subheader("Engagement Rate Over Time")
     config = dict()
     config['metric'] = engagement_metric
     config['type'] = 'line'
@@ -69,7 +77,6 @@ with mid_col1:
     engagement_ctr_line_plot(df_engagement.to_pandas(), config, options_panel=False)
 
 with mid_col2:
-    # st.subheader("CLV and RFM Over Time")
     config = dict()
     config['metric'] = descriptive_metric
     config['type'] = 'funnel'
@@ -83,19 +90,6 @@ with mid_col2:
 
 bot_col1, bot_col2 = st.columns(2)
 with bot_col1:
-    # st.subheader("Business Experiments")
-    config = dict()
-    config['metric'] = experiments_metric
-    config['type'] = 'line'
-    config['description'] = 'Business Experiments'
-    config['group_by'] = ['ExperimentName']
-    config['x'] = 'z_score'
-    config['y'] = 'ExperimentName'
-    config['height'] = plot_height
-    experiment_z_score_bar_plot(df_experiments.to_pandas(), config, options_panel=False)
-
-with bot_col2:
-    # st.subheader("Conversion Rate by Channel")
     config = dict()
     config['metric'] = conversion_metric
     config['type'] = 'line'
@@ -106,3 +100,14 @@ with bot_col2:
     config['color'] = "Channel"
     config['height'] = plot_height
     conversion_rate_line_plot(df_conversion.to_pandas(), config, options_panel=False)
+
+with bot_col2:
+    config = dict()
+    config['metric'] = experiments_metric
+    config['type'] = 'line'
+    config['description'] = 'Business Experiments'
+    config['group_by'] = ['ExperimentName']
+    config['x'] = 'z_score'
+    config['y'] = 'ExperimentName'
+    config['height'] = plot_height
+    experiment_z_score_bar_plot(df_experiments.to_pandas(), config, options_panel=False)
