@@ -11,7 +11,7 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = calculate_reports_data(ih_analysis, config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     y_axis = config.get('y', None)
     x_axis = config.get('x', None)
     fig = px.line(

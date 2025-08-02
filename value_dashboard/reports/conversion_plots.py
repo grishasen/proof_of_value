@@ -57,7 +57,7 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     if options_panel and cards_on:
         conversion_rate_cards_subplot(ih_analysis, cp_config)
 
@@ -135,7 +135,7 @@ def conversion_rate_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     grp_by = config['group_by']
     ih_analysis = ih_analysis.sort_values(by=grp_by)
     ih_analysis = ih_analysis.reset_index()
@@ -328,7 +328,7 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
 
     if len(ih_analysis[x_axis].unique()) < 30:
         fig = px.bar(ih_analysis,

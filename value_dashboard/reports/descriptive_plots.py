@@ -142,7 +142,7 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
 
     if facet_row:
         height = max(640, 350 * len(ih_analysis[facet_row].unique()))
@@ -313,7 +313,7 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
 
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
 
     if facet_row:
         height = max(640, 350 * len(ih_analysis[facet_row].unique()))
@@ -467,7 +467,7 @@ def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
         ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
 
     if facet_row:
         height = max(height, 350 * len(ih_analysis[facet_row].unique()))
@@ -571,7 +571,7 @@ def descriptive_hist_plot(data: Union[pl.DataFrame, pd.DataFrame],
 
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
 
     if facet_row:
         height = max(640, 350 * len(ih_analysis[facet_row].unique()))

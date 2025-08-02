@@ -19,7 +19,7 @@ def eng_conv_ml_heatmap_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     new_df = ih_analysis.pivot(index=config['y'], columns=config['x'])[config['color']].fillna(0)
     fig = px.imshow(new_df, x=new_df.columns, y=new_df.index,
                     color_continuous_scale=px.colors.sequential.RdBu_r,
@@ -69,7 +69,7 @@ def eng_conv_ml_scatter_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     fig = px.scatter(ih_analysis,
                      title=config['description'],
                      x=config['x'], y=config['y'],
@@ -95,7 +95,7 @@ def eng_conv_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     fig = px.treemap(ih_analysis, path=[px.Constant("ALL")] + config['group_by'], values='Count',
                      color=config['color'],
                      color_continuous_scale=px.colors.sequential.RdBu_r,
@@ -116,7 +116,7 @@ def eng_conv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     theme = st.context.theme.type
     if theme is None:
         template = 'none'
@@ -195,7 +195,7 @@ def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
 
     if len(ih_analysis[x_axis].unique()) < 25:
         fig = px.bar(ih_analysis,

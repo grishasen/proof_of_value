@@ -59,7 +59,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     if options_panel and cards_on:
         engagement_ctr_cards_subplot(ih_analysis, cp_config)
 
@@ -75,8 +75,6 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      facet_row=facet_row,
                      barmode="group",
                      title=config['description'] + " with 95% confidence interval",
-                     # category_orders={
-                     #    xplot_col: sorted(ih_analysis[xplot_col].unique(), reverse=True)},
                      custom_data=[xplot_col, 'ConfInterval']
                      )
         if options_panel:
@@ -113,7 +111,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             title=config['description'],
             facet_col=facet_column,
             facet_row=facet_row,
-            custom_data=[xplot_col, 'ConfInterval'],
+            custom_data=[xplot_col, 'ConfInterval']
         )
     fig.update_xaxes(tickfont=dict(size=10))
     yaxis_names = ['yaxis'] + [axis_name for axis_name in fig.layout._subplotid_props if 'yaxis' in axis_name]
@@ -121,7 +119,6 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     fig.update_layout(yaxis_layout_dict)
     if facet_row:
         height = max(height, 300 * len(ih_analysis[facet_row].unique()))
-
     fig.update_layout(
         xaxis_title=x_axis,
         yaxis_title=y_axis,
@@ -183,7 +180,7 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     if len(ih_analysis[x_axis].unique()) < 25:
         fig = px.bar(ih_analysis,
                      x=x_axis,
@@ -259,7 +256,7 @@ def engagement_ctr_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     grp_by = config['group_by']
     ih_analysis = ih_analysis.sort_values(by=grp_by)
     ih_analysis = ih_analysis.reset_index()
@@ -375,7 +372,7 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = calculate_reports_data(ih_analysis, cp_config).to_pandas()
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     if len(ih_analysis[x_axis].unique()) < 30:
         fig = px.bar(ih_analysis,
                      x=x_axis,

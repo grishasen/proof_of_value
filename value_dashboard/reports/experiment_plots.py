@@ -11,7 +11,7 @@ def experiment_z_score_bar_plot(data: Union[pl.DataFrame, pd.DataFrame],
 
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     grp_by = []
     if 'facet_column' in config.keys():
         grp_by.append(config['facet_column'])
@@ -86,7 +86,7 @@ def experiment_odds_ratio_plot(data: Union[pl.DataFrame, pd.DataFrame],
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
-        st.stop()
+        return ih_analysis
     if config['x'].startswith("g"):
         x = 'g_odds_ratio_stat'
         ih_analysis["x_plus"] = ih_analysis["g_odds_ratio_ci_high"] - ih_analysis["g_odds_ratio_stat"]
