@@ -5,11 +5,23 @@ import uuid
 from datetime import datetime, date
 
 import pandas as pd
+import polars as pl
 import streamlit as st
 import tomlkit
 from streamlit_tags import st_tags
 
 from value_dashboard.utils.config import set_config
+
+
+def serialize_exprs(obj):
+    if isinstance(obj, dict):
+        return {k: serialize_exprs(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [serialize_exprs(item) for item in obj]
+    elif isinstance(obj, pl.Expr):
+        return str(obj)
+    else:
+        return obj
 
 
 def is_date_field(key, value):
@@ -114,6 +126,8 @@ def render_value(key, value, path=""):
             return st.text_input(label, value)
         else:
             return st.text_area(label, value, height=204)
+    elif isinstance(value, pl.expr.expr.Expr):
+        return st.text_input(label, str(value))
     else:
         st.warning(f"Unknown type for {label}: {type(value)}")
         return value
@@ -386,6 +400,7 @@ def render_config_editor(cfg):
 
     with tabs[8]:
         st.header("Save & Export")
+        cfg = serialize_exprs(cfg)
         if st.button("Apply New Config", type='primary'):
             new_config_text = tomlkit.dumps(cfg)
             try:
