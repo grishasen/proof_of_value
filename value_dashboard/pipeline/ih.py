@@ -18,7 +18,7 @@ from polars import LazyFrame
 
 from value_dashboard.datalake.df_db_proxy import PolarsDuckDBProxy
 from value_dashboard.metrics.constants import INTERACTION_ID, RANK, OUTCOME, DROP_IH_COLUMNS, OUTCOME_TIME, \
-    DECISION_TIME
+    DECISION_TIME, ISSUE, GROUP, NAME, ACTION_ID
 from value_dashboard.metrics.conversion import conversion
 from value_dashboard.metrics.descriptive import descriptive
 from value_dashboard.metrics.engagement import engagement
@@ -260,7 +260,8 @@ def read_file_group(files: typing.List,
     ih = (
         ih.with_columns([
             pl.col(OUTCOME_TIME).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z"),
-            pl.col(DECISION_TIME).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z")
+            pl.col(DECISION_TIME).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z"),
+            pl.concat_str([pl.col(ISSUE), pl.col(GROUP), pl.col(NAME)], separator="/").alias(ACTION_ID),
         ])
         .with_columns([
             pl.col(OUTCOME_TIME).dt.date().alias("Day"),
@@ -270,7 +271,7 @@ def read_file_group(files: typing.List,
              pl.col(OUTCOME_TIME).dt.quarter().cast(pl.Utf8)).alias("Quarter"),
             (pl.col(OUTCOME_TIME) - pl.col(DECISION_TIME)).dt.total_seconds().alias("ResponseTime")
         ])
-        .unique(subset=[INTERACTION_ID, RANK, OUTCOME])
+        .unique(subset=[INTERACTION_ID, ACTION_ID, RANK, OUTCOME])
         .drop(DROP_IH_COLUMNS, strict=False)
     )
     if add_columns_expr:

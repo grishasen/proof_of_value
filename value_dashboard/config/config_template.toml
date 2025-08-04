@@ -22,19 +22,25 @@ filter = "pl.col(\"Channel\").is_not_null()"
 columns = ""
 
 [ih.extensions.default_values]
+Channel = 'N/A'
+Issue = 'N/A'
+Group = 'N/A'
+Name = 'N/A'
 HoldOutControlGroup = 'Test'
 ModelControlGroup = 'Test'
-PlacementType = 'NA'
+PlacementType = 'N/A'
 ExperimentName = 'N/A'
 ExperimentGroup = 'N/A'
 FinalPropensity = 0.0
 Priority = 1e-10
 Revenue = 0.0
-PropensitySource = "NA"
+PropensitySource = "N/A"
 Value = 0.0 #.Value
 Weight = 0.0  #.Weight - All levers combined
 OutcomeWeight = 0.0 #.OutcomeWeight - Influencers (Outcome Weighting)
 ConversionEventID = 'N/A'
+DecisionTime = '20000101T000000.000 GMT'
+Rank = 1
 
 [holdings]
 file_type = "pega_ds_export" # parquet, pega_ds_export, csv, xlsx

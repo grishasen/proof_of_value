@@ -3,7 +3,7 @@ import traceback
 import polars as pl
 
 from value_dashboard.metrics.constants import INTERACTION_ID, RANK, OUTCOME, CUSTOMER_ID, \
-    CONVERSION_EVENT_ID
+    CONVERSION_EVENT_ID, NAME
 from value_dashboard.metrics.constants import REVENUE_PROP_NAME
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.timer import timed
@@ -36,7 +36,7 @@ def conversion(ih: pl.LazyFrame, config: dict, streaming=False, background=False
             .with_columns([
                 pl.when(pl.col(OUTCOME).is_in(positive_model_response)).then(1).otherwise(0).alias('Outcome_Binary')
             ])
-            .filter(pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, RANK))
+            .filter(pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, NAME, RANK))
             .join(ih_attribution, on=[CUSTOMER_ID, CONVERSION_EVENT_ID], how='left')
             .group_by(mand_props_grp_by)
             .agg([

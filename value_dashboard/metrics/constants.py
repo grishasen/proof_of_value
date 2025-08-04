@@ -20,6 +20,7 @@ INTERACTION_ID = "InteractionID"
 PROPENSITY = "Propensity"
 FINAL_PROPENSITY = "FinalPropensity"
 DECISION_TIME = 'DecisionTime'
+ACTION_ID = 'ActionID'
 OUTCOME_TIME = 'OutcomeTime'
 DROP_IH_COLUMNS = [
     "FactID", "Label", "UpdateDateTime",

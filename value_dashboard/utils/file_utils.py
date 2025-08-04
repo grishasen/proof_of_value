@@ -83,7 +83,7 @@ def read_dataset_export(
         if lazy:
             df = pl.scan_parquet(files, cache=False, missing_columns='insert', extra_columns='ignore')
         else:
-            df = pl.read_parquet(files, missing_columns='insert', extra_columns='ignore')
+            df = pl.read_parquet(files, missing_columns='insert', allow_missing_columns=True)
     elif ext in [".gzip", ".gz", ".zip"]:
         extracted_files = []
         for f in file_names:

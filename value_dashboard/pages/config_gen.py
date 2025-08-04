@@ -154,7 +154,7 @@ if not df.is_empty():
     st.dataframe(df.describe())
 
     with st.expander("View Data Sample", expanded=False, icon=":material/analytics:"):
-        st.dataframe(df)
+        st.dataframe(df.head(100))
 
     with pl.Config(tbl_cols=len(schema_df), tbl_rows=len(schema_df)):
         prompt = f"""

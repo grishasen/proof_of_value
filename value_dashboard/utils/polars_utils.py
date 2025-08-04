@@ -4,6 +4,7 @@ from typing import Dict, Any, List
 import datasketches
 import numpy as np
 import polars as pl
+from polars.datatypes._parse import NoneType
 
 from value_dashboard.utils.logger import get_logger
 
@@ -57,6 +58,17 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
                 "Mode": str(mode),
                 "Values": str(unique) if unique_count < 10 else '...'
             })
+        elif dtype == NoneType:
+            unique_count = df[col].n_unique()
+            mode = df[col].mode().to_list()
+            unique = df[col].unique().to_list()
+            records.append({
+                "Column": col,
+                "Data Type": str(dtype),
+                "Unique Count": unique_count,
+                "Mode": str(mode),
+                "Values": str(unique) if unique_count < 10 else '...'
+            })
         elif dtype.is_numeric():
             records.append({
                 "Column": col,
@@ -88,6 +100,10 @@ def build_digest(args: List[pl.Series]) -> bytes:
 def merge_digests(args: List[pl.Series]
                   ) -> bytes:
     sketch_bytes_list = args[0].to_list()
+    if not sketch_bytes_list:
+        sketch = datasketches.tdigest_double(k=T_DIGEST_COMPRESSION)
+        sketch.update(0.0)
+        return sketch.serialize()
     merged = datasketches.tdigest_double.deserialize(sketch_bytes_list[0])
     for b in sketch_bytes_list[1:]:
         other = datasketches.tdigest_double.deserialize(b)
@@ -97,6 +113,8 @@ def merge_digests(args: List[pl.Series]
 
 def estimate_quantile(args: List[pl.Series], quantile: float) -> float:
     sketch_bytes_list = args[0].to_list()
+    if not sketch_bytes_list:
+        return 0.0
     merged = datasketches.tdigest_double.deserialize(sketch_bytes_list[0])
     for b in sketch_bytes_list[1:]:
         other = datasketches.tdigest_double.deserialize(b)
@@ -106,6 +124,8 @@ def estimate_quantile(args: List[pl.Series], quantile: float) -> float:
 
 def estimate_quantiles_arr(args: List[pl.Series], quantiles: List[float]) -> List[float]:
     sketch_bytes_list = args[0].to_list()
+    if not sketch_bytes_list:
+        return [0.0]
     merged = datasketches.tdigest_double.deserialize(sketch_bytes_list[0])
     for b in sketch_bytes_list[1:]:
         other = datasketches.tdigest_double.deserialize(b)
