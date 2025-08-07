@@ -89,13 +89,11 @@ with st.sidebar:
     model_choice = st.selectbox(
         "Choose Model",
         options=OpenAI._supported_chat_models,
-        index=OpenAI._supported_chat_models.index("gpt-4o-mini")
+        index=OpenAI._supported_chat_models.index(OpenAI.model)
     )
     llm = OpenAI(
         api_token=openai_api_key,
-        temperature=0,
-        model=model_choice,
-        max_tokens=8192
+        model=model_choice
     )
 
 st.subheader("Choose file with IH sample", divider='red')

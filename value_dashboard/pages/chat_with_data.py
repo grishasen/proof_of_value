@@ -74,13 +74,12 @@ with st.sidebar:
     model_choice = st.selectbox(
         "Choose Model",
         options=OpenAI._supported_chat_models,
-        index=OpenAI._supported_chat_models.index("gpt-4.1-mini")
+        index=OpenAI._supported_chat_models.index(OpenAI.model)
     )
 
     # Create llm instance
     llm = OpenAI(
         api_token=openai_api_key,
-        temperature=0,
         model=model_choice
     )
     if llm:
