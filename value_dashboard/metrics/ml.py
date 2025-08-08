@@ -161,6 +161,7 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
             'fpr': [0.0],
             'precision': [0.0],
             'recall': [0.0],
+            'pos_fraction': 0.0
         }
 
     thresholds = [round(float(t), 4) for t in np.linspace(0, 1, num=101)]
@@ -179,6 +180,7 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
             'fpr': [0.0],
             'precision': [0.0],
             'recall': [0.0],
+            'pos_fraction': 0.0
         }
 
     pos_count = pos_sk.get_total_weight()
@@ -198,6 +200,7 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
     fpr_desc = fpr[::-1]
     tp = pos_count * recall
     fp = neg_count * fpr_desc
+    pos_fraction = pos_count / (pos_count + neg_count)
 
     eps = 1e-10
     precision = tp / (tp + fp + eps)
@@ -218,6 +221,7 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
         'fpr': fpr_sorted.tolist(),
         'precision': precision.tolist(),
         'recall': recall.tolist(),
+        'pos_fraction': pos_fraction
     }
 
 

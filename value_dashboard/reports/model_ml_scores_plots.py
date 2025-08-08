@@ -76,17 +76,19 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
         ih_analysis = model_ml_scores_line_plot(data, config)
         return ih_analysis
 
-    toggle1, toggle3, toggle2 = st.columns(3)
-    curves_on = toggle1.toggle("Show as curves", value=False, help="Show as curve (ROC or PR).",
-                               key="Curves" + config['description'])
-    calibration_on = toggle3.toggle("Calibration plot", value=False, help="Show calibration plot.",
-                                    key="Calibration" + config['description'])
-    adv_on = toggle2.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
+    pills1, toggle1 = st.columns(2)
+    options = ["Curves", "Calibration", "Gain", "Lift"]
+    selection = pills1.pills("Additional plots", options, selection_mode="single")
+    # curves_on = toggle1.toggle("Show as curves", value=False, help="Show as curve (ROC or PR).",
+    #                           key="Curves" + config['description'])
+    # calibration_on = toggle3.toggle("Calibration plot", value=False, help="Show calibration plot.",
+    #                                key="Calibration" + config['description'])
+    adv_on = toggle1.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
                             help="Show advanced reporting options")
 
-    if curves_on and calibration_on:
-        st.warning('Select either curves or calibration.')
-        st.stop()
+    # if curves_on and calibration_on:
+    #    st.warning('Select either curves or calibration.')
+    #    st.stop()
 
     xplot_y_bool = False
     xplot_col = config.get('color', None)
@@ -133,7 +135,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
     cp_config['property'] = property
 
     ih_analysis = pd.DataFrame()
-    if curves_on:
+    if selection == 'Curves':
         report_data = data.copy()
         report_data = filter_dataframe(align_column_types(report_data), case=False)
         cp_config = config.copy()
@@ -183,7 +185,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
             xref='paper',
             x=0.5,
             yref='paper',
-            y=-0.05,
+            y=-0.1,
             text=label_x
         )
         fig.add_annotation(
@@ -199,7 +201,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
         )
 
         st.plotly_chart(fig, use_container_width=True, theme="streamlit")
-    elif calibration_on:
+    elif selection == 'Calibration':
         x = 'calibration_proba'
         y = 'calibration_rate'
         title = config['description'] + ": Calibration Plot"
@@ -221,12 +223,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
         report_data = calculate_model_ml_scores(report_data, cp_config, False)
         if cp_config['group_by'] is None:
             report_data = (report_data
-                           .with_columns(
-                [
-                    pl.col(x).list.first().alias(x),
-                    pl.col(y).list.first().alias(y)
-                ]
-            )
+                           .with_columns([pl.col(x).list.first().alias(x), pl.col(y).list.first().alias(y)])
                            .sort(x, descending=False))
         report_data = report_data.explode([x, y]).sort(x, descending=False)
         fig = px.line(report_data,
@@ -260,7 +257,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
             xref='paper',
             x=0.5,
             yref='paper',
-            y=-0.05,
+            y=-0.1,
             text=label_x
         )
         fig.add_annotation(
@@ -276,6 +273,181 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
         )
 
         st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    elif selection == 'Gain':
+        x = 'sample_fraction'
+        y = 'gain'
+        title = config['description'] + ": Gain Plot"
+        label_x = 'Fraction of population'
+        label_y = 'Gain'
+        x0 = 0
+        y0 = 0
+        x1 = 1
+        y1 = 1
+
+        report_data = data.copy()
+        report_data = filter_dataframe(align_column_types(report_data), case=False)
+        cp_config = config.copy()
+        cp_config['group_by'] = list(set(([facet_row] if facet_row is not None else []) + (
+            [facet_column] if facet_column is not None else []) + (
+                                             [xplot_col] if xplot_col is not None else [])))
+        if not cp_config['group_by']:
+            cp_config['group_by'] = None
+        report_data = calculate_model_ml_scores(report_data, cp_config, False)
+        if cp_config['group_by'] is None:
+            report_data = (report_data
+                           .with_columns([pl.col(x).list.first().alias(x), pl.col(y).list.first().alias(y)])
+                           .sort(x, descending=False))
+        list_cols = ["tpr", "fpr"]
+        report_data = (
+            report_data.explode(list_cols)
+            .drop("calibration_rate", strict=False)
+            .with_columns([
+                (pl.col("pos_fraction") * pl.col("tpr") + (1.0 - pl.col("pos_fraction")) * pl.col("fpr"))
+                .alias("sample_fraction"),
+                pl.col("tpr").alias("gain"),
+            ])
+        )
+        fig = px.line(report_data,
+                      x=x, y=y,
+                      title=title,
+                      color=xplot_col,
+                      facet_col=facet_column,
+                      facet_row=facet_row,
+                      height=len(
+                          report_data[facet_row].unique()) * 400 if facet_row is not None else 640
+                      )
+        fig.add_shape(
+            type="line", line=dict(dash='dash', color="darkred"),
+            row='all', col='all', x0=x0, y0=y0, x1=x1, y1=y1
+        )
+        fig.update_layout(
+            xaxis=dict(
+                range=[0, 1]
+            ),
+            yaxis=dict(
+                range=[0, 1]
+            )
+        )
+        fig.for_each_xaxis(lambda x: x.update({'title': ''}))
+        fig.for_each_yaxis(lambda y: y.update({'title': ''}))
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+        fig.add_annotation(
+            showarrow=False,
+            xanchor='center',
+            xref='paper',
+            x=0.5,
+            yref='paper',
+            y=-0.1,
+            text=label_x
+        )
+        fig.add_annotation(
+            showarrow=False,
+            xanchor='center',
+            xref='paper',
+            x=-0.03,
+            yanchor='middle',
+            yref='paper',
+            y=0.5,
+            textangle=90,
+            text=label_y
+        )
+
+        st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+        ih_analysis = report_data.select(
+            (cp_config['group_by'] if cp_config['group_by'] else []) + ['pos_fraction', 'sample_fraction',
+                                                                        'gain']).to_pandas()
+    elif selection == 'Lift':
+        x = 'sample_fraction'
+        y = 'lift'
+        title = config['description'] + ": Lift Plot"
+        label_x = 'Fraction of population'
+        label_y = 'Lift'
+        x0 = 0
+        y0 = 1
+        x1 = 1
+        y1 = 1
+
+        report_data = data.copy()
+        report_data = filter_dataframe(align_column_types(report_data), case=False)
+        cp_config = config.copy()
+        cp_config['group_by'] = list(set(([facet_row] if facet_row is not None else []) + (
+            [facet_column] if facet_column is not None else []) + (
+                                             [xplot_col] if xplot_col is not None else [])))
+        if not cp_config['group_by']:
+            cp_config['group_by'] = None
+        report_data = calculate_model_ml_scores(report_data, cp_config, False)
+        if cp_config['group_by'] is None:
+            report_data = (report_data
+                           .with_columns([pl.col(x).list.first().alias(x), pl.col(y).list.first().alias(y)])
+                           .sort(x, descending=False))
+        list_cols = ["tpr", "fpr"]
+        report_data = (
+            report_data.explode(list_cols)
+            .drop("calibration_rate", strict=False)
+            .with_columns([
+                (pl.col("pos_fraction") * pl.col("tpr") + (1.0 - pl.col("pos_fraction")) * pl.col("fpr"))
+                .alias("sample_fraction"),
+                pl.col("tpr").alias("gain"),
+                (pl.col("tpr") / (
+                        pl.col("pos_fraction") * pl.col("tpr") + (1.0 - pl.col("pos_fraction")) * pl.col("fpr")))
+                .alias("lift"),
+            ])
+            .with_columns([
+                pl.when(pl.col("sample_fraction") > 0.000001)
+                .then(pl.col("gain") / pl.col("sample_fraction"))
+                .otherwise(0)
+                .alias("lift")
+            ])
+        )
+        fig = px.line(report_data,
+                      x=x, y=y,
+                      title=title,
+                      color=xplot_col,
+                      facet_col=facet_column,
+                      facet_row=facet_row,
+                      height=len(
+                          report_data[facet_row].unique()) * 400 if facet_row is not None else 640
+                      )
+        fig.add_shape(
+            type="line", line=dict(dash='dash', color="darkred"),
+            row='all', col='all', x0=x0, y0=y0, x1=x1, y1=y1
+        )
+        fig.update_layout(
+            xaxis=dict(
+                range=[0, 1]
+            ),
+            yaxis=dict(
+                range=[0, report_data[y].max()]
+            )
+        )
+        fig.for_each_xaxis(lambda x: x.update({'title': ''}))
+        fig.for_each_yaxis(lambda y: y.update({'title': ''}))
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
+        fig.add_annotation(
+            showarrow=False,
+            xanchor='center',
+            xref='paper',
+            x=0.5,
+            yref='paper',
+            y=-0.1,
+            text=label_x
+        )
+        fig.add_annotation(
+            showarrow=False,
+            xanchor='center',
+            xref='paper',
+            x=-0.03,
+            yanchor='middle',
+            yref='paper',
+            y=0.5,
+            textangle=90,
+            text=label_y
+        )
+
+        st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+        ih_analysis = report_data.select(
+            (cp_config['group_by'] if cp_config['group_by'] else []) + ['pos_fraction', 'sample_fraction', 'gain',
+                                                                        'lift']).to_pandas()
     else:
         ih_analysis = model_ml_scores_line_plot(data, cp_config)
     return ih_analysis
