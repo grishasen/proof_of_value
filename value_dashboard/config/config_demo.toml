@@ -6,7 +6,6 @@ version_date = "2024-07-07"
 [ux]
 refresh_dashboard = "false"
 refresh_interval = 180000
-data_profiling = "false"
 data_cache_hours = 8
 chat_with_data = "true"
 
@@ -396,6 +395,15 @@ stages = ['Impression', 'Clicked', 'Conversion']
 x = 'Outcome'
 color = 'Issue'
 facet_column = "Channel"
+
+[reports.describe_histogram]
+metric = 'descriptive'
+type = 'histogram'
+description = '[DESC] Univariate analysis: Histogram'
+group_by = ['Channel', 'Placement']
+x = 'Propensity'
+facet_column = "Channel"
+facet_row = "Placement"
 
 [reports.experiment_z_score]
 metric = "experiment"
