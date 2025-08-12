@@ -30,7 +30,7 @@ from value_dashboard.utils.config import get_config
 from value_dashboard.utils.db_utils import save_file_meta, get_file_meta, drop_all_tables
 from value_dashboard.utils.file_utils import read_dataset_export
 from value_dashboard.utils.logger import get_logger
-from value_dashboard.utils.string_utils import strtobool, capitalize
+from value_dashboard.utils.py_utils import strtobool, capitalize
 from value_dashboard.utils.timer import timed
 
 IHFOLDER = "ihfolder"
@@ -240,9 +240,10 @@ def read_file_group(files: typing.List,
     logger.debug(f"Data unpacking and load: {(time.time() - start) * 10 ** 3:.03f}ms")
 
     dframe_columns = ih.collect_schema().names()
-    capitalized = capitalize(dframe_columns)
-    rename_map = dict(zip(dframe_columns, capitalized))
-    ih = ih.rename(rename_map)
+    leave_cols = list(set(dframe_columns).difference(set(DROP_IH_COLUMNS)))
+    capitalized = capitalize(leave_cols)
+    rename_map = dict(zip(leave_cols, capitalized))
+    ih = ih.select(leave_cols).rename(rename_map)
 
     with_cols_list = []
     if 'default_values' in config["ih"]["extensions"].keys():
@@ -255,24 +256,24 @@ def read_file_group(files: typing.List,
     if with_cols_list:
         ih = ih.with_columns(with_cols_list)
 
-    ih = ih.filter(ih_filter_expr)
+    if ih_filter_expr is not None:
+        ih = ih.filter(ih_filter_expr)
 
     ih = (
         ih.with_columns([
             pl.col(OUTCOME_TIME).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z"),
             pl.col(DECISION_TIME).str.strptime(pl.Datetime, "%Y%m%dT%H%M%S%.3f %Z"),
-            pl.concat_str([pl.col(ISSUE), pl.col(GROUP), pl.col(NAME)], separator="/").alias(ACTION_ID),
+            pl.concat_str([pl.col(ISSUE), pl.col(GROUP), pl.col(NAME)], separator="/").alias(ACTION_ID)
         ])
         .with_columns([
             pl.col(OUTCOME_TIME).dt.date().alias("Day"),
             pl.col(OUTCOME_TIME).dt.strftime("%Y-%m").alias("Month"),
-            pl.col(OUTCOME_TIME).dt.year().cast(pl.Utf8).alias("Year"),
+            pl.col(OUTCOME_TIME).dt.year().cast(pl.Int16).alias("Year"),
             (pl.col(OUTCOME_TIME).dt.year().cast(pl.Utf8) + "_Q" +
              pl.col(OUTCOME_TIME).dt.quarter().cast(pl.Utf8)).alias("Quarter"),
             (pl.col(OUTCOME_TIME) - pl.col(DECISION_TIME)).dt.total_seconds().alias("ResponseTime")
         ])
         .unique(subset=[INTERACTION_ID, ACTION_ID, RANK, OUTCOME])
-        .drop(DROP_IH_COLUMNS, strict=False)
     )
     if add_columns_expr:
         ih = ih.with_columns(add_columns_expr)

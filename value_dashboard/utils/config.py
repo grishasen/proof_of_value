@@ -5,7 +5,7 @@ from traceback import print_stack
 import streamlit as st
 
 from value_dashboard.utils.logger import get_logger
-from value_dashboard.utils.string_utils import strtobool
+from value_dashboard.utils.py_utils import strtobool
 
 logger = get_logger(__name__)
 

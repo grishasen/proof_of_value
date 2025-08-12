@@ -3,15 +3,16 @@ import traceback
 import polars as pl
 
 from value_dashboard.metrics.constants import INTERACTION_ID, RANK, OUTCOME, CUSTOMER_ID, \
-    CONVERSION_EVENT_ID, NAME
+    CONVERSION_EVENT_ID, ACTION_ID
 from value_dashboard.metrics.constants import REVENUE_PROP_NAME
 from value_dashboard.utils.config import get_config
+from value_dashboard.utils.py_utils import stable_dedup
 from value_dashboard.utils.timer import timed
 
 
 @timed
 def conversion(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
-    mand_props_grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
+    mand_props_grp_by = stable_dedup(config['group_by'] + get_config()["metrics"]["global_filters"])
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
 
@@ -36,7 +37,7 @@ def conversion(ih: pl.LazyFrame, config: dict, streaming=False, background=False
             .with_columns([
                 pl.when(pl.col(OUTCOME).is_in(positive_model_response)).then(1).otherwise(0).alias('Outcome_Binary')
             ])
-            .filter(pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, NAME, RANK))
+            .filter(pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, ACTION_ID, RANK))
             .join(ih_attribution, on=[CUSTOMER_ID, CONVERSION_EVENT_ID], how='left')
             .group_by(mand_props_grp_by)
             .agg([
@@ -63,7 +64,7 @@ def compact_conversion_data(conv_data: pl.DataFrame,
                             config: dict) -> pl.DataFrame:
     data_copy = conv_data.filter(pl.col("Negatives") > 0)
 
-    grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
+    grp_by = stable_dedup(config['group_by'] + get_config()["metrics"]["global_filters"])
     if grp_by:
         data_copy = (
             data_copy

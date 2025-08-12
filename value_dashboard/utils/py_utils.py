@@ -89,3 +89,7 @@ def isBool(val):
         return True
     else:
         return False
+
+
+def stable_dedup(seq):
+    return list(dict.fromkeys(seq))

@@ -13,10 +13,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
 from value_dashboard.metrics.constants import NAME, CUSTOMER_ID, INTERACTION_ID, RANK, OUTCOME, PROPENSITY, \
-    FINAL_PROPENSITY
+    FINAL_PROPENSITY, ACTION_ID
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.polars_utils import merge_digests, build_digest
-from value_dashboard.utils.string_utils import strtobool
+from value_dashboard.utils.py_utils import strtobool, stable_dedup
 from value_dashboard.utils.timer import timed
 
 
@@ -299,7 +299,7 @@ def calibration_tdigest(args: List[Series]) -> pl.Struct:
 
 @timed
 def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
-    grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
+    grp_by = stable_dedup(config['group_by'] + get_config()["metrics"]["global_filters"])
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
@@ -374,7 +374,7 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
                 then(True).otherwise(False).alias('Outcome_Boolean')
             ])
             .filter(pl.any("Outcome_Boolean").over(grp_by))
-            .filter(pl.col('Outcome_Boolean') == pl.col('Outcome_Boolean').max().over(INTERACTION_ID, NAME, RANK))
+            .filter(pl.col('Outcome_Boolean') == pl.col('Outcome_Boolean').max().over(INTERACTION_ID, ACTION_ID, RANK))
             .group_by(grp_by)
             .agg(agg_exprs)
         )
@@ -400,7 +400,7 @@ def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
     grp_by = config['group_by'] + get_config()["metrics"]["global_filters"]
     scores = config["scores"]
     tdigest_columns = [col for col in auc_data.collect_schema().names() if col.startswith("tdigest")]
-    grp_by = list(set(grp_by))
+    grp_by = stable_dedup(grp_by)
     auc_data = (
         auc_data
         .group_by(grp_by)

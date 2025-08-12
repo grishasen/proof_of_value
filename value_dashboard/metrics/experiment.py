@@ -2,15 +2,16 @@ import traceback
 
 import polars as pl
 
-from value_dashboard.metrics.constants import INTERACTION_ID, NAME, OUTCOME, RANK
+from value_dashboard.metrics.constants import INTERACTION_ID, OUTCOME, RANK, ACTION_ID
 from value_dashboard.utils.config import get_config
+from value_dashboard.utils.py_utils import stable_dedup
 from value_dashboard.utils.timer import timed
 
 
 @timed
 def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
-    mand_props_grp_by = list(set(get_config()["metrics"]["global_filters"] +
-                                 config['group_by'] + [config['experiment_name']] + [config['experiment_group']]))
+    mand_props_grp_by = stable_dedup(get_config()["metrics"]["global_filters"] +
+                                     config['group_by'] + [config['experiment_name']] + [config['experiment_group']])
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
 
@@ -28,7 +29,7 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
                 pl.when(pl.col(OUTCOME).is_in(positive_model_response)).
                 then(1).otherwise(0).alias('Outcome_Binary')
             ])
-            .filter(pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, NAME, RANK))
+            .filter(pl.col('Outcome_Binary') == pl.col('Outcome_Binary').max().over(INTERACTION_ID, ACTION_ID, RANK))
             .group_by(mand_props_grp_by)
             .agg([
                 pl.len().alias('Count'),
@@ -51,12 +52,12 @@ def experiment(ih: pl.LazyFrame, config: dict, streaming=False, background=False
 @timed
 def compact_experiment_data(exp_data: pl.DataFrame,
                             config: dict) -> pl.DataFrame:
-    grp_by = config['group_by'] + [config['experiment_name']] + get_config()["metrics"]["global_filters"]
-    grp_by = list(set(grp_by))
+    grp_by = stable_dedup(config['group_by'] + [config['experiment_name']] +
+                          [config['experiment_group']] + get_config()["metrics"]["global_filters"])
     if grp_by:
         exp_data = (
             exp_data
-            .group_by(list(set(grp_by + [config['experiment_group']])))
+            .group_by(grp_by)
             .agg([
                 pl.col("Count").sum(),
                 pl.col("Positives").sum(),

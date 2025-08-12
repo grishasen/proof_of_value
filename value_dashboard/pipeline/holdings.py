@@ -16,8 +16,8 @@ from value_dashboard.pipeline.datatools import collect_clv_metrics_data
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.file_utils import read_dataset_export, detect_delimiter
 from value_dashboard.utils.logger import get_logger
-from value_dashboard.utils.string_utils import capitalize
-from value_dashboard.utils.string_utils import strtobool
+from value_dashboard.utils.py_utils import capitalize
+from value_dashboard.utils.py_utils import strtobool
 from value_dashboard.utils.timer import timed
 
 HOLDINGS_FOLDER = "holdingsfolder"

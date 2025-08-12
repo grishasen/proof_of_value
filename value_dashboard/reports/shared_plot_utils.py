@@ -7,8 +7,8 @@ import streamlit as st
 
 from value_dashboard.reports.repdata import calculate_reports_data
 from value_dashboard.utils.config import get_config
+from value_dashboard.utils.py_utils import strtobool
 from value_dashboard.utils.st_utils import filter_dataframe, align_column_types
-from value_dashboard.utils.string_utils import strtobool
 from value_dashboard.utils.timer import timed
 
 

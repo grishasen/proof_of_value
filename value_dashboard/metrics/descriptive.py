@@ -6,54 +6,61 @@ from polars_ds import weighted_mean
 
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.polars_utils import build_digest, merge_digests
-from value_dashboard.utils.string_utils import strtobool
+from value_dashboard.utils.py_utils import strtobool, stable_dedup
 from value_dashboard.utils.timer import timed
+
+NUM_DTYPES = tuple(pl.INTEGER_DTYPES) + tuple(pl.FLOAT_DTYPES)
+
+
+def _numeric_intersection(schema: dict[str, pl.DataType], wanted: list[str]) -> list[str]:
+    return [c for c in wanted if (c in schema) and isinstance(schema[c], NUM_DTYPES)]
 
 
 @timed
 def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
-    mand_props_grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
+    mand_props_grp_by = stable_dedup(config['group_by'] + get_config()["metrics"]["global_filters"])
     columns = config['columns']
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
-    num_columns = [col for col in columns if col in ih.select(cs.numeric()).collect_schema().names()]
+
+    schema = ih.collect_schema()
+    num_columns = _numeric_intersection(schema, columns)
 
     if "filter" in config:
         filter_exp_cmp = config["filter"]
         if not isinstance(filter_exp_cmp, str):
             ih = ih.filter(config["filter"])
 
-    num_selector = cs.numeric() & cs.by_name(columns, require_all=True)
     common_aggs = [
         pl.col(columns).count().name.suffix('_Count'),
-        num_selector.sum().name.suffix('_Sum'),
-        num_selector.mean().name.suffix('_Mean'),
-        num_selector.var().name.suffix('_Var'),
-        num_selector.min().name.suffix('_Min'),
-        num_selector.max().name.suffix('_Max')
+        pl.col(num_columns).sum().name.suffix('_Sum'),
+        pl.col(num_columns).mean().name.suffix('_Mean'),
+        pl.col(num_columns).var().name.suffix('_Var'),
+        pl.col(num_columns).min().name.suffix('_Min'),
+        pl.col(num_columns).max().name.suffix('_Max')
     ]
     if use_t_digest:
-        t_digest_aggs = [
-            pl.map_groups(
-                exprs=[pl.col(c)],
-                function=lambda s: build_digest(s),
-                return_dtype=pl.Binary,
-                returns_scalar=True
-            ).alias(f'{c}_tdigest') for c in num_columns
-        ]
-        agg_exprs = common_aggs + t_digest_aggs
+        tdigest_struct = pl.map_groups(
+            exprs=num_columns,
+            function=lambda df: {f"{value}_tdigest": build_digest([df[index]]) for index, value in
+                                 enumerate(num_columns)},
+            return_dtype=pl.Struct([pl.Field(f"{c}_tdigest", pl.Binary) for c in num_columns]),
+            returns_scalar=True,
+        ).alias("TDigests")
+        agg_exprs = common_aggs + [tdigest_struct]
+        ih_analysis = ih.group_by(mand_props_grp_by).agg(agg_exprs).unnest("TDigests")
     else:
         extra_aggs = [
-            num_selector.median().name.suffix('_Median'),
-            num_selector.skew().name.suffix('_Skew'),
-            num_selector.quantile(0.25).name.suffix('_p25'),
-            num_selector.quantile(0.75).name.suffix('_p75'),
-            num_selector.quantile(0.90).name.suffix('_p90'),
-            num_selector.quantile(0.95).name.suffix('_p95')
+            pl.col(num_columns).median().name.suffix('_Median'),
+            pl.col(num_columns).skew().name.suffix('_Skew'),
+            pl.col(num_columns).quantile(0.25).name.suffix('_p25'),
+            pl.col(num_columns).quantile(0.75).name.suffix('_p75'),
+            pl.col(num_columns).quantile(0.90).name.suffix('_p90'),
+            pl.col(num_columns).quantile(0.95).name.suffix('_p95')
         ]
         agg_exprs = common_aggs + extra_aggs
+        ih_analysis = ih.group_by(mand_props_grp_by).agg(agg_exprs)
 
     try:
-        ih_analysis = ih.group_by(mand_props_grp_by).agg(agg_exprs)
         if background:
             return ih_analysis.collect(background=background, engine="streaming" if streaming else "auto")
         else:
@@ -70,7 +77,7 @@ def compact_descriptive_data(data: pl.DataFrame,
     columns_conf = config['columns']
     scores = config['scores']
     num_columns = [col for col in columns_conf if (col + '_Mean') in data.columns]
-    grp_by = list(set(config['group_by'] + get_config()["metrics"]["global_filters"]))
+    grp_by = stable_dedup(config['group_by'] + get_config()["metrics"]["global_filters"])
 
     grouped_mean = (
         data

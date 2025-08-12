@@ -13,8 +13,8 @@ from value_dashboard.pipeline.datatools import get_reports_data_by_name
 from value_dashboard.pipeline.ih import load_data
 from value_dashboard.reports.registry import get_figures
 from value_dashboard.utils.config import get_config
+from value_dashboard.utils.py_utils import strtobool
 from value_dashboard.utils.st_utils import highlight_and_format, format_dates
-from value_dashboard.utils.string_utils import strtobool
 
 pd.options.styler.format.thousands = ','
 pd.options.styler.format.na_rep = 'background-color: lightgrey;'

@@ -15,7 +15,7 @@ from value_dashboard.utils.config import get_config, set_config
 from value_dashboard.utils.file_utils import read_dataset_export
 from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.polars_utils import schema_with_unique_counts
-from value_dashboard.utils.string_utils import capitalize
+from value_dashboard.utils.py_utils import capitalize
 
 logger = get_logger(__name__)
 

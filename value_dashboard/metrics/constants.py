@@ -23,11 +23,12 @@ DECISION_TIME = 'DecisionTime'
 ACTION_ID = 'ActionID'
 OUTCOME_TIME = 'OutcomeTime'
 DROP_IH_COLUMNS = [
-    "FactID", "Label", "UpdateDateTime",
-    "StreamPartition", "EvaluationCriteria", "Organization",
-    "Unit", "Division", "Component", "ApplicationVersion", "Strategy",
-    "Application", "Fulfilled", "IPAddress", "Interaction", "Latitude",
-    "Longitude", "Operator", "PartitionKey", "PyWorkID", "WorkID"
+    "pxFactID", "pyLabel", "pxUpdateDateTime",
+    "pxStreamPartition", "EvaluationCriteria", "pyOrganization",
+    "pyUnit", "pyDivision", "pyComponent", "pyApplicationVersion", "pyStrategy",
+    "pyApplication", "pyFulfilled", "IPAddress", "pyInteraction", "pyLatitude",
+    "pyLongitude", "pyOperator", "pyPartitionKey", "pyWorkID", "WorkID", "pyBehaviour",
+    "pyIsPropositionActive"
 ]
 
 _scores = [''.join(p) for p in product('1234', repeat=3)]
