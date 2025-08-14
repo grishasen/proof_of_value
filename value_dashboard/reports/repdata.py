@@ -181,19 +181,27 @@ def calculate_experiment_scores(
                     pl.map_groups(
                         exprs=[m_config["experiment_group"], "Positives", "Negatives"],
                         function=chi2_test,
-                        return_dtype=pl.Struct,
+                        return_dtype=pl.Struct([pl.Field("chi2_stat", pl.Float64), pl.Field("chi2_dof", pl.Int64),
+                                                pl.Field("chi2_p_val", pl.Float64),
+                                                pl.Field("chi2_odds_ratio_stat", pl.Float64),
+                                                pl.Field("chi2_odds_ratio_ci_low", pl.Float64),
+                                                pl.Field("chi2_odds_ratio_ci_high", pl.Float64)]),
                         returns_scalar=True,
                     ).alias("chi2_stat"),
                     pl.map_groups(
                         exprs=[m_config["experiment_group"], "Positives", "Negatives"],
                         function=g_test,
-                        return_dtype=pl.Struct,
+                        return_dtype=pl.Struct([pl.Field("g_stat", pl.Float64), pl.Field("g_dof", pl.Int64),
+                                                pl.Field("g_p_val", pl.Float64),
+                                                pl.Field("g_odds_ratio_stat", pl.Float64),
+                                                pl.Field("g_odds_ratio_ci_low", pl.Float64),
+                                                pl.Field("g_odds_ratio_ci_high", pl.Float64)]),
                         returns_scalar=True,
                     ).alias("g_stat"),
                     pl.map_groups(
                         exprs=[m_config["experiment_group"], "Positives", "Count"],
                         function=z_test,
-                        return_dtype=pl.Struct,
+                        return_dtype=pl.Struct([pl.Field("z_score", pl.Float64), pl.Field("z_p_val", pl.Float64)]),
                         returns_scalar=True,
                     ).alias("z_stat"),
                     pl.col("Count").sum(),
@@ -260,7 +268,11 @@ def calculate_model_ml_scores(
                         exprs=[f"{property}_positives",
                                f"{property}_negatives"],
                         function=binary_metrics_tdigest,
-                        return_dtype=pl.Struct,
+                        return_dtype=pl.Struct(
+                            [pl.Field("roc_auc", pl.Float64), pl.Field("average_precision", pl.Float64),
+                             pl.Field("tpr", pl.List(pl.Float64)), pl.Field("fpr", pl.List(pl.Float64)),
+                             pl.Field("precision", pl.List(pl.Float64)), pl.Field("recall", pl.List(pl.Float64)),
+                             pl.Field("pos_fraction", pl.Float64)]),
                         returns_scalar=True,
                     ).alias("roc_auc_tdigest_a")
                 ]
@@ -273,7 +285,9 @@ def calculate_model_ml_scores(
                         exprs=[f"{property}_positives",
                                f"{property}_negatives"],
                         function=calibration_tdigest,
-                        return_dtype=pl.Struct,
+                        return_dtype=pl.Struct([pl.Field("calibration_bin", pl.List(pl.Float64)),
+                                                pl.Field("calibration_proba", pl.List(pl.Float64)),
+                                                pl.Field("calibration_rate", pl.List(pl.Float64))]),
                         returns_scalar=True,
                     ).alias("calibration_tdigest_a")
                 ]
