@@ -89,7 +89,7 @@ with st.sidebar:
                 idx = reports_list.index(previous_selected_report)
                 manual_select = (idx + 1) % len(reports_list)
 
-    with st.expander("**Select report**", icon=":material/analytics:"):
+    with st.expander("**Select report**", icon=":material/analytics:", expanded=True):
         selected_report = option_menu("", reports_list,
                                       manual_select=manual_select,
                                       icons=["-" for r in reports_list],
