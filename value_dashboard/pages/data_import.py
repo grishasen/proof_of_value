@@ -35,14 +35,15 @@ def download_collected_metrics(name, data_loaded):
 @st.fragment
 def import_data():
     if is_demo_mode():
-        st.info("Application is in DEMO mode. Wait for data load.")
-        use_aggregated = True
-        st.session_state['use_aggregated'] = use_aggregated
-        st.session_state['aggregated_path'] = 'data/demo_collected_ih_metrics_data.json'
-        st.session_state['drop_cache'] = False
-        data_loaded = load_data()
-        st.session_state['data_loaded'] = True
-        st.session_state['data_load_run'] = True
+        with st.spinner("Wait for it...", show_time=True):
+            st.info("Application is in DEMO mode. Wait for data load.")
+            use_aggregated = True
+            st.session_state['use_aggregated'] = use_aggregated
+            st.session_state['aggregated_path'] = 'data/demo_collected_ih_metrics_data.json'
+            st.session_state['drop_cache'] = False
+            data_loaded = load_data()
+            st.session_state['data_loaded'] = True
+            st.session_state['data_load_run'] = True
     else:
         use_aggregated = False
         raw_load = st.toggle("Import raw data", value=True,
@@ -148,12 +149,13 @@ def import_data():
 @st.fragment
 def import_holdings_data():
     if is_demo_mode():
-        st.info("Application is in DEMO mode. Wait for data load.")
-        load_holdings_data.clear()
-        st.toast('Starting data processing...', icon="🗃")
-        st.session_state['holdingsfolder'] = 'data/PegaCDH-Data-ProductHolding_HoldingsDDS_20241010T145658_GMT'
-        data_loaded = load_holdings_data()
-        st.session_state['holdings_data_loaded'] = True
+        with st.spinner("Wait for it...", show_time=True):
+            st.info("Application is in DEMO mode. Wait for data load.")
+            load_holdings_data.clear()
+            st.toast('Starting data processing...', icon="🗃")
+            st.session_state['holdingsfolder'] = 'data/PegaCDH-Data-ProductHolding_HoldingsDDS_20241010T145658_GMT'
+            data_loaded = load_holdings_data()
+            st.session_state['holdings_data_loaded'] = True
     else:
         data_loaded = None
         st.info("Enter folder name with product holdings files or upload files.")
