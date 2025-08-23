@@ -105,6 +105,8 @@ def get_figures() -> dict:
                 figures[report] = clv_correlation_plot
             elif params['type'] == 'model':
                 figures[report] = clv_model_plot
+            elif params['type'] == 'rfm_density':
+                figures[report] = clv_rfm_density_plot
             else:
                 raise Exception(params['type'] + " is not supported parameter for metric: " + params['metric'])
         else:

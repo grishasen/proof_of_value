@@ -1,3 +1,5 @@
+from typing import Dict, Any, Iterable
+
 import numpy as np
 import plotly.graph_objs as go
 import polars_ds.sample_and_split as pds
@@ -390,7 +392,7 @@ def clv_model_plot(data: Union[pl.DataFrame, pd.DataFrame],
         )
     bgf = BetaGeoFitter(penalizer_coef=0.001)
     bgf.fit(clv['frequency'], clv['recency'], clv['tenure'], verbose=True)
-    t = 12 * 30 * predict_lifespan
+    t = 365 * predict_lifespan
     clv['expected_number_of_purchases'] = bgf.conditional_expected_number_of_purchases_up_to_time(t, clv['frequency'],
                                                                                                   clv['recency'],
                                                                                                   clv['tenure'])
@@ -434,7 +436,7 @@ def clv_model_plot(data: Union[pl.DataFrame, pd.DataFrame],
                 clv["recency"],
                 clv["tenure"],
                 clv["monetary_value"],
-                time=12 * predict_lifespan,
+                time=365 * predict_lifespan,
                 freq="D",
                 discount_rate=0.01,
             )
@@ -484,7 +486,7 @@ def clv_plot_customer_exposure(
     fig = make_subplots()
     for idx, (rec, t) in enumerate(zip(recency, T)):
         fig.add_trace(
-            go.Scatter(
+            go.Scattergl(
                 x=[0, rec],
                 y=[customer_idx[idx], customer_idx[idx]],
                 mode='lines',
@@ -494,7 +496,7 @@ def clv_plot_customer_exposure(
 
     for idx, (rec, t) in enumerate(zip(recency, T)):
         fig.add_trace(
-            go.Scatter(
+            go.Scattergl(
                 x=[rec, t],
                 y=[customer_idx[idx], customer_idx[idx]],
                 mode='lines',
@@ -502,7 +504,7 @@ def clv_plot_customer_exposure(
             )
         )
     fig.add_trace(
-        go.Scatter(
+        go.Scattergl(
             x=recency,
             y=customer_idx,
             mode='markers',
@@ -511,7 +513,7 @@ def clv_plot_customer_exposure(
         )
     )
     fig.add_trace(
-        go.Scatter(
+        go.Scattergl(
             x=T,
             y=customer_idx,
             mode='markers',
@@ -532,3 +534,168 @@ def clv_plot_customer_exposure(
     )
 
     return fig
+
+
+# ---- mini helpers (no external side effects) ----
+def _to_polars(df: Union[pl.DataFrame, pd.DataFrame]) -> pl.DataFrame:
+    return df if isinstance(df, pl.DataFrame) else pl.from_pandas(df)
+
+
+def _columns_exist(df: pd.DataFrame, required: Iterable[str]) -> None:
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        st.error(f"Missing columns for this report: {', '.join(missing)}")
+        st.stop()
+
+
+def _theme_template() -> str:
+    try:
+        return "plotly_dark" if st.get_option("theme.base") == "dark" else "none"
+    except Exception:
+        return "none"
+
+
+def _prepare_for_plot(data: Union[pl.DataFrame, pd.DataFrame], config: Dict[str, Any]) -> pd.DataFrame:
+    df_pl = _to_polars(data)
+    rep_pl = calculate_reports_data(df_pl, config or {})
+    pdf = rep_pl.to_pandas()
+    pdf = filter_dataframe(align_column_types(pdf), case=False)
+    if pdf.empty:
+        st.warning("No data available.")
+        st.stop()
+    return pdf
+
+
+# ---- main report ----
+@timed
+def clv_rfm_density_plot(
+        data: Union[pl.DataFrame, pd.DataFrame],
+        base_config: Dict[str, Any] | None = None,
+) -> pd.DataFrame:
+    """
+    RFM 3D / 2D density
+    - 3D scatter: X=Recency, Y=Frequency, Z selectable; color by Monetary or CLV (or RFM score)
+    - 2D density: R vs F with heatmap/contour; color is agg of Monetary/CLV/RFM score
+    - Facet by segment/channel or any categorical
+    """
+    cfg = dict(base_config or {})
+    pdf = _prepare_for_plot(data, cfg)
+
+    core_needed = {"recency", "frequency"}
+    _columns_exist(pdf, core_needed)
+
+    numeric_cols = sorted([c for c in pdf.columns if pd.api.types.is_numeric_dtype(pdf[c].dtype)])
+
+    r1c1, r1c2, r2c1, r2c2 = st.columns(4)
+    with r1c1:
+        mode = st.selectbox("Plot mode", ["3D scatter", "2D density heatmap", "2D density contour"])
+    with r1c2:
+        color_metric = st.selectbox(
+            "Color by",
+            options=[c for c in ["monetary_value", "lifetime_value", "rfm_score"] if c in pdf.columns] or numeric_cols,
+            index=0,
+            help="Metric used for color; for 2D density, aggregated per bin."
+        )
+    with r2c1:
+        sample_n = st.slider("Max points (sample)", min_value=1_000, max_value=200_000, value=25_000, step=1_000)
+    with r2c2:
+        seed = st.number_input("Random seed", min_value=0, max_value=1_000_000, value=42, step=1)
+
+    if mode == "3D scatter":
+        r3c1, r3c2, r3c3 = st.columns(3)
+        with r3c1:
+            z_axis = st.selectbox(
+                "Z-axis",
+                options=[c for c in ["monetary_value", "lifetime_value", "rfm_score", "tenure"] if
+                         c in pdf.columns] or numeric_cols,
+                index=0
+            )
+        with r3c2:
+            point_size = st.slider("Point size", 1, 8, 3)
+        with r3c3:
+            opacity = st.slider("Opacity", 0.2, 1.0, 0.75, 0.05)
+    else:
+        r3c1, r3c2, r3c3 = st.columns(3)
+        with r3c1:
+            histfunc = st.selectbox("Aggregation", options=["avg", "sum", "count", "max", "min"], index=0)
+        with r3c2:
+            nbins_x = st.slider("Bins (Recency)", 10, 200, 60, 5)
+        with r3c3:
+            nbins_y = st.slider("Bins (Frequency)", 10, 200, 60, 5)
+
+    needed = {"recency", "frequency", color_metric}
+    if mode == "3D scatter":
+        needed.add(z_axis)
+    _columns_exist(pdf, needed)
+
+    n = len(pdf)
+    if n > sample_n:
+        pdf_plot = pdf.sample(n=sample_n, random_state=seed)
+    else:
+        pdf_plot = pdf
+
+    title_base = "R–F value landscape"
+    template = _theme_template()
+
+    if mode == "3D scatter":
+        fig = px.scatter_3d(
+            pdf_plot,
+            x="recency",
+            y="frequency",
+            z=z_axis,
+            color=color_metric,
+            opacity=opacity,
+            template=template,
+            title=f"{title_base} — 3D scatter<br><sup>Color: {color_metric} · Z: {z_axis} · n={len(pdf_plot):,}</sup>",
+            height=640
+        )
+        fig.update_traces(marker=dict(size=point_size))
+        fig.update_layout(
+            margin=dict(t=80, l=0, r=0, b=0),
+            scene=dict(
+                xaxis_title="Recency",
+                yaxis_title="Frequency",
+                zaxis_title=z_axis,
+            ),
+        )
+
+    elif mode == "2D density heatmap":
+        fig = px.density_heatmap(
+            pdf_plot,
+            x="recency",
+            y="frequency",
+            z=color_metric,
+            histfunc=histfunc,
+            nbinsx=nbins_x,
+            nbinsy=nbins_y,
+            template=template,
+            title=f"{title_base} — 2D heatmap<br><sup>Color: {color_metric} ({histfunc}) · n={len(pdf_plot):,}</sup>",
+        )
+        fig.update_layout(
+            margin=dict(t=80, l=40, r=10, b=40),
+            coloraxis_colorbar_title=color_metric,
+        )
+
+    else:
+        fig = px.density_contour(
+            pdf_plot,
+            x="recency",
+            y="frequency",
+            z=color_metric,
+            histfunc=histfunc,
+            nbinsx=nbins_x,
+            nbinsy=nbins_y,
+            template=template,
+            title=f"{title_base} — 2D contour<br><sup>Color metric for agg: {color_metric} ({histfunc}) · n={len(pdf_plot):,}</sup>",
+        )
+        fig.update_traces(contours_coloring="heatmap", contours_showlabels=False)
+        fig.update_layout(
+            margin=dict(t=80, l=40, r=10, b=40),
+            coloraxis_colorbar_title=color_metric,
+        )
+
+    fig.update_xaxes(title_text="Recency")
+    fig.update_yaxes(title_text="Frequency")
+
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    return pdf_plot

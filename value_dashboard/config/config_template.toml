@@ -358,6 +358,12 @@ type = 'model'
 description = '[BIZ] CLV prediction'
 group_by = []
 
+[reports.rfm_density]
+metric = 'clv'
+type = 'rfm_density'
+description = '[BIZ] RFM 3D / 2D density'
+group_by = []
+
 [reports.generic_eng]
 metric = "engagement"
 type = "generic"
