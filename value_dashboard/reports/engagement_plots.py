@@ -488,6 +488,9 @@ def engagement_ctr_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame],
 
 def engagement_rate_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
     df = calculate_engagement_scores(ih_analysis, dict())
-    st.metric(label="**Click-through Rate**", value='{:.2%}'.format(df["CTR"].item()), border=False,
+    data_trend = calculate_engagement_scores(ih_analysis, {'group_by': ['Month']})
+    ctr = data_trend['CTR'].round(4) * 100
+    st.metric(label="**Click-through Rate**", value='{:.2%}'.format(df["CTR"].item()), border=True,
               delta='{:.2%}'.format(df["Lift"].item()) + ' vs random action',
-              help=f'Overall CTR and uplift vs random control group with p_val = {df["Lift_P_Val"].item()}')
+              help=f'Overall CTR and uplift vs random control group with p_val = {df["Lift_P_Val"].item()}',
+              chart_data=ctr, chart_type="area")

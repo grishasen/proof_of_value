@@ -264,8 +264,17 @@ def conversion_rate_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
             (pl.col("Positives") / (pl.col("Positives") + pl.col("Negatives"))).alias("ConversionRate")
         ])
     )
-    st.metric(label="**Conversion**", value='{:.2%}'.format(data_copy["ConversionRate"].item()), border=False,
-              help=f'Conversion rate', delta='Revenue {:,.0f}'.format(data_copy["Revenue"].item()), delta_color='off')
+    data_trend = (
+        ih_analysis
+        .group_by(["Month"])
+        .agg([
+            (100 * pl.col("Positives").sum() / (pl.col("Positives").sum() + pl.col("Negatives").sum())).round(2).alias(
+                "ConversionRate")
+        ])
+    ).sort("Month").to_pandas()
+    st.metric(label="**Conversion**", value='{:.2%}'.format(data_copy["ConversionRate"].item()), border=True,
+              help=f'Conversion rate', delta='Revenue {:,.0f}'.format(data_copy["Revenue"].item()), delta_color='off',
+              chart_data=data_trend['ConversionRate'], chart_type="area")
 
 
 @timed
@@ -278,9 +287,16 @@ def conversion_touchpoints_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
             (pl.col("Touchpoints") / pl.col("Positives")).alias("AvgTouchpoints")
         ])
     )
-    st.metric(label="**Total conversions**", value='{:,.0f}'.format(data_copy["Positives"].item()), border=False,
+    data_trend = (
+        ih_analysis
+        .group_by(["Month"])
+        .agg([
+            (pl.col("Positives").sum())
+        ])
+    ).sort("Month").to_pandas()
+    st.metric(label="**Total conversions**", value='{:,.0f}'.format(data_copy["Positives"].item()), border=True,
               help=f'Conversions and touchpoints', delta=f'Avg Touchpoints: {data_copy["AvgTouchpoints"].item():.2}',
-              delta_color='off')
+              delta_color='off', chart_data=data_trend['Positives'], chart_type="bar")
 
 
 @timed

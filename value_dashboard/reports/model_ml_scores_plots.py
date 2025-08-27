@@ -555,15 +555,19 @@ def ml_scores_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame], metric_name: 
     config = dict()
     config['metric'] = metric_name
     df = calculate_model_ml_scores(ih_analysis, config, True)
-    st.metric(label="**Model AUC**", value='{:.2%}'.format(df["roc_auc"].item()), border=False,
-              delta=f"Avg Precision = {'{:.2%}'.format(df['average_precision'].item())}", delta_color='off',
-              help=f'Model ROC AUC and Average Precision')
+    data_trend = calculate_model_ml_scores(ih_analysis, {'metric': metric_name, 'group_by': ['Month']}, True)
+    auc = data_trend['roc_auc'].round(4) * 100
+    st.metric(label="**Model AUC**", value='{:.2%}'.format(df["roc_auc"].item()), border=True,
+              delta=f"Avg Precision = {'{:.2%}'.format(df['average_precision'].item())}", delta_color='normal',
+              help=f'Model ROC AUC and Average Precision', chart_data=auc, chart_type="area")
 
 
 def ml_scores_pers_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame], metric_name: str):
     config = dict()
     config['metric'] = metric_name
     df = calculate_model_ml_scores(ih_analysis, config, True)
-    st.metric(label="**Personalization**", value='{:.2}'.format(df["personalization"].item()), border=False,
+    data_trend = calculate_model_ml_scores(ih_analysis, {'metric': metric_name, 'group_by': ['Month']}, True)
+    auc = data_trend['personalization'].round(2)
+    st.metric(label="**Personalization**", value='{:.2}'.format(df["personalization"].item()), border=True,
               delta=f"Novelty = {'{:.2}'.format(df['novelty'].item())}", delta_color='off',
-              help=f'Personalization and Novelty')
+              help=f'Personalization and Novelty', chart_data=auc, chart_type="area")
