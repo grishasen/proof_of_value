@@ -114,7 +114,7 @@ with st.sidebar:
 
     c1, c2 = st.columns([0.5, 0.5], vertical_alignment="center")
     with c1:
-        st.button("Clear chat 🗑️", on_click=lambda: clear_chat_history(analyst), use_container_width=True)
+        st.button("Clear chat 🗑️", on_click=lambda: clear_chat_history(analyst), width='stretch')
     with c2:
         if "messages" in st.session_state:
             if st.session_state.messages:
@@ -128,7 +128,7 @@ with st.sidebar:
                     data=chat_log_bytes,
                     file_name="chat_log.txt",
                     mime="text/plain",
-                    use_container_width=True
+                    width='stretch'
                 )
 
 

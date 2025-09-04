@@ -146,7 +146,7 @@ if not df.is_empty():
     schema_df = schema_with_unique_counts(df).sort('Column')
     st.subheader("Schema", divider=True)
     st.data_editor(schema_df,
-                   use_container_width=True,
+                   width='stretch',
                    disabled=True, height=300, hide_index=True)
     st.subheader("Data Summary", divider=True)
     st.dataframe(df.describe())

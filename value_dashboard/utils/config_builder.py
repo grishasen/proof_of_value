@@ -140,10 +140,10 @@ def display_dict_as_table(values, read_only=False):
 
     df = pd.DataFrame(report_data, columns=["Name", "Value"])
     if read_only:
-        edited_df = st.dataframe(df, hide_index=True, use_container_width=True)
+        edited_df = st.dataframe(df, hide_index=True, width='stretch')
     else:
         edited_df = st.data_editor(
-            df, num_rows="dynamic", hide_index=True, use_container_width=True
+            df, num_rows="dynamic", hide_index=True, width='stretch'
         )
     edited_df.set_index("Name", inplace=True)
     return edited_df.to_dict()["Value"]
@@ -276,7 +276,7 @@ def render_config_editor(cfg):
         df = pd.DataFrame(report_data)
         st.write("### Available Reports")
         if not df.empty:
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, width='stretch')
         else:
             st.info("No reports defined yet.")
 

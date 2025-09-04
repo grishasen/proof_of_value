@@ -204,7 +204,7 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         height=height
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 
 
@@ -426,7 +426,7 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
                 xanchor="center", yanchor="bottom"
             )
         )
-    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 
 
@@ -488,7 +488,7 @@ def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
                     }
                     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 
 
@@ -648,7 +648,7 @@ def descriptive_hist_plot(data: Union[pl.DataFrame, pd.DataFrame],
             )
         )
 
-    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
 
     report_data = calculate_reports_data(data, cp_config)
     report_data = report_data.to_pandas()

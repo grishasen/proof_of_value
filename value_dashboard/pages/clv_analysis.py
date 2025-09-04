@@ -115,5 +115,5 @@ with c3:
     download_clv_dataset(filtered_rep_data)
 st.data_editor(format_dates(filtered_rep_data.head(dataset_max_rows))
                .map(highlight_and_format),
-               use_container_width=True,
+               width='stretch',
                column_order=column_order, disabled=True)

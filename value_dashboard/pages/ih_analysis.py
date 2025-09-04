@@ -106,9 +106,9 @@ grp_by = reports[reports_name_map[selected_report]].get("group_by", filtered_rep
 cols = list(set(filtered_rep_data.columns.tolist()) - set(grp_by))
 column_order = grp_by + sorted(cols)
 st.data_editor(format_dates(filtered_rep_data.head(dataset_max_rows)).map(highlight_and_format),
-               use_container_width=True,
+               width='stretch',
                column_order=column_order,
-               height=640 if filtered_rep_data.shape[0] > 15 else None,
+               height=640 if filtered_rep_data.shape[0] > 15 else 'auto',
                hide_index=True,
                disabled=True,
                key='dashboard-data')
