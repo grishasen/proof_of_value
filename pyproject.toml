@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cdhdashboard"
-version = "0.1.11"
+version = "0.1.12"
 description = "The CDH Value Dashboard Application is an open-source prototype designed to provide customizable metrics and insights for linking marketing actions to business outcomes, such as customer lifetime value (CLV) and conversion rates."
 authors = ["Grigoriy Sen <grigoriy.sen@pega.com>"]
 license = "MIT"
