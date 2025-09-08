@@ -191,9 +191,9 @@ def rfm_summary(holdings_aggr: pl.DataFrame, config: dict):
         .with_columns(
             pl.mean_horizontal(
                 [
-                    pl.col("r_quartile").cast(pl.String).str.to_decimal(),
-                    pl.col("f_quartile").cast(pl.String).str.to_decimal(),
-                    pl.col("m_quartile").cast(pl.String).str.to_decimal()
+                    pl.col("r_quartile").cast(pl.String).str.to_decimal(scale=4),
+                    pl.col("f_quartile").cast(pl.String).str.to_decimal(scale=4),
+                    pl.col("m_quartile").cast(pl.String).str.to_decimal(scale=4)
                 ]
             ).round(2).alias("rfm_score")
         )
