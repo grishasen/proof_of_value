@@ -131,7 +131,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                                           y_axis + ' : %{y:.2%}' + '<br>' +
                                           'CI' + ' : ± %{customdata[1]:.2%}' + '<extra></extra>'
                             )
-    st.plotly_chart(fig, width='stretch', theme="streamlit")
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis
 
 
@@ -245,7 +245,7 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
     fig.add_hrect(y0=-1.96, y1=1.96, line_width=0, fillcolor="red", opacity=0.1)
     fig.add_hline(y=-1.96, line_width=2, line_dash="dash", line_color="darkred")
     fig.add_hline(y=1.96, line_width=2, line_dash="dash", line_color="darkred")
-    st.plotly_chart(fig, width='stretch', theme="streamlit")
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis
 
 
@@ -321,7 +321,7 @@ def engagement_ctr_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
             trace1,
             row=(r + 1), col=(c + 1)
         )
-    st.plotly_chart(fig, width='stretch', theme="streamlit")
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     ih_analysis.drop(columns=['Name', 'CName', 'index'], inplace=True, errors='ignore')
     return ih_analysis
 
@@ -432,7 +432,7 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     fig = fig.update_traces(hovertemplate=x_axis + ' : %{x}' + '<br>' +
                                           xplot_col + ' : %{customdata[0]}' + '<br>' +
                                           y_axis + ' : %{y:.2%}' + '<extra></extra>')
-    st.plotly_chart(fig, width='stretch', theme="streamlit")
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
     return ih_analysis
 
 
