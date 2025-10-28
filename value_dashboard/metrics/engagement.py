@@ -51,10 +51,10 @@ def engagement(ih: pl.LazyFrame, config: dict, streaming=False, background=False
 @timed
 def compact_engagement_data(eng_data: pl.DataFrame,
                             config: dict) -> pl.DataFrame:
-    grp_by = stable_dedup(config['group_by'] + get_config()["metrics"]["global_filters"])
+    grp_by = stable_dedup(config['group_by'] + get_config()["metrics"]["global_filters"] + [MODELCONTROLGROUP])
     data_copy = (
         eng_data
-        .group_by(grp_by + [MODELCONTROLGROUP])
+        .group_by(grp_by)
         .agg(pl.sum("Negatives").alias("Negatives"),
              pl.sum("Positives").alias("Positives"),
              pl.sum("Count").alias("Count"))
