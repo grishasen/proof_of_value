@@ -7,7 +7,8 @@ from traceback import print_stack
 import polars as pl
 import streamlit as st
 import tomlkit
-from pandasai.helpers.memory import Memory
+from jinja2 import Environment
+from pandasai.core.prompts import BasePrompt
 from pandasai_openai import OpenAI
 
 from value_dashboard.metrics.constants import DROP_IH_COLUMNS, OUTCOME_TIME, DECISION_TIME
@@ -22,10 +23,14 @@ logger = get_logger(__name__)
 
 @st.fragment()
 def generate_new_config(llm, prompt):
-    memory = Memory(agent_description="Config file generator.")
-    new_config_text = llm.chat_completion(value=prompt, memory=memory)
-    lines = new_config_text.splitlines(keepends=True)
-    new_config_text = ''.join(lines[1:])
+    # memory = Memory(agent_description="Config file generator.")
+    env = Environment()
+    instruction = BasePrompt()
+    instruction.prompt = env.from_string(prompt)
+    new_config_text = llm.call(instruction=instruction)
+    print(new_config_text)
+    # lines = new_config_text.splitlines(keepends=True)
+    # new_config_text = ''.join(lines[1:])
     new_config_text = new_config_text.replace('```', '')
     new_cfg = tomllib.loads(new_config_text)
     new_cfg["chat_with_data"] = get_config()["chat_with_data"]
@@ -86,14 +91,16 @@ with st.sidebar:
     if not openai_api_key:
         st.error("Please configure LLM API key.")
         st.stop()
+    all_models = OpenAI._supported_responses_models
     model_choice = st.selectbox(
         "Choose Model",
-        options=OpenAI._supported_chat_models,
-        index=OpenAI._supported_chat_models.index(OpenAI.model)
+        options=all_models,
+        index=all_models.index(OpenAI.model)
     )
     llm = OpenAI(
         api_token=openai_api_key,
-        model=model_choice
+        model=model_choice,
+        max_output_tokens=32000
     )
 
 st.subheader("Choose file with IH sample", divider='red')
@@ -170,6 +177,7 @@ if not df.is_empty():
             File name: {str(uploaded_file.name)}.
             Dataset schema: {schema_df}.
             Template config file: {tomlkit.dumps(template_config)}.
+            Do not include those columns in the config: {capitalize(DROP_IH_COLUMNS)}
             """
 
         st.write("## Config from sample")
