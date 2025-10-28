@@ -11,6 +11,7 @@ import tomlkit
 from streamlit_tags import st_tags
 
 from value_dashboard.utils.config import set_config
+from value_dashboard.utils.py_utils import isBool
 
 
 def serialize_exprs(obj):
@@ -276,7 +277,15 @@ def render_config_editor(cfg):
         df = pd.DataFrame(report_data)
         st.write("### Available Reports")
         if not df.empty:
-            st.dataframe(df, width='stretch')
+            st.dataframe(df, width='stretch',
+                         column_config={
+                             "Group By": st.column_config.MultiselectColumn(
+                                 "Group By",
+                                 help="Grouping fields.",
+                                 color="primary",
+                             ),
+                         },
+                         )
         else:
             st.info("No reports defined yet.")
 
@@ -340,18 +349,25 @@ def render_config_editor(cfg):
                                       "metric") in metrics_options else 0)
             rtype = st.text_input("Type", value=rep.get("type", ""))
             desc = st.text_area("Description", value=rep.get("description", ""))
-            group_by = st.text_area("Group By (one per line)",
-                                    value="\n".join(rep.get("group_by", [])) if isinstance(rep.get("group_by", []),
-                                                                                           list) else rep.get(
-                                        "group_by",
-                                        ""))
+            group_by = st.multiselect(
+                "Group By",
+                options=rep.get("group_by", []),
+                default=rep.get("group_by", []),
+                accept_new_options=True
+            )
+
+            # group_by = st.text_area("Group By (one per line)",
+            #                        value="\n".join(rep.get("group_by", [])) if isinstance(rep.get("group_by", []),
+            #                                                                               list) else rep.get(
+            #                            "group_by",
+            #                            ""))
             other_fields = {}
             for k, v in rep.items():
                 if k in ["metric", "type", "description", "group_by"]: continue
                 if isinstance(v, list):
                     val = st.text_area(f"{k} (list, one per line)", value="\n".join(str(x) for x in v))
                     other_fields[k] = [x.strip() for x in val.split("\n") if x.strip()]
-                elif isinstance(v, bool):
+                elif isinstance(v, bool) or isBool(v):
                     val = st.checkbox(k, value=v)
                     other_fields[k] = val
                 elif isinstance(v, (int, float)):
@@ -371,7 +387,7 @@ def render_config_editor(cfg):
                 if not name:
                     st.error("Report name is required.")
                 else:
-                    group_by_list = [x.strip() for x in group_by.split("\n") if x.strip()]
+                    group_by_list = group_by  # [x.strip() for x in group_by.split("\n") if x.strip()]
                     new_report = {
                         "metric": metric,
                         "type": rtype,
