@@ -13,10 +13,17 @@ gatherUsageStats = false
 
 [theme]
 base="dark"
-primaryColor="#124E66"                # teal accent for buttons/links
-backgroundColor="#212A31"             # near-black blue background
-secondaryBackgroundColor="#2E3944"    # panels / sidebar in slate blue-gray
-textColor="#D3D9D4"                   # desaturated moonlight sand/gray text
-font="sans serif"
+# Accent / buttons / active states
+primaryColor="#00834F"                # Dark malachite: deep emerald/teal green
+# Main page background
+backgroundColor="#0B1320"             # Very dark lazurite blue (almost navy, not pure black)
+# Sidebar / cards / widgets background
+secondaryBackgroundColor="#12263A"    # Dark desaturated blue-green, sits between lazurite + malachite
+# Text color
+textColor="#E8F1F8"                   # Soft off-white with a tiny blue tint for readability on dark
+
+
+
+
 
 
