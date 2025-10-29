@@ -7,8 +7,9 @@ from traceback import print_stack
 import polars as pl
 import streamlit as st
 import tomlkit
-from pandasai.helpers.memory import Memory
-from pandasai_openai import OpenAI
+from jinja2 import Environment
+from pandasai.core.prompts import BasePrompt
+from pandasai_litellm import LiteLLM
 
 from value_dashboard.metrics.constants import DROP_IH_COLUMNS, OUTCOME_TIME, DECISION_TIME
 from value_dashboard.utils.config import get_config, set_config
@@ -19,13 +20,22 @@ from value_dashboard.utils.py_utils import capitalize
 
 logger = get_logger(__name__)
 
+supported_responses_models = [
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+]
+model: str = "gpt-5-mini"
+reasoning_effort = "medium"  # "minimal" | "low" | "medium" | "high"
+verbosity = "low"  # "low" | "medium" | "high"
+
 
 @st.fragment()
 def generate_new_config(llm, prompt):
-    memory = Memory(agent_description="Config file generator.")
-    new_config_text = llm.chat_completion(value=prompt, memory=memory)
-    lines = new_config_text.splitlines(keepends=True)
-    new_config_text = ''.join(lines[1:])
+    env = Environment()
+    instruction = BasePrompt()
+    instruction.prompt = env.from_string(prompt)
+    new_config_text = llm.call(instruction=instruction)
     new_config_text = new_config_text.replace('```', '')
     new_cfg = tomllib.loads(new_config_text)
     new_cfg["chat_with_data"] = get_config()["chat_with_data"]
@@ -88,13 +98,11 @@ with st.sidebar:
         st.stop()
     model_choice = st.selectbox(
         "Choose Model",
-        options=OpenAI._supported_chat_models,
-        index=OpenAI._supported_chat_models.index(OpenAI.model)
+        options=supported_responses_models,
+        index=supported_responses_models.index(model)
     )
-    llm = OpenAI(
-        api_token=openai_api_key,
-        model=model_choice
-    )
+    llm = LiteLLM(model=model_choice, api_key=openai_api_key,
+                  reasoning_effort=reasoning_effort, verbosity=verbosity)
 
 st.subheader("Choose file with IH sample", divider='red')
 uploaded_file = st.file_uploader("*", type=["zip", "parquet", "json", "gzip"],
@@ -170,6 +178,7 @@ if not df.is_empty():
             File name: {str(uploaded_file.name)}.
             Dataset schema: {schema_df}.
             Template config file: {tomlkit.dumps(template_config)}.
+            Do not include those columns in the config: {capitalize(DROP_IH_COLUMNS)}
             """
 
         st.write("## Config from sample")

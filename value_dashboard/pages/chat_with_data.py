@@ -71,13 +71,13 @@ with st.sidebar:
         st.error("Please configure API key.")
         st.stop()
 
+    all_models = OpenAI._supported_chat_models
     model_choice = st.selectbox(
         "Choose Model",
-        options=OpenAI._supported_chat_models,
-        index=OpenAI._supported_chat_models.index(OpenAI.model)
+        options=all_models,
+        index=all_models.index(OpenAI.model)
     )
 
-    # Create llm instance
     llm = OpenAI(
         api_token=openai_api_key,
         model=model_choice
@@ -94,6 +94,14 @@ with st.sidebar:
                     name=metric,
                     description=metrics_descs[metric]
                 )
+                schema = df.get_default_schema(df)
+                schema.description = metrics_descs[metric]
+                schema.name = metric
+                df = pai.DataFrame(
+                    metrics_data[metric].to_pandas(),
+                    name=metric,
+                    schema=schema
+                )
                 data_list.append(df)
         for metric in clv_data.keys():
             if metric.startswith(("clv")):
@@ -103,6 +111,14 @@ with st.sidebar:
                     totals_frame.to_pandas(),
                     name=metric,
                     description=metrics_descs[metric]
+                )
+                schema = df.get_default_schema(df)
+                schema.description = metrics_descs[metric]
+                schema.name = metric
+                df = pai.DataFrame(
+                    totals_frame.to_pandas(),
+                    name=metric,
+                    schema=schema
                 )
                 data_list.append(df)
         pai.config.set({
@@ -180,7 +196,8 @@ def chat_window(analyst):
 
         try:
             st.toast("Getting response...")
-            response = analyst.chat(prompt) if new_chat else analyst.follow_up(prompt)
+            with st.spinner('Getting response...'):
+                response = analyst.chat(prompt) if new_chat else analyst.follow_up(prompt)
             path = ''
             if isinstance(response, ChartResponse):
                 saved_resp = response.get_base64_image()

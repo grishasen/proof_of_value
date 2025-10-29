@@ -19,6 +19,7 @@ psutil>=7.0.0
 python-dotenv>=1.1.0
 pandasai>=3.0.0b17
 pandasai-openai
+pandasai-litellm
 kaleido>=1.0.0rc13
 matplotlib
 duckdb>=1.2.2

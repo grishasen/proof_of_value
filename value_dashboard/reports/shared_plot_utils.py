@@ -58,7 +58,7 @@ def eng_conv_ml_heatmap_plot(data: Union[pl.DataFrame, pd.DataFrame],
                                           config['y'] + ' : %{y}' + '<br>' +
                                           config['color'] + ' : %{z}<extra></extra>')
 
-    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 
 
@@ -84,7 +84,7 @@ def eng_conv_ml_scatter_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      height=640)
     fig.update_layout(scattermode="group", scattergap=0.75)
 
-    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 
 
@@ -105,7 +105,7 @@ def eng_conv_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      )
     fig.update_traces(textinfo="label+value+percent parent+percent root")
     fig.update_layout(margin=dict(t=50, l=25, r=25, b=25))
-    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 
 
@@ -140,7 +140,7 @@ def eng_conv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
         margin=dict(b=25, t=50, l=0, r=0),
         showlegend=strtobool(config["showlegend"])
     )
-    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 
 
@@ -264,7 +264,7 @@ def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                                           y_axis + ' : %{y:.4}' + '<br>' +
                                           '<extra></extra>'
                             )
-    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 
 
