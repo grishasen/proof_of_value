@@ -14,7 +14,7 @@ file_type = "parquet"
 file_pattern = "**/*.parquet"
 ih_group_pattern = "Day=(.*)/"
 hive_partitioning = "false"
-streaming = "false"
+streaming = "true"
 background = "false"
 
 [ih.extensions]
