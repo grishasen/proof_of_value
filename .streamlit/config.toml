@@ -11,16 +11,29 @@ hideTopBar = true
 [browser]
 gatherUsageStats = false
 
-[theme]
-base="dark"
+[theme.dark]
 # Accent / buttons / active states
-primaryColor="#00834F"                # Dark malachite: deep emerald/teal green
+primaryColor = "#00834F"              # deep emerald/teal
 # Main page background
-backgroundColor="#0B1320"             # Very dark lazurite blue (almost navy, not pure black)
+backgroundColor = "#0B1320"           # very dark lazurite blue
 # Sidebar / cards / widgets background
-secondaryBackgroundColor="#12263A"    # Dark desaturated blue-green, sits between lazurite + malachite
+secondaryBackgroundColor = "#12263A"  # dark desaturated blue-green
 # Text color
-textColor="#E8F1F8"                   # Soft off-white with a tiny blue tint for readability on dark
+textColor = "#E8F1F8"                  # soft off-white with blue tint
+# Optional (sets Streamlit's UI font)
+#font = "sans serif"
+
+[theme.light]
+# Accent consistent with dark theme for brand continuity
+primaryColor = "#00834F"
+# Main page background
+backgroundColor = "#FFFFFF"
+# Sidebar / cards / widgets background
+secondaryBackgroundColor = "#F4F7FA"   # cool, airy blue-tinted gray
+# Text color (very dark navy to soften contrast vs pure black)
+textColor = "#0B1320"
+#font = "sans serif"
+
 
 
 
