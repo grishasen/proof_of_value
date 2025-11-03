@@ -217,7 +217,7 @@ def import_holdings_data():
         st.success("Go to the CLV Analysis page using the sidebar", icon=":material/check:")
 
 
-tabs = ["Import Interaction History"] + (["Import Product Holdings"] if clv_metrics_avail() else [])
+tabs = ["**Import Interaction History**"] + (["**Import Product Holdings**"] if clv_metrics_avail() else [])
 st_tabs = st.tabs(tabs)
 with st_tabs[0]:
     if ih_metrics_avail():
