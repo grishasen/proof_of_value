@@ -127,6 +127,15 @@ color = "CTR"
 x = "Month"
 y = "Group"
 
+[reports.heatmap_month_group_pos_counts]
+metric = "engagement"
+type = "heatmap"
+description = "[BIZ] Monthly Impressions Heatmap"
+group_by = ["Month", "Group"]
+color = "Negatives"
+x = "Month"
+y = "Group"
+
 [reports.scatter_month_group_ctr]
 metric = 'engagement'
 type = 'scatter'
