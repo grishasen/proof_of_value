@@ -47,6 +47,65 @@ logger.debug(f"Polars threads: {pl.thread_pool_size()}.")
 @timed
 @st.cache_data(show_spinner=False, ttl=timedelta(hours=data_cache_hours))
 def load_data() -> typing.Dict[str, pl.DataFrame]:
+    """
+    Load, group, preprocess, and compute Interaction History (IH) metrics.
+
+    This function orchestrates the IH data pipeline:
+    1) Optionally loads pre-aggregated results from a JSON file if
+       `st.session_state['use_aggregated']` is True.
+    2) Sets up a `PolarsDuckDBProxy` to persist intermediate tables and handles cache drops.
+    3) Discovers input files based on `config["ih"]["file_pattern"]` (fallback to JSON
+       and `pega_ds_export` type), groups them by a regex from config, and skips
+       files already processed (based on metadata).
+    4) For each group, reads the data lazily via `read_file_group(...)`, applies
+       the configured filters and computed columns, and collects / aggregates metrics
+       via `collect_ih_metrics_data(...)` using a coroutine map by metric family.
+    5) Compacts and persists final metric DataFrames, updates file metadata, and returns
+       a dictionary of metric name -> Polars DataFrame.
+
+    Results are cached via Streamlit (`@st.cache_data`) for `data_cache_hours`, and the
+    function is decorated with `@timed` for duration logging.
+
+    Returns
+    -------
+    Dict[str, pl.DataFrame]
+        A mapping of metric key (e.g., 'engagement_*', 'conversion_*', 'descriptive_*',
+        'experiment_*', 'model_ml_scores_*') to a Polars eager DataFrame with final,
+        compacted results.
+
+    Side Effects
+    ------------
+    - Streamlit UI: uses `st.warning`, `st.error`, `st.stop()`, progress bar, and metrics display.
+    - Modifies and reads `st.session_state` keys: 'use_aggregated', 'aggregated_path',
+      'drop_cache'.
+    - Uses `PolarsDuckDBProxy` to drop, store, and retrieve intermediate/final tables.
+    - Logs diagnostics including memory (RSS/SWAP), timings, file skipping, and dataset sizes.
+    - Updates file processing metadata using `save_file_meta(...)`.
+
+    Notes
+    -----
+    - If `use_aggregated` is True, the function will short-circuit and return DataFrames
+      rebuilt from the aggregated JSON file (deserialized via `pl.DataFrame.deserialize`).
+    - `eval` is used to transform filter and column expressions defined in config
+      (`config["ih"]["extensions"]["filter"]`, `config["ih"]["extensions"]["columns"]`,
+      and metric-level `filter`). Ensure these are from trusted sources.
+    - When `streaming` is True, Polars streaming affinity is enabled globally:
+      `pl.Config.set_engine_affinity("streaming")`.
+    - Files already recorded in metadata are skipped to avoid reprocessing.
+    - Groups are determined via `config["ih"]["ih_group_pattern"]`. If the pattern
+      does not match, the file basename is used as a fallback group key.
+    - For large numbers of groups, periodic memory stats (RSS/SWAP) are logged.
+
+    Raises
+    ------
+    StreamlitAPIException
+        If the configured folder is missing or invalid (function will surface UI feedback
+        and call `st.stop()`).
+    Exception
+        Any underlying exception from I/O, JSON (de)serialization, regex matching,
+        metrics computation, or Polars operations.
+
+    """
     load_start = time.time()
     if 'use_aggregated' in st.session_state:
         use_aggregated = st.session_state['use_aggregated']
@@ -229,6 +288,67 @@ def read_file_group(files: typing.List,
                     add_columns_expr: typing.Any,
                     ih_filter_expr: typing.Any
                     ) -> LazyFrame | None:
+    """
+    Read and preprocess a group of Interaction History (IH) files as a single LazyFrame.
+
+    Lazily scans Parquet or Pega dataset export sources, performs column pruning and
+    renaming (capitalization), adds default values, applies a global filter, parses
+    timestamp strings into datetime, derives time-based features, ensures uniqueness
+    by business keys, and optionally appends additional computed columns. Finally,
+    collects and returns a new LazyFrame for downstream processing.
+
+    Parameters
+    ----------
+    files : List
+        A list of file paths or partition directories (when `hive_partitioning=True`)
+        that belong to the same IH group (e.g., by date).
+    filetype : str
+        The input type. Supported: {'parquet', 'pega_ds_export'}.
+    streaming : bool
+        If True, uses Polars streaming engine for collection (`engine="streaming"`),
+        otherwise `"auto"`.
+    config : dict
+        Configuration dictionary with keys under `config["ih"]`, notably:
+        - `extensions.default_values`: dict[str, Any], optional defaults for missing
+          columns or filling nulls in existing columns.
+    hive_partitioning : bool
+        If True and `filetype == 'parquet'`, enables Hive partitioning in `pl.scan_parquet`.
+    add_columns_expr : Any
+        A Polars expression or list of expressions (typically from `eval(config["ih"]["extensions"]["columns"])`)
+        to add/derive additional columns.
+    ih_filter_expr : Any
+        A Polars expression used to filter rows (typically from `eval(config["ih"]["extensions"]["filter"])`).
+
+    Returns
+    -------
+    LazyFrame or None
+        A Polars LazyFrame representing the preprocessed IH group, or `None` if
+        there is nothing to process.
+
+    Raises
+    ------
+    Exception
+        If an unsupported `filetype` is provided.
+    Exception
+        Any exception from underlying readers, schema collection, or expression evaluation.
+
+    Notes
+    -----
+    - Only columns not listed in `DROP_IH_COLUMNS` are retained prior to renaming.
+    - Column names of retained fields are capitalized and renamed consistently.
+    - Default values (when configured) are applied by either adding missing columns
+      or filling nulls of existing ones.
+    - Filtering uses `ih_filter_expr` if provided; ensure it evaluates to a valid Polars
+      predicate expression.
+    - Timestamps are parsed with format `"%Y%m%dT%H%M%S%.3f %Z"` for `OUTCOME_TIME` and
+      `DECISION_TIME`.
+    - Derived fields include: `Day`, `Month` (`YYYY-MM`), `Year` (Int16), `Quarter` (`YYYY_Q#`),
+      and `ResponseTime` (seconds difference between OUTCOME_TIME and DECISION_TIME).
+    - Duplicates are removed using `.unique(subset=[INTERACTION_ID, ACTION_ID, RANK, OUTCOME])`.
+    - After transformations, data is collected and converted back to lazy via `.lazy()`
+      to continue lazy pipelines downstream.
+
+    """
     start: float = time.time()
     if filetype == 'parquet':
         ih = pl.scan_parquet(files, cache=False, hive_partitioning=hive_partitioning, missing_columns='insert',

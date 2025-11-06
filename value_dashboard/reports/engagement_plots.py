@@ -10,6 +10,59 @@ from value_dashboard.reports.shared_plot_utils import *
 @timed
 def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                              config: dict, options_panel: bool = True) -> pd.DataFrame:
+    """
+    Render CTR as a bar/line plot with optional confidence intervals and return the analysis DataFrame.
+
+    The function aggregates input data using ``calculate_reports_data`` (with optional
+    pre-filtering), then renders either a grouped bar chart (for fewer than 25 x-axis
+    categories) with 95% confidence intervals or a line chart otherwise. It supports
+    row/column faceting, color grouping, and an optional options panel to show metric
+    summary cards and advanced plot controls.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Source dataset compatible with the reporting utilities and containing the
+        fields referenced by ``config``.
+    config : dict
+        Plot and data configuration. Expected keys include:
+            - ``'x'`` (str): Field for the x-axis (time or category).
+            - ``'y'`` (str): Metric to plot (e.g., CTR).
+            - ``'color'`` (str, optional): Field for color grouping.
+            - ``'description'`` (str): Chart title.
+            - ``'facet_row'`` (str, optional): Row facet field.
+            - ``'facet_column'`` (str, optional): Column facet field.
+            - ``'height'`` (int, optional): Base plot height in pixels (default 640).
+            - ``'group_by'`` (list[str], optional): Grouping passed to reporting.
+            - Any other keys required by ``calculate_reports_data``.
+    options_panel : bool, default True
+        If ``True``, displays:
+          * A toggle for metric total cards via ``engagement_ctr_cards_subplot``.
+          * Advanced options (x/color/facets/log-y) via ``get_plot_parameters_menu``.
+
+    Returns
+    -------
+    pd.DataFrame
+        The processed Pandas DataFrame used for plotting. If the result is empty,
+        a Streamlit warning is shown and the empty DataFrame is returned.
+
+    Notes
+    -----
+    - When number of unique ``x`` values < 25, a grouped bar plot with 95% CI is used;
+      otherwise a line plot is rendered.
+    - Confidence interval is computed as ``ConfInterval = StdErr * 1.96``.
+    - Y-axis tick formatting is set to percentage (``',.2%'``).
+    - Plot height scales with the number of row facet categories.
+    - The function renders output via ``st.plotly_chart`` and may show warnings.
+
+    Raises
+    ------
+    KeyError
+        If required keys (e.g., ``'x'``, ``'y'``, ``'description'``) are missing in ``config``.
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and
+        ``filter_dataframe``.
+    """
     xplot_y_bool = False
     xplot_col = config.get('color', None)
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
@@ -138,6 +191,50 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
                             config: dict) -> pd.DataFrame:
+    """
+    Render a z-score plot (bar or line) with reference bands and return the analysis DataFrame.
+
+    The function aggregates data using ``calculate_reports_data`` after interactive filtering,
+    then renders either a grouped bar chart (for fewer than 25 x-axis categories) or a line
+    chart otherwise. It supports row/column faceting, color grouping, and an advanced options
+    menu to override axis, color, and log scaling. Horizontal reference bands/lines mark
+    the ±1.96 thresholds.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Input dataset compatible with the reporting utilities.
+    config : dict
+        Plot and data configuration. Expected keys include:
+            - ``'x'`` (str): Field for the x-axis.
+            - ``'y'`` (str): Z-score metric to plot.
+            - ``'color'`` (str): Field for color grouping.
+            - ``'description'`` (str): Chart title.
+            - ``'facet_row'`` (str, optional): Row facet field.
+            - ``'facet_column'`` (str, optional): Column facet field.
+            - Any other keys required by ``calculate_reports_data``.
+
+    Returns
+    -------
+    pd.DataFrame
+        The processed Pandas DataFrame used for plotting. If the result is empty,
+        a Streamlit warning is shown and the empty DataFrame is returned.
+
+    Notes
+    -----
+    - Y-axis tick formatting uses a compact numeric format (``',.4'``) for readability.
+    - Horizontal shaded region and dashed lines are added at y ∈ {-1.96, 1.96}.
+    - Plot height scales with the number of row facet categories.
+    - The figure is rendered via ``st.plotly_chart``.
+
+    Raises
+    ------
+    KeyError
+        If required keys (e.g., ``'x'``, ``'y'``, ``'color'``, ``'description'``) are missing.
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and
+        ``filter_dataframe``.
+    """
     adv_on = st.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
                        help="Show advanced reporting options")
     xplot_y_bool = False
@@ -252,6 +349,50 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def engagement_ctr_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
                               config: dict) -> pd.DataFrame | None:
+    """
+    Render CTR gauges by group (with thresholds) and return the analysis DataFrame.
+
+    The function computes CTR per group, lays out one Plotly indicator gauge per group
+    in a grid, and optionally colors the gauge bar based on comparison to a provided
+    reference threshold per group. The number of rows/columns is derived from the
+    number of unique groups (for 1 or 2 grouping columns).
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Input dataset compatible with the reporting utilities.
+    config : dict
+        Gauge configuration. Expected keys include:
+            - ``'group_by'`` (list[str]): One or two grouping columns.
+            - ``'value'`` (str): Metric column containing CTR values to display.
+            - ``'reference'`` (dict[str, float]): Dictionary mapping group keys (joined by
+              ``'_'``) to threshold reference values.
+            - ``'description'`` (str): Figure title.
+            - Any other keys required by ``calculate_reports_data``.
+
+    Returns
+    -------
+    pd.DataFrame or None
+        The processed Pandas DataFrame used for plotting with technical columns
+        removed before returning. If the result is empty, an empty DataFrame is
+        returned after a warning. The function may stop execution for invalid
+        grouping configuration.
+
+    Notes
+    -----
+    - Requires at least one grouping column; more than two is not supported.
+    - Gauge axis uses percent tick formatting (``',.2%'``); deltas compare to
+      the per-group reference value when provided.
+    - The figure is rendered via ``st.plotly_chart`` and may show warnings.
+
+    Raises
+    ------
+    ValueError
+        If grouping configuration is invalid (raised via Streamlit stop/warning behavior).
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and
+        ``filter_dataframe``.
+    """
     report_data = calculate_reports_data(data, config).to_pandas()
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
@@ -329,6 +470,48 @@ def engagement_ctr_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                               config: dict) -> pd.DataFrame:
+    """
+    Render Lift as a bar/line plot and return the analysis DataFrame.
+
+    The function aggregates data using ``calculate_reports_data`` after interactive filtering,
+    then renders either a grouped bar chart (for fewer than 30 x-axis categories) or a line
+    chart otherwise. It supports row/column faceting, color grouping, and an advanced options
+    menu to override axis, color, and log scaling.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Input dataset compatible with the reporting utilities.
+    config : dict
+        Plot and data configuration. Expected keys include:
+            - ``'x'`` (str): Field for the x-axis.
+            - ``'y'`` (str): Metric to plot (e.g., Lift).
+            - ``'color'`` (str): Field for color grouping.
+            - ``'description'`` (str): Chart title.
+            - ``'facet_row'`` (str, optional): Row facet field.
+            - ``'facet_column'`` (str, optional): Column facet field.
+            - Any other keys required by ``calculate_reports_data``.
+
+    Returns
+    -------
+    pd.DataFrame
+        The processed Pandas DataFrame used for plotting. If the result is empty,
+        a Streamlit warning is shown and the empty DataFrame is returned.
+
+    Notes
+    -----
+    - Y-axis tick formatting is set to percentage for Lift (``',.0%'``).
+    - Plot height scales with the number of row facet categories.
+    - The figure is rendered via ``st.plotly_chart``.
+
+    Raises
+    ------
+    KeyError
+        If required keys (e.g., ``'x'``, ``'y'``, ``'color'``, ``'description'``) are missing.
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and
+        ``filter_dataframe``.
+    """
     adv_on = st.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
                        help="Show advanced reporting options")
 
@@ -439,6 +622,36 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def engagement_ctr_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame],
                                  config: dict):
+    """
+    Render CTR KPI cards (per group) within the Streamlit layout.
+
+    The function computes CTR per group (from Positives/Negatives), calculates the
+    weighted average CTR across groups, and renders KPI cards with the CTR and
+    delta from the overall average. The cards are arranged into responsive columns
+    based on the available main area width.
+
+    Parameters
+    ----------
+    ih_analysis : pl.DataFrame or pd.DataFrame
+        The pre-aggregated analysis dataset containing ``Positives`` and ``Negatives``.
+    config : dict
+        Configuration dictionary. Expected keys include:
+            - ``'group_by'`` (list[str]): One or two columns to group by. If more than
+              two are provided, the function will keep the last one (or last two) as needed.
+
+    Returns
+    -------
+    None
+        The function renders KPI cards directly in Streamlit.
+
+    Notes
+    -----
+    - When number of groups exceeds 18, the grouping is reduced to the last grouping column.
+    - CTR is computed as ``Positives / (Positives + Negatives)``.
+    - The weighted average CTR uses total clicks as weights.
+    - Column count adapts to ``st.session_state['dashboard_dims']['width']`` if available,
+      otherwise defaults to a maximum of 8 columns.
+    """
     grp_by = config['group_by']
     if len(grp_by) > 1:
         grp_by = grp_by[-2:]
@@ -487,6 +700,28 @@ def engagement_ctr_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame],
 
 
 def engagement_rate_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
+    """
+    Render a Streamlit KPI card for overall Click-through Rate (CTR) with uplift delta.
+
+    The function computes overall CTR and Lift using ``calculate_engagement_scores``,
+    and renders a KPI metric showing CTR (as the main value) and uplift vs. random
+    action (as the delta), alongside an area-chart sparkline of CTR by month.
+
+    Parameters
+    ----------
+    ih_analysis : pl.DataFrame or pd.DataFrame
+        Input dataset suitable for engagement scoring.
+
+    Returns
+    -------
+    None
+        The metric is rendered directly in Streamlit.
+
+    Notes
+    -----
+    - Sparkline series is CTR grouped by ``'Month'`` (scaled by 100 for charting).
+    - Delta text includes the p-value from Lift (``Lift_P_Val``).
+    """
     df = calculate_engagement_scores(ih_analysis, dict())
     data_trend = calculate_engagement_scores(ih_analysis, {'group_by': ['Month']})
     ctr = data_trend['CTR'].round(4) * 100

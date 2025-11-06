@@ -9,6 +9,57 @@ from value_dashboard.reports.shared_plot_utils import *
 @timed
 def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                               config: dict, options_panel: bool = True) -> pd.DataFrame:
+    """
+    Render conversion rate as a bar/line plot (with optional error bars) and return the analysis DataFrame.
+
+    The function aggregates input data using ``calculate_reports_data`` (with optional
+    pre-filtering) and renders either a grouped bar chart with standard errors or a line
+    chart depending on the number of unique x values. It supports color grouping, row/column
+    faceting, log scaling, and an options panel to show KPI cards and advanced plot controls.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Source dataset compatible with the reporting utilities and containing the
+        fields referenced by ``config``.
+    config : dict
+        Plot and data configuration. Expected keys include:
+            - ``'x'`` (str): Field for the x-axis (time or category).
+            - ``'y'`` (str): Conversion rate metric to plot (proportion).
+            - ``'color'`` (str, optional): Field for color grouping.
+            - ``'description'`` (str): Chart title.
+            - ``'facet_row'`` (str, optional): Row facet field.
+            - ``'facet_column'`` (str, optional): Column facet field.
+            - ``'height'`` (int, optional): Base plot height in pixels (default 640).
+            - ``'group_by'`` (list[str], optional): Grouping passed to reporting.
+            - Any other keys required by ``calculate_reports_data``.
+    options_panel : bool, default True
+        If ``True``, displays:
+          * A toggle for KPI cards (``conversion_rate_cards_subplot``).
+          * Advanced options (x/color/facets/log-y) via ``get_plot_parameters_menu``.
+
+    Returns
+    -------
+    pd.DataFrame
+        The processed Pandas DataFrame used for plotting. If the result is empty,
+        a Streamlit warning is shown and the empty DataFrame is returned.
+
+    Notes
+    -----
+    - When number of unique ``x`` values < 30, a grouped bar plot is used with
+      standard errors (``error_y='StdErr'``); otherwise a line plot is rendered.
+    - Y-axis is formatted as percentage; unified hover is enabled.
+    - Plot height scales with the number of row-facet categories.
+    - The function renders output via ``st.plotly_chart`` and may show warnings.
+
+    Raises
+    ------
+    KeyError
+        If required keys (e.g., ``'x'``, ``'y'``, ``'description'``) are missing in ``config``.
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and
+        ``filter_dataframe``.
+    """
     xplot_y_bool = False
     xplot_col = config.get('color', None)
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
@@ -131,6 +182,52 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def conversion_rate_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
                                config: dict) -> pd.DatetimeIndex | None:
+    """
+    Render conversion rate gauges by group (with per-group thresholds) and return the analysis DataFrame.
+
+    The function computes conversion rate per group, lays out one Plotly indicator gauge
+    per group in a grid, and optionally colors the gauge bar based on comparison to a
+    provided reference threshold per group. The number of rows/columns is derived from the
+    number of unique groups (for 1 or 2 grouping columns). Gauge axis ranges are scaled
+    dynamically per column group.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Input dataset compatible with the reporting utilities.
+    config : dict
+        Gauge configuration. Expected keys include:
+            - ``'group_by'`` (list[str]): One or two grouping columns.
+            - ``'value'`` (str): Metric column containing conversion rate values to display.
+            - ``'reference'`` (dict[str, float]): Dictionary mapping group keys (joined by
+              ``'_'``) to threshold reference values.
+            - ``'description'`` (str): Figure title.
+            - Any other keys required by ``calculate_reports_data``.
+
+    Returns
+    -------
+    pd.DataFrame or None
+        The processed Pandas DataFrame used for plotting with technical columns
+        removed before returning. If the result is empty, an empty DataFrame is
+        returned after a warning. The function may stop execution for invalid
+        grouping configuration.
+
+    Notes
+    -----
+    - Requires at least one grouping column; more than two is not supported.
+    - Gauge axis uses percent tick formatting (``',.2%'``); deltas compare to
+      the per-group reference value when provided.
+    - The axis upper bound is set per first grouping level as 110% of its local max.
+    - The figure is rendered via ``st.plotly_chart`` and may show warnings.
+
+    Raises
+    ------
+    ValueError
+        If grouping configuration is invalid (raised via Streamlit stop/warning behavior).
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and
+        ``filter_dataframe``.
+    """
     report_data = calculate_reports_data(data, config).to_pandas()
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
@@ -208,6 +305,36 @@ def conversion_rate_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def conversion_rate_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame],
                                   config: dict):
+    """
+    Render conversion rate KPI cards (per group) within the Streamlit layout.
+
+    The function computes conversion rate per group (from Positives/Negatives),
+    calculates the weighted average conversion rate across groups, and renders KPI
+    cards with the rate and delta from the overall average. The cards are arranged
+    into responsive columns based on the available main area width.
+
+    Parameters
+    ----------
+    ih_analysis : pl.DataFrame or pd.DataFrame
+        The pre-aggregated analysis dataset containing ``Positives`` and ``Negatives``.
+    config : dict
+        Configuration dictionary. Expected keys include:
+            - ``'group_by'`` (list[str]): One or two columns to group by. If more than
+              two are provided, the function will reduce to the last one (or last two).
+
+    Returns
+    -------
+    None
+        The function renders KPI cards directly in Streamlit.
+
+    Notes
+    -----
+    - When number of groups exceeds 18, the grouping is reduced to the last grouping column.
+    - Conversion rate is computed as ``Positives / (Positives + Negatives)``.
+    - The weighted average uses total events as weights.
+    - Column count adapts to ``st.session_state['dashboard_dims']['width']`` if available,
+      otherwise defaults to a maximum of 8 columns.
+    """
     grp_by = config['group_by']
     if len(grp_by) > 1:
         grp_by = grp_by[-2:]
@@ -256,6 +383,28 @@ def conversion_rate_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame]
 
 @timed
 def conversion_rate_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
+    """
+    Render a Streamlit KPI card for overall conversion rate with revenue delta.
+
+    The function computes overall conversion rate and revenue from ``ih_analysis``,
+    and renders a KPI metric showing conversion rate (as the main value) and revenue
+    (as the delta), alongside an area-chart sparkline of conversion rate by month.
+
+    Parameters
+    ----------
+    ih_analysis : pl.DataFrame or pd.DataFrame
+        Input dataset that includes ``Positives``, ``Negatives``, and ``Revenue``.
+
+    Returns
+    -------
+    None
+        The metric is rendered directly in Streamlit.
+
+    Notes
+    -----
+    - Sparkline series is conversion rate by ``'Month'`` (scaled to percentage).
+    - Revenue is shown as the delta (formatted to 0 decimals).
+    """
     data_copy = (
         ih_analysis
         .select(["Positives", "Negatives", "Revenue"])
@@ -279,6 +428,29 @@ def conversion_rate_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
 
 @timed
 def conversion_touchpoints_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
+    """
+    Render a Streamlit KPI card for total conversions with average touchpoints delta.
+
+    The function computes total conversions (Positives) and the average number of
+    touchpoints per conversion, and renders a KPI metric showing total conversions
+    (as the main value) and average touchpoints (as the delta), with a monthly bar
+    chart of conversions as a sparkline.
+
+    Parameters
+    ----------
+    ih_analysis : pl.DataFrame or pd.DataFrame
+        Input dataset that includes ``Positives`` and ``Touchpoints``.
+
+    Returns
+    -------
+    None
+        The metric is rendered directly in Streamlit.
+
+    Notes
+    -----
+    - Sparkline series is monthly total ``Positives`` (bar chart).
+    - Delta text shows average touchpoints per conversion.
+    """
     data_copy = (
         ih_analysis
         .select(["Positives", "Touchpoints"])
@@ -302,6 +474,49 @@ def conversion_touchpoints_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
 @timed
 def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                                  config: dict) -> pd.DataFrame:
+    """
+    Render revenue as a bar/line plot and return the analysis DataFrame.
+
+    The function aggregates data using ``calculate_reports_data`` after interactive filtering,
+    then renders either a grouped bar chart (for fewer than 30 x-axis categories) or a line
+    chart otherwise. It supports row/column faceting, color grouping, and an advanced options
+    menu to override axis, color, and log scaling. Y-axis numeric formatting is applied.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Input dataset compatible with the reporting utilities.
+    config : dict
+        Plot and data configuration. Expected keys include:
+            - ``'x'`` (str): Field for the x-axis.
+            - ``'y'`` (str): Revenue metric to plot (numeric).
+            - ``'color'`` (str, optional): Field for color grouping.
+            - ``'description'`` (str): Chart title.
+            - ``'facet_row'`` (str, optional): Row facet field.
+            - ``'facet_column'`` (str, optional): Column facet field.
+            - ``'height'`` (int, optional): Base plot height in pixels (default 640).
+            - Any other keys required by ``calculate_reports_data``.
+
+    Returns
+    -------
+    pd.DataFrame
+        The processed Pandas DataFrame used for plotting. If the result is empty,
+        a Streamlit warning is shown and the empty DataFrame is returned.
+
+    Notes
+    -----
+    - When number of unique ``x`` values < 30, a grouped bar plot is used; otherwise a line plot.
+    - Y-axis numeric formatting uses two decimals for bars (``',.2f'``) and compact format for lines.
+    - Figure is rendered via ``st.plotly_chart``.
+
+    Raises
+    ------
+    KeyError
+        If required keys (e.g., ``'x'``, ``'y'``, ``'description'``) are missing.
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and
+        ``filter_dataframe``.
+    """
     adv_on = st.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
                        help="Show advanced reporting options")
     xplot_y_bool = False

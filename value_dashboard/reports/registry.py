@@ -8,6 +8,49 @@ from value_dashboard.utils.config import get_config
 
 
 def get_figures() -> dict:
+    """
+    Build a mapping from report names to plotting functions based on configuration.
+
+    This factory inspects `get_config()["reports"]` and, for each report entry,
+    routes to the appropriate plotting callable according to the `metric`, `type`,
+    and, when applicable, `x`/`y` parameters.
+
+    Routing rules (high level)
+    --------------------------
+    - Metrics starting with:
+      * "engagement": supports types 'line', 'bar_polar', 'gauge', 'treemap',
+        'heatmap', 'scatter'. For 'line', selects by `y` in {"CTR","Lift","Lift_Z_Score"}.
+      * "model_ml_scores": supports 'heatmap', 'scatter', 'treemap'; otherwise,
+        when `y` in {"roc_auc","average_precision"} selects ROC/PR curve plot.
+      * "conversion": supports 'heatmap', 'scatter', 'gauge', 'treemap', 'bar_polar';
+        otherwise, when `y` in {"ConversionRate","Revenue"} selects the respective line plot.
+      * "descriptive": supports 'line', 'boxplot', 'funnel', 'histogram'.
+      * "experiment": if `x` == "z_score" uses z-score bar plot; if `x` starts with
+        "g" or "chi2" uses odds ratio plot.
+      * "clv": supports 'histogram', 'treemap', 'exposure', 'corr', 'model', 'rfm_density'.
+    - Defaults to a generic bar/line plot when a combination is recognized but not
+      explicitly mapped (except for explicit unsupported cases that raise).
+
+    Returns
+    -------
+    dict
+        A dictionary mapping report keys (from the config) to plotting callables,
+        e.g., {'report_name': <function engagement_ctr_line_plot>, ...}.
+
+    Raises
+    ------
+    Exception
+        - If a specific `type`/`y` combination is not supported for the given metric
+          (e.g., unknown 'y' for 'line' under "engagement").
+        - If a `type` is not supported for "clv".
+        - If `metric` does not match any known prefix.
+
+    Notes
+    -----
+    - Expects `get_config()` to return a mapping with key "reports", where each
+      value is a dict containing at least `metric` and `type`, and optionally `x`/`y`.
+    - The returned functions must be available in the current namespace.
+    """
     figures = {}
     reports = get_config()["reports"]
     for report in reports:

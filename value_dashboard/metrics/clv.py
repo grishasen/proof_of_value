@@ -14,6 +14,78 @@ from value_dashboard.utils.timer import timed
 
 @timed
 def clv(holdings: pl.LazyFrame, config: dict, streaming=False, background=False):
+    """
+    Compute Customer Lifetime Value (CLV) aggregates from holdings.
+
+    Builds time-based features from the purchase date, groups by configured dimensions
+    (including customer and calendar buckets), and computes:
+    - number of unique holdings,
+    - aggregated lifetime value,
+    - min/max purchase timestamps,
+    - (optionally) recurring costs for contractual CLV.
+
+    Depending on the configured CLV model:
+    - **non-contractual**: lifetime value is the sum of one-time monetary values.
+    - **contractual**: lifetime value includes recurring charges aggregated as
+      `(recurring_cost * recurring_period)` in addition to the one-time values.
+
+    Optionally returns a *collected* (eager) DataFrame if `background=True`, otherwise
+    returns a **LazyFrame** pipeline (preferred for downstream composition).
+
+    Parameters
+    ----------
+    holdings : pl.LazyFrame
+        LazyFrame of holdings with at least columns referenced by `config`, typically:
+        customer ID, order/holding ID, purchase timestamp, monetary value, and optionally
+        recurring cost/period.
+    config : dict
+        Configuration dictionary that may include:
+        - `group_by` : list[str]
+            Additional grouping keys (besides customer and calendar buckets).
+        - `order_id_col` : str, optional (default: `HOLDING_ID`)
+        - `lifespan` : int, optional (default: 2000)
+            Number of years back from now to include in the analysis window.
+        - `customer_id_col` : str, optional (default: `CUSTOMER_ID`)
+        - `monetary_value_col` : str, optional (default: `ONE_TIME_COST`)
+        - `purchase_date_col` : str, optional (default: `PURCHASED_DATE`)
+        - `model` : str, optional (default: `CLV_MODEL`)
+            'contractual' or any other value for non-contractual.
+        - `recurring_period` : str, optional (default: `RECURRING_PERIOD`)
+        - `recurring_cost` : str, optional (default: `RECURRING_COST`)
+        - `filter` : Any
+            Optional pre-built Polars expression; if present and not a string, it is
+            applied as a `.filter(...)` on `holdings` before aggregation.
+    streaming : bool, default False
+        If `background=True`, controls the engine used by `.collect(engine=...)`.
+        Otherwise ignored (the function returns a LazyFrame).
+    background : bool, default False
+        If True, the aggregation is collected immediately and returned as an eager
+        DataFrame (possibly in the background), otherwise a LazyFrame is returned.
+
+    Returns
+    -------
+    pl.LazyFrame or pl.DataFrame
+        - LazyFrame when `background=False`.
+        - DataFrame when `background=True` (collected via `engine="streaming"` if `streaming=True`).
+
+    Notes
+    -----
+    - A lifespan filter is applied: `purchase_date > now - relativedelta(years=lifespan)`.
+    - Monetary values are cast to `Float64`.
+    - Calendar features created: `Day`, `Month` (YYYY-MM), `Year` (utf-8), `Quarter` (YYYY_Q#).
+    - Grouping keys always include: `config['group_by'] + [customer_id_col, 'Year', 'Quarter']`.
+    - Contractual CLV augments `lifetime_value` with a sum of
+      `(recurring_cost * recurring_period)` per group.
+    - If `config['filter']` is a non-string value (e.g., a Polars predicate expression),
+      it is applied to the `holdings` LazyFrame before any transformations.
+
+    Raises
+    ------
+    Exception
+        Propagates any exception from Polars operations or expression logic. The traceback
+        is printed before re-raising.
+
+    """
     holding_id_col = config['order_id_col'] if 'order_id_col' in config.keys() else HOLDING_ID
     lifespan = config['lifespan'] if 'lifespan' in config.keys() else 2000
     customer_id_col = config['customer_id_col'] if 'customer_id_col' in config.keys() else CUSTOMER_ID
@@ -122,9 +194,54 @@ _default_rfm_segment_config = {
 
 
 def rfm_summary(holdings_aggr: pl.DataFrame, config: dict):
-    """Summarize pre-aggregated dataframe for use in CLV calculations and analysis.
-    Columns added per customer id:
-        frequency, recency, T, monetary_value
+    """
+    Summarize pre-aggregated CLV holdings to RFM metrics and segments.
+
+    Converts aggregated holdings (per-group) into **RFM** features and segments:
+    - `frequency` : number of repeat purchases (unique_holdings - 1),
+    - `recency` : time since last purchase within observation window,
+    - `tenure` : time from first purchase to the observation period end,
+    - `monetary_value` : average revenue per purchase (LV / unique_holdings),
+    - Quartiles for R, F, M (`r_quartile`, `f_quartile`, `m_quartile`),
+    - Combined `rfm_seg` code (e.g., '344') mapped to `rfm_segment` by config,
+    - `rfm_score` : mean of the three quartiles.
+
+    Parameters
+    ----------
+    holdings_aggr : pl.DataFrame
+        Eager DataFrame with at least the following columns (as produced by `clv(...)`):
+        - `unique_holdings`, `lifetime_value`,
+        - `MinPurchasedDate`, `MaxPurchasedDate`,
+        - group-by keys including the configured customer id.
+    config : dict
+        Configuration dictionary that may include:
+        - `group_by` : list[str]
+            Additional grouping keys to preserve.
+        - `customer_id_col` : str, optional (default: `CUSTOMER_ID`)
+        - `rfm_segment_config` : str, optional
+            Key used to select a segmentation mapping from `rfm_config_dict`;
+            falls back to `_default_rfm_segment_config` when missing.
+
+    Returns
+    -------
+    pl.DataFrame
+        DataFrame with RFM features and segments per `group_by + [customer_id_col]`,
+        sorted descending by grouping keys. Columns include:
+        `customers_count`, `unique_holdings`, `lifetime_value`, `frequency`,
+        `recency`, `tenure`, `monetary_value`, quartiles (`r_quartile`, `f_quartile`,
+        `m_quartile`), `rfm_segment`, `rfm_score`, and original grouping columns.
+
+    Notes
+    -----
+    - `observation_period_end_ts` is inferred as the **max** of `MaxPurchasedDate` in the input.
+    - `recency` is redefined as `tenure - recency` after initial computation so that larger
+      values reflect more recent behavior (aligned to the chosen quartile labeling).
+    - Quartiles are computed with `qcut(4)` and labeled as strings `'1'..'4'`. For recency,
+      labels are reversed (`'4'..'1'`) so that **more recent** -> **higher** quartile.
+    - Segment mapping is built from a dict of RFM codes (e.g., `'344'`) to human-readable
+      names, defaulting to `"Unknown"` for unseen codes.
+    - Drops intermediate columns: `MinPurchasedDate`, `MaxPurchasedDate`, and the raw `rfm_seg`.
+
     """
     customer_id_col = config['customer_id_col'] if 'customer_id_col' in config.keys() else CUSTOMER_ID
     mand_props_grp_by = config['group_by'] + [customer_id_col]

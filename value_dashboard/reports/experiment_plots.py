@@ -4,6 +4,55 @@ from value_dashboard.reports.shared_plot_utils import *
 @timed
 def experiment_z_score_bar_plot(data: Union[pl.DataFrame, pd.DataFrame],
                                 config: dict, options_panel: bool = True) -> pd.DataFrame:
+    """
+    Render a horizontal z-score bar (or line) plot and return the analysis DataFrame.
+
+    The function prepares experiment analysis data via ``calculate_reports_data``,
+    optionally filters it using ``filter_dataframe``, and renders a horizontal bar plot
+    of the measure in ``config['x']`` against categories in ``config['y']``. An
+    optional UI control allows switching between bar and line trace types. A shaded
+    vertical region is drawn between -1.96 and 1.96 to indicate a typical 95% z-score
+    acceptance band.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Source dataset compatible with the reporting utilities and containing fields
+        referenced by ``config``.
+    config : dict
+        Plot and data configuration. Expected keys include:
+            - ``'x'`` (str): Numeric field for the x-axis (e.g., z-score/statistic).
+            - ``'y'`` (str): Categorical field for the y-axis (labels).
+            - ``'description'`` (str): Chart title.
+            - ``'facet_row'`` (str, optional): Row facet column.
+            - ``'facet_column'`` (str, optional): Column facet column.
+            - ``'height'`` (int, optional): Base plot height in pixels (default 640).
+            - Any other keys required by ``calculate_reports_data``.
+    options_panel : bool, default True
+        If ``True``, adds a Plotly update menu to toggle between bar and line traces.
+
+    Returns
+    -------
+    pd.DataFrame
+        The processed Pandas DataFrame used for plotting. If no data is available,
+        an empty DataFrame is returned after a Streamlit warning.
+
+    Notes
+    -----
+    - Bars are oriented horizontally (``orientation='h'``).
+    - Plot height scales with the number of categories and row facets for readability.
+    - Legend is hidden; colors are assigned per ``config['y']``.
+    - The function renders output via ``st.plotly_chart`` and may display warnings
+      with ``st.warning``.
+
+    Raises
+    ------
+    KeyError
+        If required keys (e.g., ``'x'``, ``'y'``, ``'description'``) are missing in ``config``.
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and
+        ``filter_dataframe``.
+    """
     ih_analysis = calculate_reports_data(data, config).to_pandas()
     if options_panel:
         ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
@@ -74,6 +123,61 @@ def experiment_z_score_bar_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def experiment_odds_ratio_plot(data: Union[pl.DataFrame, pd.DataFrame],
                                config: dict) -> pd.DataFrame:
+    """
+    Render an odds ratio scatter plot with asymmetric confidence intervals and return the analysis DataFrame.
+
+    Depending on ``config['x']``, the function plots either generalized odds ratios
+    (``g_*`` fields) or chi-squared-based odds ratios (``chi2_*`` fields). Points are
+    color-coded by whether the confidence interval is entirely below 1.0 (Control),
+    entirely above 1.0 (Test), or straddles 1.0 (N/A). The plot supports row/column
+    faceting and adjusts height to the number of categories.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Input dataset compatible with ``calculate_reports_data`` and containing the
+        requisite odds ratio statistics and confidence intervals.
+    config : dict
+        Plot and data configuration. Expected keys include:
+            - ``'x'`` (str): Selector to choose the odds ratio family. If it starts
+              with ``'g'``, uses generalized odds ratio fields:
+              ``g_odds_ratio_stat``, ``g_odds_ratio_ci_low``, ``g_odds_ratio_ci_high``;
+              otherwise uses chi-squared variants:
+              ``chi2_odds_ratio_stat``, ``chi2_odds_ratio_ci_low``, ``chi2_odds_ratio_ci_high``.
+            - ``'y'`` (str): Categorical field for the y-axis.
+            - ``'description'`` (str): Chart title.
+            - ``'facet_row'`` (str, optional): Row facet column.
+            - ``'facet_column'`` (str, optional): Column facet column.
+            - Any other keys required by ``calculate_reports_data``.
+
+    Returns
+    -------
+    pd.DataFrame
+        The processed Pandas DataFrame used to draw the plot. The temporary
+        ``'color'`` column used for visual encoding is dropped before returning.
+        If no data is available, an empty DataFrame is returned after a Streamlit warning.
+
+    Notes
+    -----
+    - X reference line at 1.0 indicates no effect for odds ratios.
+    - Asymmetric error bars are computed as:
+      ``error_x = ci_high - stat`` and ``error_x_minus = stat - ci_low``.
+    - Color coding of points:
+        * CI entirely < 1.0  → ``'Control'``
+        * CI entirely > 1.0  → ``'Test'``
+        * Otherwise          → ``'N/A'``
+    - Legend is hidden; figure height scales with category and facet counts.
+    - The figure is rendered via ``st.plotly_chart`` and may surface warnings via ``st.warning``.
+
+    Raises
+    ------
+    KeyError
+        If required keys (e.g., ``'x'``, ``'y'``, ``'description'``) are missing in ``config``.
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and
+        ``filter_dataframe``.
+    """
+
     def categorize_color(g_odds_ratio_ci_high, g_odds_ratio_ci_low):
         if (g_odds_ratio_ci_high < 1) & (g_odds_ratio_ci_low < 1):
             return 'Control'

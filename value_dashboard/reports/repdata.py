@@ -24,6 +24,21 @@ logger = get_logger(__name__)
 def calculate_reports_data(
         grouped_rep_data: Union[pd.DataFrame, pl.DataFrame], params: dict
 ) -> pl.DataFrame:
+    """
+    Route metric to the corresponding score calculator.
+
+    Parameters
+    ----------
+    grouped_rep_data : pd.DataFrame | pl.DataFrame
+        Pre-aggregated input data.
+    params : dict
+        Must include 'metric' key to select calculator.
+
+    Returns
+    -------
+    pl.DataFrame
+        Calculated report dataset.
+    """
     report_data = None
     if params["metric"].startswith("engagement"):
         report_data = calculate_engagement_scores(grouped_rep_data, params)
@@ -44,6 +59,21 @@ def calculate_reports_data(
 def group_model_ml_scores_data(
         model_roc_auc_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
+    """
+    Group and aggregate ML score inputs for ROC/AUC and calibration.
+
+    Parameters
+    ----------
+    model_roc_auc_data : pl.DataFrame | pd.DataFrame
+        Model scoring rows with counts and (optionally) t-digests.
+    config : dict
+        Includes 'metric' and 'group_by'.
+
+    Returns
+    -------
+    pl.DataFrame
+        Grouped dataset with weighted means, counts, and merged t-digests (if enabled).
+    """
     if isinstance(model_roc_auc_data, pd.DataFrame):
         model_roc_auc_data = pl.from_pandas(model_roc_auc_data)
     if isinstance(model_roc_auc_data, pl.DataFrame):
@@ -114,6 +144,21 @@ def group_model_ml_scores_data(
 def group_experiment_data(
         exp_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
+    """
+    Group experiment data by filters and variant, summing counts and outcomes.
+
+    Parameters
+    ----------
+    exp_data : pl.DataFrame | pd.DataFrame
+        Experiment rows with Positives/Negatives/Count.
+    config : dict
+        Includes 'metric' and 'group_by'.
+
+    Returns
+    -------
+    pl.DataFrame
+        Grouped table filtered to positive/negative > 0 per group.
+    """
     if isinstance(exp_data, pd.DataFrame):
         exp_data = pl.from_pandas(exp_data)
     if isinstance(exp_data, pl.DataFrame):
@@ -146,6 +191,21 @@ def group_experiment_data(
 def calculate_experiment_scores(
         exp_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
+    """
+    Compute Chi-square, G-test, and two-proportion z-test by group.
+
+    Parameters
+    ----------
+    exp_data : pl.DataFrame | pd.DataFrame
+        Experiment outcomes.
+    config : dict
+        Includes 'metric', 'group_by', and experiment keys.
+
+    Returns
+    -------
+    pl.DataFrame
+        Grouped stats with chi2, g, and z test results and aggregates.
+    """
     if isinstance(exp_data, pd.DataFrame):
         exp_data = pl.from_pandas(exp_data)
     if isinstance(exp_data, pl.DataFrame):
@@ -223,6 +283,23 @@ def calculate_model_ml_scores(
         config: dict,
         drop_fpr_tpr=True
 ) -> pl.DataFrame:
+    """
+    Compute model metrics (AUC, AP, calibration) by group.
+
+    Parameters
+    ----------
+    model_roc_auc_data : pl.DataFrame | pd.DataFrame
+        Model scoring inputs with counts and (optional) t-digests.
+    config : dict
+        Includes 'metric' and 'group_by'.
+    drop_fpr_tpr : bool
+        If True, drop curve arrays (fpr/tpr/precision/recall).
+
+    Returns
+    -------
+    pl.DataFrame
+        Grouped metrics with weighted means, totals, and optional t-digest metrics.
+    """
     if isinstance(model_roc_auc_data, pd.DataFrame):
         model_roc_auc_data = pl.from_pandas(model_roc_auc_data)
     if isinstance(model_roc_auc_data, pl.DataFrame):
@@ -317,6 +394,21 @@ def calculate_model_ml_scores(
 def calculate_engagement_scores(
         ih_analysis: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
+    """
+    Compute engagement metrics (CTR, Lift, Z-score) by group.
+
+    Parameters
+    ----------
+    ih_analysis : pl.DataFrame | pd.DataFrame
+        Input with Positives, Negatives, Count and control/test flags.
+    config : dict
+        Includes 'group_by' and optional facet fields.
+
+    Returns
+    -------
+    pl.DataFrame
+        Aggregated engagement metrics with z-test results.
+    """
     if isinstance(ih_analysis, pd.DataFrame):
         ih_analysis = pl.from_pandas(ih_analysis)
 
@@ -440,6 +532,21 @@ def calculate_engagement_scores(
 def calculate_conversion_scores(
         ih_analysis: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
+    """
+    Compute conversion metrics by group.
+
+    Parameters
+    ----------
+    ih_analysis : pl.DataFrame | pd.DataFrame
+        Input with Positives, Negatives, Count, Revenue, Touchpoints.
+    config : dict
+        Includes 'group_by' and 'metric'.
+
+    Returns
+    -------
+    pl.DataFrame
+        Aggregated conversion rate, stderr, revenue, and touchpoints.
+    """
     if isinstance(ih_analysis, pd.DataFrame):
         ih_analysis = pl.from_pandas(ih_analysis)
     if isinstance(ih_analysis, pl.DataFrame):
@@ -485,6 +592,21 @@ def calculate_conversion_scores(
 def group_engagement_data(
         eng_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
+    """
+    Aggregate engagement inputs by group and global filters.
+
+    Parameters
+    ----------
+    eng_data : pl.DataFrame | pd.DataFrame
+        Input with Positives/Negatives/Count.
+    config : dict
+        Includes 'group_by'.
+
+    Returns
+    -------
+    pl.DataFrame
+        Grouped sums for Positives, Negatives, and Count.
+    """
     if isinstance(eng_data, pd.DataFrame):
         eng_data = pl.from_pandas(eng_data)
     if isinstance(eng_data, pl.DataFrame):
@@ -508,6 +630,21 @@ def group_engagement_data(
 def group_conversion_data(
         conv_data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
+    """
+    Aggregate conversion inputs by group and global filters.
+
+    Parameters
+    ----------
+    conv_data : pl.DataFrame | pd.DataFrame
+        Input with Positives/Negatives/Count/Revenue.
+    config : dict
+        Includes 'group_by'.
+
+    Returns
+    -------
+    pl.DataFrame
+        Grouped sums for conversion fields.
+    """
     if isinstance(conv_data, pd.DataFrame):
         conv_data = pl.from_pandas(conv_data)
     if isinstance(conv_data, pl.DataFrame):
@@ -532,6 +669,21 @@ def group_conversion_data(
 def group_descriptive_data(
         data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
+    """
+    Prepare descriptive data (clone/convert only).
+
+    Parameters
+    ----------
+    data : pl.DataFrame | pd.DataFrame
+        Input dataset.
+    config : dict
+        Unused; retained for interface parity.
+
+    Returns
+    -------
+    pl.DataFrame
+        Input converted to Polars and cloned.
+    """
     if isinstance(data, pd.DataFrame):
         data = pl.from_pandas(data)
     if isinstance(data, pl.DataFrame):
@@ -542,6 +694,21 @@ def group_descriptive_data(
 def calculate_descriptive_scores(
         data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
+    """
+    Compute descriptive stats by group, with optional t-digest quantiles.
+
+    Parameters
+    ----------
+    data : pl.DataFrame | pd.DataFrame
+        Input with *_Mean, *_Var, *_Count, *_tdigest columns as configured.
+    config : dict
+        Includes 'metric' and 'group_by'.
+
+    Returns
+    -------
+    pl.DataFrame
+        Grouped means, variance/std, sums, and optional quantiles/skew.
+    """
     if isinstance(data, pd.DataFrame):
         data = pl.from_pandas(data)
     if isinstance(data, pl.DataFrame):
@@ -576,14 +743,12 @@ def calculate_descriptive_scores(
     cdata = data.join(grouped_mean, on=grp_by)
     cdata = cdata.with_columns(
         [
-            # (n_i - 1) * variance_i
             ((pl.col(f"{c}_Count") - 1) * pl.col(f"{c}_Var")).alias(
                 f"{c}_n_minus1_variance"
             )
             for c in num_columns
         ]
         + [
-            # n_i * (mean_i - grp_mean)^2
             (
                     pl.col(f"{c}_Count")
                     * (pl.col(f"{c}_Mean") - pl.col(f"{c}_GroupMean")) ** 2
@@ -774,6 +939,21 @@ def calculate_descriptive_scores(
 def calculate_clv_scores(
         data: Union[pl.DataFrame, pd.DataFrame], config: dict
 ) -> pl.DataFrame:
+    """
+    Compute CLV summary using RFM configuration.
+
+    Parameters
+    ----------
+    data : pl.DataFrame | pd.DataFrame
+        Transactional or customer-level inputs.
+    config : dict
+        Includes 'metric' referencing CLV config.
+
+    Returns
+    -------
+    pl.DataFrame
+        RFM-based totals and CLV aggregates.
+    """
     if isinstance(data, pd.DataFrame):
         data = pl.from_pandas(data)
     if isinstance(data, pl.DataFrame):
@@ -785,6 +965,21 @@ def calculate_clv_scores(
 
 def merge_descriptive_digests(
         data: Union[pl.DataFrame, pd.DataFrame], config: dict) -> pl.DataFrame:
+    """
+    Merge per-row t-digests into group-level digests for descriptive stats.
+
+    Parameters
+    ----------
+    data : pl.DataFrame | pd.DataFrame
+        Input with per-row *_tdigest fields.
+    config : dict
+        Includes 'metric' and 'group_by'.
+
+    Returns
+    -------
+    pl.DataFrame
+        Grouped frame with merged *_tdigest columns (or empty if disabled).
+    """
     if isinstance(data, pd.DataFrame):
         data = pl.from_pandas(data)
     if isinstance(data, pl.DataFrame):

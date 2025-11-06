@@ -12,6 +12,56 @@ from value_dashboard.utils.polars_utils import digest_to_histogram
 @timed
 def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                           config: dict) -> pd.DataFrame:
+    """
+    Render a descriptive bar/line plot for a selected metric and return the analysis DataFrame.
+
+    The function aggregates input data using ``calculate_reports_data`` (with interactive
+    controls to refine axes, score, color, faceting, and log scaling), then renders:
+    - a grouped bar chart when the number of unique x values is below 30, or
+    - a line chart otherwise.
+
+    The plotted series is chosen as ``f"{config['y']}_{config['score']}"``, where
+    the score can be ``'Count'`` or any metric listed for the selected ``config['metric']``.
+    The y-axis label is set dynamically to the selected ``option`` (score).
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Source dataset compatible with the reporting utilities and the configured metric.
+    config : dict
+        Plot and data configuration. Expected keys include:
+            - ``'metric'`` (str): Metric key used to read metadata from ``get_config()``.
+            - ``'group_by'`` (list[str]): Additional grouping dimensions to include.
+            - ``'x'`` (str): Column for the x-axis.
+            - ``'y'`` (str): Base metric/column that prefixes the chosen score (e.g., ``<y>_Mean``).
+            - ``'score'`` (str): One of the supported scores for ``'y'`` (e.g., ``'Count'``, ``'Mean'``, etc.).
+            - ``'description'`` (str): Chart title.
+            - ``'color'`` (str, optional): Color grouping column; defaults to ``'y'`` or ``'facet_row'`` if missing.
+            - ``'facet_row'`` (str, optional): Row facet column (or '---' to disable).
+            - ``'facet_column'`` (str, optional): Column facet column (or '---' to disable).
+
+    Returns
+    -------
+    pd.DataFrame
+        The processed Pandas DataFrame used for plotting. If no data is available,
+        a Streamlit warning is shown and the empty DataFrame is returned.
+
+    Notes
+    -----
+    - The available scores and columns are taken from ``get_config()["metrics"][metric]``.
+    - A Streamlit "Advanced options" panel allows choosing axis, score, faceting, color,
+      and Y-axis scale (linear/log).
+    - Plot height increases with the number of row-facet categories.
+    - Figure is rendered via ``st.plotly_chart``.
+
+    Raises
+    ------
+    KeyError
+        If required configuration keys (e.g., ``'metric'``, ``'x'``, ``'y'``, ``'score'``, ``'description'``)
+        are missing or misconfigured.
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and ``filter_dataframe``.
+    """
     metric = config["metric"]
     m_config = get_config()["metrics"][metric]
     scores = m_config["scores"]
@@ -211,6 +261,53 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
                          config: dict) -> pd.DataFrame:
+    """
+    Render faceted box plots from pre-aggregated distribution summaries and return the analysis DataFrame.
+
+    The function expects precomputed descriptive statistics for a numeric column
+    (e.g., ``<y>_p25``, ``<y>_Median``, ``<y>_p75``, ``<y>_Mean``, ``<y>_Std``,
+    ``<y>_Min``, ``<y>_Max``, ``<y>_Count``) produced by the reporting pipeline.
+    It draws grouped box plots across x categories and color groups, optionally
+    faceted by row/column. Whisker fences use 1.5×IQR bounded by observed min/max.
+    Notch span is estimated from IQR and sample size.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Source dataset compatible with the configured metric and reporting utilities.
+    config : dict
+        Plot and data configuration. Expected keys include:
+            - ``'metric'`` (str): Metric key used to read metadata from ``get_config()``.
+            - ``'group_by'`` (list[str]): Additional grouping dimensions to include.
+            - ``'x'`` (str): Categorical x-axis column.
+            - ``'y'`` (str): Base numeric field whose summary columns are plotted.
+            - ``'description'`` (str): Chart title.
+            - ``'color'`` (str, optional): Color grouping; defaults to ``'y'`` or ``'facet_row'``.
+            - ``'facet_row'`` (str, optional): Row facet column (or '---' to disable).
+            - ``'facet_column'`` (str, optional): Column facet column (or '---' to disable).
+
+    Returns
+    -------
+    pd.DataFrame
+        The processed Pandas DataFrame used for plotting. If no data is available,
+        a Streamlit warning is shown and the empty DataFrame is returned.
+
+    Notes
+    -----
+    - Subplots are constructed manually with ``make_subplots``; legend shows only once
+      (top-left subplot and first x index).
+    - Colors are taken from the active Plotly template colorway.
+    - Plot height scales with the number of row-facet categories.
+    - Figure is rendered via ``st.plotly_chart``.
+
+    Raises
+    ------
+    KeyError
+        If required configuration keys (e.g., ``'metric'``, ``'x'``, ``'y'``, ``'description'``)
+        are missing or misconfigured.
+    Exception
+        Propagated from downstream utilities such as ``calculate_reports_data`` and ``filter_dataframe``.
+    """
     metric = config["metric"]
     m_config = get_config()["metrics"][metric]
     columns_conf = m_config['columns']
@@ -433,6 +530,51 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
                        config: dict, options_panel: bool = True) -> pd.DataFrame:
+    """
+    Render a faceted funnel plot across configured stages and return the analysis DataFrame.
+
+    The function aggregates counts per stage and group using ``calculate_reports_data``,
+    filters out stages that do not appear in the data, reshapes the results into a
+    long format, and renders a funnel chart with optional row/column facets.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Source dataset compatible with the configured metric and reporting utilities.
+    config : dict
+        Funnel configuration. Expected keys include:
+            - ``'metric'`` (str): Metric key used to read metadata from ``get_config()``.
+            - ``'group_by'`` (list[str]): Grouping columns for funnel aggregation.
+            - ``'x'`` (str): Stage column in the input data.
+            - ``'color'`` (str): Column used for color grouping in the funnel.
+            - ``'stages'`` (list[str]): Ordered list of funnel stages.
+            - ``'description'`` (str): Chart title.
+            - ``'height'`` (int, optional): Base figure height (default 640).
+            - ``'facet_row'`` (str, optional): Row facet column.
+            - ``'facet_column'`` (str, optional): Column facet column.
+    options_panel : bool, default True
+        If ``True``, applies interactive filtering to the Pandas frame before plotting.
+
+    Returns
+    -------
+    pd.DataFrame
+        The processed Pandas DataFrame used for plotting. If empty, a warning is shown
+        and the empty DataFrame is returned.
+
+    Notes
+    -----
+    - Stages not present in the data are removed prior to plotting.
+    - Category order for the color legend is determined by descending total ``Count``.
+    - Plot height scales with the number of row-facet categories.
+    - Figure is rendered via ``st.plotly_chart``.
+
+    Raises
+    ------
+    KeyError
+        If required configuration keys are missing (e.g., ``'group_by'``, ``'x'``, ``'stages'``, ``'description'``).
+    Exception
+        Propagated from downstream utilities including ``calculate_reports_data``.
+    """
     metric = config["metric"]
     m_config = get_config()["metrics"][metric]
     report_grp_by = config['group_by']
@@ -495,6 +637,50 @@ def descriptive_funnel(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def descriptive_hist_plot(data: Union[pl.DataFrame, pd.DataFrame],
                           config: dict) -> pd.DataFrame:
+    """
+    Render faceted histograms from t-digest summaries and return an aggregated DataFrame.
+
+    The function merges precomputed t-digests via ``merge_descriptive_digests``, converts
+    each digest into a histogram (bin edges and counts), and renders faceted bar histograms.
+    After plotting, it also computes and returns a separate aggregated DataFrame via
+    ``calculate_reports_data`` using the same grouping configuration.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pd.DataFrame
+        Source dataset compatible with the configured metric and reporting utilities.
+    config : dict
+        Histogram configuration. Expected keys include:
+            - ``'metric'`` (str): Metric key used to read metadata from ``get_config()``.
+            - ``'group_by'`` (list[str]): Grouping columns used for digest merging.
+            - ``'x'`` (str): Base numeric field whose t-digest is stored in ``<x>_tdigest``.
+            - ``'description'`` (str): Chart title.
+            - ``'facet_row'`` (str, optional): Row facet column (or '---' to disable).
+            - ``'facet_column'`` (str, optional): Column facet column (or '---' to disable).
+
+    Returns
+    -------
+    pd.DataFrame
+        A Pandas DataFrame computed by ``calculate_reports_data`` (not the plotted digest frame).
+        If the plotted digest frame is empty, a warning is shown and the empty frame is returned
+        early (the final aggregation step is skipped).
+
+    Notes
+    -----
+    - The "Advanced options" panel allows selecting the numeric property for the histogram.
+    - Each subplot shows a 100-bin histogram reconstructed from the t-digest via
+      ``digest_to_histogram``; bars are added with bin-aligned widths.
+    - Plot height scales with the number of row-facet categories.
+    - Figure is rendered via ``st.plotly_chart``.
+
+    Raises
+    ------
+    KeyError
+        If required configuration keys are missing (e.g., ``'metric'``, ``'x'``, ``'description'``).
+    Exception
+        Propagated from downstream utilities including ``merge_descriptive_digests``,
+        ``calculate_reports_data``, and ``filter_dataframe``.
+    """
     metric = config["metric"]
     m_config = get_config()["metrics"][metric]
     columns_conf = m_config['columns']

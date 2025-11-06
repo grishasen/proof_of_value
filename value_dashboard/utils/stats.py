@@ -58,6 +58,39 @@ def g_test_proportion(c1, c2, n1, n2) -> dict[str, float]:
 
 
 def chi2_test(args: List[pl.Series]) -> pl.Struct:
+    """
+    Perform Pearson's Chi-square test of independence on a contingency table.
+
+    Parameters
+    ----------
+    args : List[pl.Series]
+        A list of Polars Series representing rows (or columns) of a contingency table.
+        The series are stacked into a DataFrame and transposed so that the resulting
+        table reflects categories x groups as a dense numeric array.
+
+    Returns
+    -------
+    pl.Struct
+        A struct-like mapping with:
+        - 'chi2_stat' : float
+            The Chi-square test statistic.
+        - 'chi2_dof' : int
+            Degrees of freedom.
+        - 'chi2_p_val' : float
+            P-value for the test of independence.
+        - 'chi2_odds_ratio_stat' : float
+            Sample odds ratio (only for 2x2 tables; 0.0 otherwise).
+        - 'chi2_odds_ratio_ci_low' : float
+            Lower bound of the 95% confidence interval for the odds ratio (2x2 only).
+        - 'chi2_odds_ratio_ci_high' : float
+            Upper bound of the 95% confidence interval for the odds ratio (2x2 only).
+
+    Notes
+    -----
+    - Uses `scipy.stats.chi2_contingency` with `correction=False` (no Yates correction).
+    - If the table is 2x2, also computes the sample odds ratio and its 95% CI via
+      `scipy.stats.contingency.odds_ratio`.
+    """
     df = pl.DataFrame(args)
     df = df.transpose(include_header=False, column_names="column_0")
     contingency_table = df.to_numpy()
@@ -73,6 +106,39 @@ def chi2_test(args: List[pl.Series]) -> pl.Struct:
 
 
 def g_test(args: List[pl.Series]) -> pl.Struct:
+    """
+    Perform the G-test (log-likelihood ratio test) of independence on a contingency table.
+
+    Parameters
+    ----------
+    args : List[pl.Series]
+        A list of Polars Series representing rows (or columns) of a contingency table.
+        The series are stacked into a DataFrame and transposed to form the final table.
+
+    Returns
+    -------
+    pl.Struct
+        A struct-like mapping with:
+        - 'g_stat' : float
+            The G-test statistic (log-likelihood ratio).
+        - 'g_dof' : int
+            Degrees of freedom.
+        - 'g_p_val' : float
+            P-value for the test of independence under the Chi-square approximation.
+        - 'g_odds_ratio_stat' : float
+            Sample odds ratio (only for 2x2 tables; 0.0 otherwise).
+        - 'g_odds_ratio_ci_low' : float
+            Lower bound of the 95% confidence interval for the odds ratio (2x2 only).
+        - 'g_odds_ratio_ci_high' : float
+            Upper bound of the 95% confidence interval for the odds ratio (2x2 only).
+
+    Notes
+    -----
+    - Implements the G-test via `scipy.stats.chi2_contingency(..., lambda_="log-likelihood")`.
+    - No Yates correction is applied.
+    - For 2x2 tables, reports the sample odds ratio and its 95% CI using
+      `scipy.stats.contingency.odds_ratio`.
+    """
     df = pl.DataFrame(args)
     df = df.transpose(include_header=False, column_names="column_0")
     contingency_table = df.to_numpy()
@@ -88,6 +154,32 @@ def g_test(args: List[pl.Series]) -> pl.Struct:
 
 
 def z_test(args: List[pl.Series]) -> pl.Struct:
+    """
+    Perform a two-proportion z-test for a 2x2 contingency table.
+
+    Parameters
+    ----------
+    args : List[pl.Series]
+        A list of Polars Series that form a 2x2 table after stacking and transposing.
+        The expected shape is:
+            [[successes_group1, failures_group1],
+             [successes_group2, failures_group2]]
+
+    Returns
+    -------
+    pl.Struct
+        If the table is 2x2, returns the result of the z-test as a mapping with:
+        - 'z_score' : float
+            The z statistic comparing two proportions.
+        - 'z_p_val' : float
+            The two-sided p-value associated with the z statistic.
+        Otherwise, returns {'z_score': 0.0, 'z_p_val': 0.0}.
+
+    Notes
+    -----
+    - Expects counts (non-negative integers) for successes and failures.
+    - If the input does not form a 2x2 table, a default zero-valued result is returned.
+    """
     df = pl.DataFrame(args)
     df = df.transpose(include_header=False, column_names="column_0")
     if df.shape == (2, 2):

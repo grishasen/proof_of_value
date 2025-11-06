@@ -15,6 +15,21 @@ from value_dashboard.utils.timer import timed
 @timed
 def eng_conv_ml_heatmap_plot(data: Union[pl.DataFrame, pd.DataFrame],
                              config: dict) -> pd.DataFrame:
+    """
+    Render a heatmap (and optional 3D surface) for engagement/conversion metrics.
+
+    Parameters
+    ----------
+    data : pl.DataFrame | pd.DataFrame
+        Source dataset.
+    config : dict
+        Must include keys: 'x', 'y', 'color', 'description'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered analysis dataframe used for plotting (or empty if no data).
+    """
     report_data = calculate_reports_data(data, config).to_pandas()
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
@@ -65,6 +80,21 @@ def eng_conv_ml_heatmap_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def eng_conv_ml_scatter_plot(data: Union[pl.DataFrame, pd.DataFrame],
                              config: dict) -> pd.DataFrame:
+    """
+    Render an animated scatter plot for engagement/conversion metrics.
+
+    Parameters
+    ----------
+    data : pl.DataFrame | pd.DataFrame
+        Source dataset.
+    config : dict
+        Must include 'x', 'y', 'color', 'size', 'animation_frame', 'animation_group', 'description'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered analysis dataframe used for plotting (or empty if no data).
+    """
     report_data = calculate_reports_data(data, config).to_pandas()
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
@@ -91,6 +121,21 @@ def eng_conv_ml_scatter_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def eng_conv_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
                           config: dict) -> pd.DataFrame:
+    """
+    Render a treemap for engagement/conversion with counts and continuous color.
+
+    Parameters
+    ----------
+    data : pl.DataFrame | pd.DataFrame
+        Source dataset.
+    config : dict
+        Must include 'group_by', 'color', 'description'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered analysis dataframe used for plotting (or empty if no data).
+    """
     report_data = calculate_reports_data(data, config).to_pandas()
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
@@ -112,6 +157,21 @@ def eng_conv_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def eng_conv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
                            config: dict) -> pd.DataFrame:
+    """
+    Render a polar bar chart for engagement/conversion by category.
+
+    Parameters
+    ----------
+    data : pl.DataFrame | pd.DataFrame
+        Source dataset.
+    config : dict
+        Must include 'r', 'theta', 'color', 'description', 'showlegend'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered analysis dataframe used for plotting (or empty if no data).
+    """
     report_data = calculate_reports_data(data, config).to_pandas()
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
@@ -147,6 +207,21 @@ def eng_conv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                           config: dict) -> pd.DataFrame:
+    """
+    Render a bar/line plot with optional facets and interactive plot settings.
+
+    Parameters
+    ----------
+    data : pl.DataFrame | pd.DataFrame
+        Source dataset.
+    config : dict
+        Must include 'description', and default 'x', 'y', 'color' (overridable via UI).
+
+    Returns
+    -------
+    pd.DataFrame
+        Aggregated analysis dataframe used for plotting.
+    """
     adv_on = st.toggle("Advanced options", value=True, key="Advanced options" + config['description'],
                        help="Show advanced reporting options")
     xplot_y_bool = False
@@ -269,6 +344,21 @@ def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
 
 
 def get_plot_parameters_menu(config: dict, is_y_axis_required: bool = True):
+    """
+    Build a small UI to choose plot parameters (x, color, facets, y, log scale).
+
+    Parameters
+    ----------
+    config : dict
+        Report configuration containing metric/group_by/scores and defaults.
+    is_y_axis_required : bool, optional
+        If True, include Y-axis selector, by default True.
+
+    Returns
+    -------
+    dict
+        Selected parameters: {'x', 'color', 'facet_row', 'facet_col', 'y', 'log_y'}.
+    """
     metric = config["metric"]
     m_config = get_config()["metrics"][metric]
     report_grp_by = m_config['group_by']

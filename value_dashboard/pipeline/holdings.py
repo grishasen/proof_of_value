@@ -34,6 +34,69 @@ def read_holdings_file_group(files: typing.Iterable,
                              streaming: bool,
                              config: dict,
                              hive_partitioning: bool) -> LazyFrame | None:
+    """
+    Read and preprocess a group of product holdings files into a single Polars LazyFrame.
+
+    This function scans (lazily) one or more input files—supporting Parquet, CSV, Excel,
+    and Pega dataset export—and performs schema normalization, optional default value
+    filling, global filtering, and calculated column additions defined in the config.
+    It returns a concatenated LazyFrame (diagonal concat) that can be subsequently
+    collected with streaming or auto engine.
+
+    Parameters
+    ----------
+    files : Iterable
+        An iterable of file paths or directories (when `hive_partitioning=True`) that
+        belong to the same logical group (e.g., by date).
+    filetype : str
+        One of {'parquet', 'csv', 'xlsx', 'pega_ds_export'}. Determines the reader used.
+    streaming : bool
+        Whether to use Polars streaming engine when collecting the final result
+        (`engine="streaming"` vs `"auto"`).
+    config : dict
+        Configuration dict with at least:
+        - `config["holdings"]["extensions"]["default_values"]` : dict[str, Any], optional
+          Default values for missing or null columns.
+        - `config["holdings"]["extensions"]["filter"]` : str, optional
+          A Python expression (string) evaluated to a Polars expression used to filter rows.
+        - `config["holdings"]["extensions"]["columns"]` : str, optional
+          A Python expression (string) evaluated to a sequence of Polars expressions
+          to add/derive columns.
+    hive_partitioning : bool
+        If True, `pl.scan_parquet(..., hive_partitioning=True)` is used and elements in
+        `files` are expected to be partition directories.
+
+    Returns
+    -------
+    LazyFrame or None
+        A Polars LazyFrame representing the concatenated and preprocessed holdings group,
+        or `None` if the input list is empty.
+
+    Raises
+    ------
+    Exception
+        If `filetype` is not one of the supported types.
+    Exception
+        Any exception raised by underlying readers or malformed `eval` expressions.
+
+    Notes
+    -----
+    - Column names are capitalized uniformly using `capitalize(...)` and then renamed.
+    - When `default_values` are provided, the function adds missing columns with defaults
+      and fills nulls in existing columns.
+    - The `filter` and `columns` config entries are evaluated via `eval`. Ensure that
+      the execution context is controlled and trusted.
+    - Uses diagonal concatenation (`pl.concat(..., how="diagonal")`) to accommodate
+      partially overlapping schemas.
+    - Logging with `logger.debug` measures I/O and preprocessing times.
+
+    See Also
+    --------
+    pl.scan_parquet : Lazy scan for Parquet.
+    pl.scan_csv : Lazy scan for CSV.
+    pl.read_excel : Eager Excel read; converted to lazy via `.lazy()`.
+
+    """
     product_holdings_data_list = []
     start: float = time.time()
     for file in files:
@@ -94,6 +157,48 @@ def read_holdings_file_group(files: typing.Iterable,
 
 @st.cache_data(show_spinner=False, ttl=timedelta(hours=data_cache_hours))
 def load_holdings_data() -> typing.Dict[str, pl.DataFrame]:
+    """
+    Load, group, preprocess, and compute CLV metrics for product holdings.
+
+    This function:
+    1) Validates the configured holdings folder from Streamlit session state,
+    2) Discovers files by pattern and groups them (e.g., by date) using a regex,
+    3) Reads each group via `read_holdings_file_group(...)`,
+    4) Computes CLV metrics data (possibly in background) and aggregates them into memory,
+    5) Returns a dictionary of metric name -> Polars DataFrame.
+
+    Results are cached by Streamlit (`@st.cache_data`) for `data_cache_hours`.
+
+    Returns
+    -------
+    Dict[str, pl.DataFrame]
+        A dictionary mapping metric keys (e.g., 'clv_totals', 'clv_segments', ...) to
+        Polars eager DataFrames holding the computed metrics.
+
+    Side Effects
+    ------------
+    - Uses Streamlit UI components: warnings, errors, `st.stop()`, progress bars, and metrics.
+    - Logs diagnostic information (file type, streaming/background flags, timings, sizes).
+    - Mutates `metrics` filter strings in config by replacing them with evaluated expressions.
+
+    Notes
+    -----
+    - If no files are found for the configured `file_pattern`, it falls back to searching
+      for `**/*.json` and switches `filetype='pega_ds_export'`.
+    - File grouping depends on `config["holdings"]["file_group_pattern"]`. If it fails,
+      the file basename is used as the group key.
+    - `eval` is used to transform filter and column expressions; ensure trusted inputs.
+    - `collect_clv_metrics_data(...)` is expected to fill `mdata` in place.
+    - Uses an explicit asyncio loop for any async/background work.
+
+    Raises
+    ------
+    StreamlitAPIException
+        If the configured folder is missing or invalid (triggers `st.stop()` after showing UI feedback).
+    Exception
+        Any exception that arises during I/O, regex grouping, or metric collection.
+
+    """
     load_start = time.time()
     if HOLDINGS_FOLDER not in st.session_state:
         st.warning("Please configure your product holdings files in the `Data import` tab.")
@@ -192,12 +297,50 @@ def load_holdings_data() -> typing.Dict[str, pl.DataFrame]:
 
 @st.cache_data(show_spinner=False, ttl=timedelta(hours=data_cache_hours))
 def get_reports_data():
+    """
+    Retrieve report datasets derived from CLV metrics.
+
+    Wraps `load_holdings_data()` and transforms the metrics into the reports payload
+    via `collect_clv_reports_data(...)`. The result is cached by Streamlit for
+    `data_cache_hours`.
+
+    Returns
+    -------
+    Any
+        The return value of `collect_clv_reports_data(load_holdings_data())`, typically
+        a dictionary mapping report names to tuples of (DataFrame, report params).
+    """
     return collect_clv_reports_data(load_holdings_data())
 
 
 @timed
 def collect_clv_reports_data(collected_metrics_data: typing.Dict[str, pl.DataFrame]) -> dict[
     typing.Any, tuple[pl.DataFrame, typing.Any]]:
+    """
+    Prepare CLV-based report datasets from collected metrics.
+
+    Filters report configurations to those pointing to a 'clv*' metric and returns
+    a dictionary of report key -> (Polars DataFrame, report parameters).
+
+    Parameters
+    ----------
+    collected_metrics_data : Dict[str, pl.DataFrame]
+        A mapping of metric name to an eager Polars DataFrame as produced by
+        `load_holdings_data()` / `collect_clv_metrics_data(...)`.
+
+    Returns
+    -------
+    dict[Any, tuple[pl.DataFrame, Any]]
+        Dictionary where each key is the report name, and each value is a tuple of
+        (report dataframe, original report parameters).
+
+    Notes
+    -----
+    - The function reads `get_config()["reports"]` to determine available reports
+      and their associated metrics.
+    - Only reports where `params['metric']` starts with `"clv"` are included.
+
+    """
     report_params = get_config()["reports"]
     reports_data: dict[typing.Any, tuple[DataFrame, typing.Any]] = {}
     for report in report_params:

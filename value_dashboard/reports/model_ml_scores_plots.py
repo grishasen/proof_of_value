@@ -6,6 +6,46 @@ from value_dashboard.reports.shared_plot_utils import *
 @timed
 def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                               config: dict) -> pd.DataFrame:
+    """Render a line plot of ML model scores and return the underlying analysis dataframe.
+
+    This function prepares model evaluation data, builds a Plotly line chart using
+    configuration provided in `config`, and renders it in Streamlit. It returns
+    the processed analysis DataFrame used for plotting.
+
+    The function expects the upstream data to be compatible with `calculate_reports_data`
+    and the configuration to specify which columns and metrics to plot.
+
+    Args:
+        data: A Polars or Pandas DataFrame containing the raw input for the report.
+              Typical content includes prediction outputs and grouping fields.
+        config: A dictionary controlling the plot and data preparation. Expected keys:
+            - 'x' (str): Column name for the x-axis.
+            - 'y' (str or list[str]): Metric(s) to plot on the y-axis.
+            - 'color' (str): Column used to color the lines.
+            - 'description' (str): Title/description for the chart.
+            - 'facet_row' (str, optional): Column to facet by rows.
+            - 'facet_column' (str, optional): Column to facet by columns.
+            - 'log_y' (bool, optional): If True, uses logarithmic y-axis. Defaults to False.
+            - Any other keys required by `calculate_reports_data`.
+
+    Returns:
+        pd.DataFrame: The processed analysis DataFrame (`ih_analysis`) used to build the plot.
+                      Returns an empty DataFrame if no data is available.
+
+    Side Effects:
+        - Renders a Plotly line chart in Streamlit via `st.plotly_chart`.
+        - Shows a Streamlit warning if no data is available.
+
+    Notes:
+        - Y-axis tick formatting is set to percentage with two decimals.
+        - Hover template shows x, color grouping value, and y as percentage.
+        - Chart height adapts to the number of row facets (if any).
+
+    Raises:
+        KeyError: If required keys such as 'color' or 'description' are missing from `config`.
+        Exception: Propagates exceptions from downstream utilities like `calculate_reports_data`.
+
+    """
     ih_analysis = data.copy()
     ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
     ih_analysis = calculate_reports_data(ih_analysis, config).to_pandas()
@@ -51,6 +91,54 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFrame],
                                            config: dict) -> pd.DataFrame:
+    """Render ROC/PR/Calibration/Gain/Lift visualizations and return the underlying dataframe.
+
+    Depending on the selected metric (`config['y']`) and the user's pills/toggle choice
+    in Streamlit, this function renders one of:
+      - ROC curve (when y == 'roc_auc')
+      - Precision-Recall curve (when y == 'average_precision')
+      - Calibration plot
+      - Gain plot
+      - Lift plot
+
+    If `config['y']` is neither 'roc_auc' nor 'average_precision', it falls back to the
+    generic line plot (`model_ml_scores_line_plot`).
+
+    Args:
+        data: Polars or Pandas DataFrame with raw model evaluation input, including
+              predicted probabilities, labels, and grouping fields.
+        config: Configuration dict controlling data processing and plotting. Common keys:
+            - 'metric' (str): Metric key used by `calculate_model_ml_scores`.
+            - 'description' (str): Base title/description for the chart.
+            - 'x' (str): Default x-axis field (may be overridden by advanced menu).
+            - 'y' (str): Target metric; recognized values: 'roc_auc', 'average_precision'.
+            - 'color' (str, optional): Grouping field for line color.
+            - 'facet_row' (str, optional): Field for row facets.
+            - 'facet_column' (str, optional): Field for column facets.
+            - 'group_by' (list[str], optional): Passed to scoring function as needed.
+            - 'property' (str, optional): One of [PROPENSITY, FINAL_PROPENSITY]; can be changed in UI.
+
+    Returns:
+        pd.DataFrame: The processed analysis DataFrame associated with the selected visualization:
+            - For ROC/PR/Calibration/Gain/Lift: returns the corresponding exploded/derived DataFrame
+              where applicable (e.g., includes 'sample_fraction', 'gain', 'lift' for Gain/Lift).
+            - For fallback path: returns the DataFrame from `model_ml_scores_line_plot`.
+
+    Side Effects:
+        - Renders the selected Plotly visualization in Streamlit via `st.plotly_chart`.
+        - Displays interactive selection widgets (pills/toggle/selectboxes) in the Streamlit UI.
+
+    Notes:
+        - Advanced options menu (`get_plot_parameters_menu_ml`) lets users override x/color/faceting/property.
+        - ROC plots include the diagonal reference line; PR plots are bounded in [0,1].
+        - Gain/Lift plots derive `sample_fraction`, `gain`, and `lift` from TPR/FPR and class prevalence.
+        - When no grouping is provided, list-valued columns are collapsed to their first elements before explode.
+
+    Raises:
+        KeyError: If required keys such as 'metric' or 'description' are missing from `config`.
+        Exception: Propagates exceptions from utility functions (e.g., `calculate_model_ml_scores`).
+
+    """
     y_axis = config.get('y', None)
     if y_axis == "roc_auc":
         x = 'fpr'
@@ -456,6 +544,38 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
 @timed
 def model_ml_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
                           config: dict) -> pd.DataFrame:
+    """Render a treemap of counts by grouped dimensions and return the analysis dataframe.
+
+    This function aggregates report data based on `config['group_by']`, builds a
+    Plotly treemap colored by `config['color']`, and renders it in Streamlit.
+    It returns the filtered dataframe used to build the treemap.
+
+    Args:
+        data: Polars or Pandas DataFrame with the raw input suitable for reports.
+        config: Configuration dict. Expected keys:
+            - 'group_by' (list[str]): Ordered dimensions to form the treemap path.
+            - 'color' (str): Column used for color scale.
+            - 'description' (str): Title/description for the treemap.
+            - Any other keys required by `calculate_reports_data`.
+
+    Returns:
+        pd.DataFrame: The filtered Pandas DataFrame used in the treemap. If empty,
+                      a Streamlit warning is shown and execution stops.
+
+    Side Effects:
+        - Renders a Plotly treemap in Streamlit via `st.plotly_chart`.
+        - Calls `st.warning` and `st.stop()` if no data is available.
+
+    Notes:
+        - The root node is labeled "ALL".
+        - Text info displays label, raw value, percent of parent, and percent of root.
+        - The treemap height is fixed at 640px and uses a diverging color scale (RdBu_r).
+
+    Raises:
+        KeyError: If required configuration keys like 'group_by', 'color', or 'description' are missing.
+        Exception: Propagates exceptions from `calculate_reports_data`.
+
+    """
     report_data = calculate_reports_data(data, config).to_pandas()
     ih_analysis = filter_dataframe(align_column_types(report_data), case=False)
     if ih_analysis.shape[0] == 0:
@@ -474,6 +594,43 @@ def model_ml_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
 
 
 def get_plot_parameters_menu_ml(config: dict, is_y_axis_required: bool = True):
+    """Render a Streamlit menu to select ML plot parameters and return the selection.
+
+    This helper exposes interactive controls for selecting plot axes, faceting, color,
+    and property used in ML score visualizations. It reads defaults from `config`,
+    metric metadata from `get_config()["metrics"][metric]`, and returns the user's choices.
+
+    Args:
+        config: Configuration dictionary. Expected keys:
+            - 'metric' (str): The metric key to fetch metadata (group_by, scores).
+            - 'x' (str, optional): Default x-axis column.
+            - 'y' (str, optional): Default y-axis (metric) when `is_y_axis_required` is True.
+            - 'color' (str, optional): Default color-by column.
+            - 'facet_row' (str, optional): Default row facet column.
+            - 'facet_column' (str, optional): Default column facet column.
+        is_y_axis_required: If True, shows the Y-Axis metric selector; otherwise omitted.
+
+    Returns:
+        dict: A dictionary with the selected parameters:
+            - 'x' (str): Selected x-axis column.
+            - 'color' (str): Selected color-by column.
+            - 'facet_row' (str): Selected row facet column or '---' for none.
+            - 'facet_col' (str): Selected column facet or '---' for none.
+            - 'y' (str or None): Selected y metric if required; otherwise None.
+            - 'property' (str): Selected property (PROPENSITY or FINAL_PROPENSITY).
+
+    Side Effects:
+        - Renders several Streamlit selectbox widgets for interactive selection.
+
+    Notes:
+        - Available options for axes/facets are determined by the metric's `group_by` and `scores`
+          configured in `get_config()`.
+        - If defaults are not present in `config`, the first available option is selected by default.
+
+    Raises:
+        KeyError: If `config['metric']` is missing or if the metric metadata cannot be found.
+
+    """
     metric = config["metric"]
     m_config = get_config()["metrics"][metric]
     report_grp_by = m_config['group_by']
@@ -552,6 +709,30 @@ def get_plot_parameters_menu_ml(config: dict, is_y_axis_required: bool = True):
 
 
 def ml_scores_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame], metric_name: str):
+    """Render a Streamlit KPI card showing model ROC AUC and Average Precision trend.
+
+    Computes summary metrics using `calculate_model_ml_scores` and displays them as a
+    Streamlit metric card, with an area chart trend over time (by `Month`).
+
+    Args:
+        ih_analysis: Polars or Pandas DataFrame containing input for model scoring.
+        metric_name: Metric key to evaluate (must be defined in `get_config()["metrics"]`).
+
+    Returns:
+        None
+
+    Side Effects:
+        - Renders a Streamlit KPI metric with value, delta, and a small area chart.
+
+    Notes:
+        - The displayed value is ROC AUC formatted as a percentage.
+        - The delta shows Average Precision (AP) formatted as percentage.
+        - The sparkline uses `Month`-grouped ROC AUC multiplied by 100 (as expected by `st.metric` chart).
+
+    Raises:
+        Exception: Propagates from `calculate_model_ml_scores` if configuration or data is invalid.
+
+    """
     config = dict()
     config['metric'] = metric_name
     df = calculate_model_ml_scores(ih_analysis, config, True)
@@ -563,6 +744,30 @@ def ml_scores_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame], metric_name: 
 
 
 def ml_scores_pers_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame], metric_name: str):
+    """Render a Streamlit KPI card showing Personalization and Novelty metrics with trend.
+
+    Computes personalization-related metrics and displays them as a Streamlit metric card,
+    including an area chart trend by `Month`.
+
+    Args:
+        ih_analysis: Polars or Pandas DataFrame containing input for personalization scoring.
+        metric_name: Metric key to evaluate (must be defined in `get_config()["metrics"]`).
+
+    Returns:
+        None
+
+    Side Effects:
+        - Renders a Streamlit KPI metric for Personalization with Novelty as the delta.
+
+    Notes:
+        - The main value displays `personalization` (rounded to two decimals).
+        - The delta shows `novelty`.
+        - The sparkline uses `Month`-grouped `personalization`.
+
+    Raises:
+        Exception: Propagates from `calculate_model_ml_scores` if configuration or data is invalid.
+
+    """
     config = dict()
     config['metric'] = metric_name
     df = calculate_model_ml_scores(ih_analysis, config, True)

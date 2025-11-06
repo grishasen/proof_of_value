@@ -91,6 +91,27 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def build_digest(args: List[pl.Series]) -> bytes:
+    """
+    Build and serialize a t-digest from a Polars Series of numeric values.
+
+    Parameters
+    ----------
+    args : List[pl.Series]
+        The first element (args[0]) must be a Polars Series of numeric values.
+        Nulls are dropped and values are converted to float64 before updating
+        the t-digest.
+
+    Returns
+    -------
+    bytes
+        Serialized t-digest (datasketches.tdigest_double) representing the
+        distribution of the input values.
+
+    Notes
+    -----
+    - Uses the compression parameter `T_DIGEST_COMPRESSION`.
+    - Bulk updating with a NumPy array is efficient for large inputs.
+    """
     arr = np.array(args[0].drop_nulls(), dtype=np.float64)
     sketch = datasketches.tdigest_double(k=T_DIGEST_COMPRESSION)
     sketch.update(arr)
@@ -99,6 +120,30 @@ def build_digest(args: List[pl.Series]) -> bytes:
 
 def merge_digests(args: List[pl.Series]
                   ) -> bytes:
+    """
+    Merge a collection of serialized t-digests into a single serialized digest.
+
+    Parameters
+    ----------
+    args : List[pl.Series]
+        The first element (args[0]) must be a Polars Series where each entry is
+        a bytes object corresponding to a serialized t-digest
+        (datasketches.tdigest_double).
+
+    Returns
+    -------
+    bytes
+        Serialized t-digest resulting from merging all input digests.
+
+    Edge Cases
+    ----------
+    - If the input series is empty, returns a serialized digest initialized with
+      a single dummy value (0.0) to preserve downstream type/shape expectations.
+
+    Notes
+    -----
+    - Merging is associative, enabling scalable, distributed aggregation.
+    """
     sketch_bytes_list = args[0].to_list()
     if not sketch_bytes_list:
         sketch = datasketches.tdigest_double(k=T_DIGEST_COMPRESSION)
@@ -112,6 +157,27 @@ def merge_digests(args: List[pl.Series]
 
 
 def estimate_quantile(args: List[pl.Series], quantile: float) -> float:
+    """
+    Estimate a single quantile from a collection of serialized t-digests.
+
+    Parameters
+    ----------
+    args : List[pl.Series]
+        The first element (args[0]) must be a Polars Series where each entry is
+        a bytes object of a serialized t-digest (datasketches.tdigest_double).
+    quantile : float
+        The desired quantile in the closed interval [0.0, 1.0].
+        For example, 0.5 for the median.
+
+    Returns
+    -------
+    float
+        The estimated quantile value. Returns 0.0 if the input series is empty.
+
+    Notes
+    -----
+    - All digests are deserialized and merged prior to querying the quantile.
+    """
     sketch_bytes_list = args[0].to_list()
     if not sketch_bytes_list:
         return 0.0
@@ -123,6 +189,27 @@ def estimate_quantile(args: List[pl.Series], quantile: float) -> float:
 
 
 def estimate_quantiles_arr(args: List[pl.Series], quantiles: List[float]) -> List[float]:
+    """
+    Estimate multiple quantiles from a collection of serialized t-digests.
+
+    Parameters
+    ----------
+    args : List[pl.Series]
+        The first element (args[0]) must be a Polars Series where each entry is
+        a bytes object of a serialized t-digest (datasketches.tdigest_double).
+    quantiles : List[float]
+        A list of desired quantiles in the interval [0.0, 1.0].
+
+    Returns
+    -------
+    List[float]
+        A list of estimated quantile values corresponding to `quantiles`.
+        Returns [0.0] if the input series is empty.
+
+    Notes
+    -----
+    - Performs a single merge pass, then queries all quantiles.
+    """
     sketch_bytes_list = args[0].to_list()
     if not sketch_bytes_list:
         return [0.0]
@@ -134,6 +221,35 @@ def estimate_quantiles_arr(args: List[pl.Series], quantiles: List[float]) -> Lis
 
 
 def digest_to_histogram(tdigest: bytes, bins: int = 30, value_range: tuple[float, float] = None):
+    """
+    Approximate a histogram from a serialized t-digest.
+
+    Parameters
+    ----------
+    tdigest : bytes
+        Serialized t-digest (datasketches.tdigest_double).
+    bins : int, optional
+        Number of histogram bins, by default 30.
+    value_range : tuple[float, float], optional
+        The inclusive range (min, max) for the histogram. If None, uses the
+        digest's 0th and 100th percentiles (min/max) as bounds.
+
+    Returns
+    -------
+    Tuple[np.ndarray, List[float]]
+        A tuple of (bin_edges, bin_counts), where:
+        - bin_edges : np.ndarray of shape (bins + 1,)
+            The edges defining each histogram bin.
+        - bin_counts : List[float]
+            Approximate probability mass per bin computed via CDF differences.
+            If `value_range` covers the full support, these masses sum to ~1.0.
+
+    Notes
+    -----
+    - Uses CDF differences over adjacent bin edges to estimate per-bin mass.
+    - If counts (not probabilities) are required, multiply by the total sample
+      size used to build the digest (tracked externally).
+    """
     tdigest = datasketches.tdigest_double.deserialize(tdigest)
     if value_range is None:
         value_range = (tdigest.get_quantile(0), tdigest.get_quantile(1))

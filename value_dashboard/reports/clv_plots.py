@@ -14,6 +14,43 @@ from value_dashboard.utils.config import get_config
 @timed
 def clv_histogram_plot(data: Union[pl.DataFrame, pd.DataFrame],
                        config: dict) -> pd.DataFrame:
+    """
+    Render an interactive CLV histogram with optional normalization, aggregation, and faceting.
+
+    The function computes and filters the report dataset, then displays a Plotly histogram in
+    Streamlit with user-selectable X/Y axes, normalization (``histnorm``), aggregation (``histfunc``),
+    and cumulative counts. Faceting by row/column and color grouping are supported via keys in
+    ``config``.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pandas.DataFrame
+        Source data. Can be Polars or pandas; will be converted as needed for plotting.
+    config : dict
+        Plot configuration. Expected keys include:
+        - ``x``: str, one of ``{'frequency','recency','monetary_value','tenure'}`` (required)
+        - ``y``: Optional[str], one of ``{None,'lifetime_value','unique_holdings'}``
+        - ``facet_row``: Optional[str], categorical column for faceting by rows
+        - ``facet_column``: Optional[str], categorical column for faceting by columns
+        - ``color``: Optional[str], categorical column for color groups
+        - ``description``: str, chart title/description
+
+    Returns
+    -------
+    pandas.DataFrame
+        The filtered dataset used to build the histogram.
+
+    Raises
+    ------
+    Streamlit StopException
+        If the filtered dataset is empty, the function warns and stops the Streamlit run.
+
+    Notes
+    -----
+    - Histogram normalization supports: ``''``, ``'percent'``, ``'probability'``,
+      ``'density'``, ``'probability density'``.
+    - Figure height adapts automatically to the number of facet rows if ``facet_row`` is set.
+    """
     report_data = calculate_reports_data(data, config).to_pandas()
     rep_filtered_data = filter_dataframe(align_column_types(report_data), case=False)
     if rep_filtered_data.shape[0] == 0:
@@ -90,6 +127,41 @@ def clv_histogram_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
                       config: dict) -> pd.DataFrame:
+    """
+    Display a polar bar chart for CLV metrics grouped by categorical dimensions.
+
+    The function aggregates customer-level metrics by selected angular (theta) and color
+    categories, then renders a Plotly ``bar_polar`` chart in Streamlit. It also shows a
+    top-level metrics card row via ``clv_totals_cards_subplot``.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pandas.DataFrame
+        Source dataset containing CLV metrics and segment/group columns.
+    config : dict
+        Plot configuration. Expected keys include:
+        - ``r``: str, radial metric (``'lifetime_value'``, ``'unique_holdings'``, or ``'monetary_value'``)
+        - ``theta``: str, angular categorical axis (e.g., ``'rfm_segment'`` or any in ``group_by``)
+        - ``color``: str, category used for color grouping
+        - ``group_by``: list[str], dimensions to group by
+        - ``description``: str, chart title
+        - ``showlegend``: str convertible to bool
+
+    Returns
+    -------
+    pandas.DataFrame
+        Aggregated and filtered dataset shown in the polar chart.
+
+    Raises
+    ------
+    Streamlit StopException
+        If there is no data after filtering.
+
+    Notes
+    -----
+    - The chart theme follows the Streamlit theme (dark vs none) for better visual integration.
+    - When no grouping is provided, raw data are passed through to the plot.
+    """
     clv_totals_cards_subplot(data, config)
     data = calculate_reports_data(data, config).to_pandas()
     c1, c2, c3 = st.columns(3)
@@ -178,6 +250,37 @@ def clv_polarbar_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def clv_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      config: dict) -> pd.DataFrame:
+    """
+    Plot a treemap of customer counts with CLV/RFM context.
+
+    Aggregates metrics across ``rfm_segment`` and additional ``group_by`` dimensions and
+    renders a Plotly treemap where area encodes customer count and color encodes average
+    RFM score.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pandas.DataFrame
+        Source dataset with RFM/CLV metrics.
+    config : dict
+        Configuration for grouping and labeling. Expected keys include:
+        - ``group_by``: list[str], dimensions to group by (in addition to ``'rfm_segment'``)
+        - ``description``: str, chart title
+
+    Returns
+    -------
+    pandas.DataFrame
+        Aggregated and filtered dataset used by the treemap.
+
+    Raises
+    ------
+    Streamlit StopException
+        If the filtered dataset is empty.
+
+    Notes
+    -----
+    - Color scale ranges from red (low) to green (high) for the average RFM score.
+    - A summary metrics row is displayed above the chart.
+    """
     clv_totals_cards_subplot(data, config)
     data = calculate_reports_data(data, config)
     grp_by = ['rfm_segment'] + config['group_by']
@@ -222,6 +325,35 @@ def clv_treemap_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def clv_exposure_plot(data: Union[pl.DataFrame, pd.DataFrame],
                       config: dict) -> pd.DataFrame:
+    """
+    Visualize customer exposure (recency vs. tenure) as line segments with markers.
+
+    The function prepares and filters the CLV dataset, samples up to 100 customers for
+    readability, and renders an exposure plot where each customer’s recency–tenure span
+    is represented by two colored segments.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pandas.DataFrame
+        Source customer-level dataset.
+    config : dict
+        Report configuration passed to ``calculate_reports_data``.
+        Unused keys are safely ignored.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The (sampled) filtered dataset used for plotting.
+
+    Raises
+    ------
+    Streamlit StopException
+        If no data remain after filtering.
+
+    See Also
+    --------
+    clv_plot_customer_exposure : Low-level plotting routine used to render the figure.
+    """
     data = calculate_reports_data(data, config).to_pandas()
     clv_analysis = pl.from_pandas(filter_dataframe(align_column_types(data), case=False))
 
@@ -238,6 +370,37 @@ def clv_exposure_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def clv_correlation_plot(data: Union[pl.DataFrame, pd.DataFrame],
                          config: dict) -> pd.DataFrame:
+    """
+    Compute and display pairwise correlations between two CLV-related metrics.
+
+    Supports Pearson, Kendall, or Spearman correlation. Optionally facets the heatmap
+    by a categorical column (e.g., ``'rfm_segment'`` or ``'ControlGroup'``) to compare
+    correlations across groups.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pandas.DataFrame
+        Source dataset including numeric CLV metrics.
+    config : dict
+        Configuration dictionary. Keys include:
+        - ``x``: str, metric on the X-axis (from ``{'recency','frequency','monetary_value','tenure','lifetime_value'}``)
+        - ``y``: str, metric on the Y-axis (same choices as ``x``)
+        - ``facet_col``: Optional[str], categorical column for group-wise correlation heatmaps
+
+    Returns
+    -------
+    pandas.DataFrame
+        Filtered dataset used for the correlation computation and plotting.
+
+    Raises
+    ------
+    Streamlit StopException
+        If the filtered dataset is empty.
+
+    Notes
+    -----
+    - When ``facet_col`` is provided, the output heatmap displays one 2×2 matrix per facet.
+    """
     data = calculate_reports_data(data, config).to_pandas()
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -322,6 +485,36 @@ def clv_correlation_plot(data: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def clv_totals_cards_subplot(clv_analysis: Union[pl.DataFrame, pd.DataFrame],
                              config: dict):
+    """
+    Render a row of Streamlit metric cards for CLV overview.
+
+    Displays:
+      1) Unique customers
+      2) Total lifetime value
+      3) Prior year average CLTV with YoY delta
+      4) Current year average CLTV with YoY delta
+
+    Parameters
+    ----------
+    clv_analysis : pl.DataFrame or pandas.DataFrame
+        Dataset containing at least a ``lifetime_value`` column and a customer identifier.
+        Must include a ``'Year'`` column for YoY metrics; if fewer than three years are present,
+        only the first two cards are shown.
+    config : dict
+        Configuration passed into ``calculate_reports_data`` and for resolving the
+        customer id column via ``get_config()['metrics'][config['metric']]['customer_id_col']``.
+        If not present, a default ``CUSTOMER_ID`` is used.
+
+    Returns
+    -------
+    None
+        This function produces Streamlit UI side effects only.
+
+    Notes
+    -----
+    - Uses Polars for fast aggregations; pandas inputs are converted internally.
+    - YoY metrics are computed from the two most recent completed years and the current year.
+    """
     if isinstance(clv_analysis, pd.DataFrame):
         clv_analysis = pl.from_pandas(clv_analysis)
 
@@ -371,6 +564,37 @@ def clv_totals_cards_subplot(clv_analysis: Union[pl.DataFrame, pd.DataFrame],
 @timed
 def clv_model_plot(data: Union[pl.DataFrame, pd.DataFrame],
                    config: dict) -> pd.DataFrame:
+    """
+    Fit classical CLV models and visualize expected purchases or value by segment.
+
+    Supports:
+      - **BG/NBD**: expected number of purchases over a horizon
+      - **Pareto/NBD**: expected number of purchases over a horizon
+      - **Gamma–Gamma (with BG/NBD)**: expected lifetime value over a horizon
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pandas.DataFrame
+        Source dataset containing at least ``frequency``, ``recency``, ``tenure``,
+        and ``monetary_value`` for Gamma–Gamma. Rows with zero frequency are filtered out.
+    config : dict
+        Configuration passed to ``calculate_reports_data`` and for summary cards.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The dataset augmented with model predictions (column depends on the selected model).
+
+    Raises
+    ------
+    ValueError
+        Propagated from underlying model fitters if inputs are invalid.
+
+    Notes
+    -----
+    - Prediction horizon is selected in years and converted to days (``t = 365 * years``).
+    - Results are aggregated by ``rfm_segment`` for plotting.
+    """
     clv_totals_cards_subplot(data, config)
     clv = calculate_reports_data(data, config).to_pandas()
     clv = clv[clv['frequency'] > 0]
@@ -461,6 +685,45 @@ def clv_plot_customer_exposure(
         colors: list[str] | None = None,
         padding: float = 0.25
 ) -> go.Figure:
+    """
+    Build a Plotly figure showing each customer's recency–tenure exposure.
+
+    Each row corresponds to a customer. Two line segments are drawn:
+    1) from 0 to recency, and 2) from recency to tenure; optional markers denote endpoints.
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        Input Polars DataFrame with columns ``'recency'`` and ``'tenure'``.
+    linewidth : float or None, optional
+        Line width for exposure segments. If ``None``, Plotly defaults are used.
+        Must be non-negative.
+    size : float or None, optional
+        Marker size for endpoints. If ``None``, Plotly defaults are used.
+        Must be non-negative.
+    labels : list of str or None, optional
+        Custom legend labels for ``[recency, tenure]`` markers.
+    colors : list of str or None, optional
+        Two-item list of colors for the recency and tenure segments/markers, respectively.
+        Defaults to ``['blue','orange']``.
+    padding : float, default 0.25
+        Extra margin added to both axes to provide visual padding. Must be non-negative.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The exposure plot figure.
+
+    Raises
+    ------
+    ValueError
+        If ``padding``, ``size``, or ``linewidth`` are negative, or if ``colors`` is not length 2.
+
+    Notes
+    -----
+    - Uses ``Scattergl`` for efficient rendering on large datasets.
+    - Legend is hidden by default and can be toggled in the returned figure.
+    """
     if padding < 0:
         raise ValueError("padding must be non-negative")
 
@@ -538,10 +801,47 @@ def clv_plot_customer_exposure(
 
 # ---- mini helpers (no external side effects) ----
 def _to_polars(df: Union[pl.DataFrame, pd.DataFrame]) -> pl.DataFrame:
+    """
+    Convert a pandas or Polars DataFrame to Polars.
+
+    Parameters
+    ----------
+    df : pl.DataFrame or pandas.DataFrame
+        Input dataframe.
+
+    Returns
+    -------
+    pl.DataFrame
+        Polars representation of ``df`` (returns unchanged if already Polars).
+    """
     return df if isinstance(df, pl.DataFrame) else pl.from_pandas(df)
 
 
 def _columns_exist(df: pd.DataFrame, required: Iterable[str]) -> None:
+    """
+    Validate the presence of required columns in a pandas DataFrame.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame to validate.
+    required : Iterable[str]
+        Column names that must be present.
+
+    Returns
+    -------
+    None
+        Emits a Streamlit error and halts execution if any column is missing.
+
+    Raises
+    ------
+    Streamlit StopException
+        Triggered after reporting missing columns to the user.
+
+    Examples
+    --------
+    >>> _columns_exist(pd.DataFrame({'a':[1]}), ['a'])  # passes silently
+    """
     missing = [c for c in required if c not in df.columns]
     if missing:
         st.error(f"Missing columns for this report: {', '.join(missing)}")
@@ -549,6 +849,15 @@ def _columns_exist(df: pd.DataFrame, required: Iterable[str]) -> None:
 
 
 def _theme_template() -> str:
+    """
+    Resolve the Plotly template based on the current Streamlit theme.
+
+    Returns
+    -------
+    str
+        ``'plotly_dark'`` if the app is in dark mode, otherwise ``'none'``.
+        If the theme cannot be retrieved, defaults to ``'none'``.
+    """
     try:
         return "plotly_dark" if st.get_option("theme.base") == "dark" else "none"
     except Exception:
@@ -556,6 +865,26 @@ def _theme_template() -> str:
 
 
 def _prepare_for_plot(data: Union[pl.DataFrame, pd.DataFrame], config: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Compute report data and apply standard filtering/typing for plotting.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pandas.DataFrame
+        Source dataset for the report.
+    config : dict
+        Configuration passed to ``calculate_reports_data``; may be empty.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Filtered pandas DataFrame ready for visualization.
+
+    Raises
+    ------
+    Streamlit StopException
+        If no data remain after filtering.
+    """
     df_pl = _to_polars(data)
     rep_pl = calculate_reports_data(df_pl, config or {})
     pdf = rep_pl.to_pandas()
@@ -573,10 +902,37 @@ def clv_rfm_density_plot(
         base_config: Dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """
-    RFM 3D / 2D density
-    - 3D scatter: X=Recency, Y=Frequency, Z selectable; color by Monetary or CLV (or RFM score)
-    - 2D density: R vs F with heatmap/contour; color is agg of Monetary/CLV/RFM score
-    - Facet by segment/channel or any categorical
+    Plot Recency–Frequency (R–F) landscapes as 3D scatter or 2D density (heatmap/contour).
+
+    Provides an interactive Streamlit UI to choose plotting mode, color metric, sample size,
+    and aggregation settings. Useful for exploring customer activity patterns and how they
+    relate to value metrics such as monetary value, CLV, or RFM score.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pandas.DataFrame
+        Source dataset containing at least ``recency`` and ``frequency`` columns, and
+        optionally value metrics (e.g., ``monetary_value``, ``lifetime_value``, ``rfm_score``).
+    base_config : dict or None, optional
+        Base configuration passed to ``calculate_reports_data``; keys may include filters,
+        groupings, or other pipeline parameters.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The (possibly sampled) filtered dataset actually plotted.
+
+    Raises
+    ------
+    Streamlit StopException
+        If required columns are missing or the filtered dataset becomes empty.
+
+    Notes
+    -----
+    - **Modes**
+        - *3D scatter*: X=recency, Y=frequency, Z=selectable numeric; colored by chosen metric.
+        - *2D density heatmap/contour*: bins R vs F with z-aggregation over the chosen metric.
+    - Large datasets are downsampled to improve performance (user-selectable cap).
     """
     cfg = dict(base_config or {})
     pdf = _prepare_for_plot(data, cfg)

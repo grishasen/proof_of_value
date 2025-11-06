@@ -119,6 +119,40 @@ def personalization_optimized(args: List[Series]) -> pl.Float64:
 
 
 def novelty(args: Sequence[Series]) -> float:
+    """
+    Compute a novelty score for a recommendation set.
+
+    The function approximates the information-theoretic novelty of recommended items
+    by aggregating their (self-)information weighted by frequency and normalizing by
+    the number of unique users and a proxy of recommendation list length.
+
+    For performance on very large groups, the function subsamples the input:
+    - if `height < 50_000`: use full sample,
+    - if `50_000 <= height < 100_000`: use the second half,
+    - if `height >= 100_000`: use a 50k slice from the middle.
+
+    Parameters
+    ----------
+    args : Sequence[polars.Series]
+        Sequence expected to contain three aligned series (in this order) representing:
+        `[CUSTOMER_ID, INTERACTION_ID, NAME]`. This signature is designed to be used
+        with `pl.map_groups(exprs=[...], function=novelty, ...)`.
+
+    Returns
+    -------
+    float
+        A scalar novelty score in `[0, +inf)`. Returns `0.0` if there are no users,
+        the maximum recommendation length is `0`, or inputs are insufficient.
+
+    Notes
+    -----
+    - The per-item "self information" proxy is computed as:
+      `ActionCount * -(log2(ActionCount / unique_users) + 1e-10)`.
+    - The final score is normalized by `(unique_users * max_rec_length)` to make values
+      comparable across groups of different sizes.
+    - Assumes global constants for column names: `CUSTOMER_ID`, `INTERACTION_ID`, `NAME`.
+
+    """
     if len(args) < 2:
         return 0.0
     df = pl.DataFrame(args, schema=[CUSTOMER_ID, INTERACTION_ID, NAME])
@@ -152,6 +186,42 @@ def novelty(args: Sequence[Series]) -> float:
 
 
 def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
+    """
+    Compute binary classification metrics from **t-digests** of scores.
+
+    This function expects per-group **collections of t-digest blobs** (positives and
+    negatives). It merges each collection, reconstructs the CDFs, and computes:
+    ROC AUC, Average Precision (AP), TPR/FPR arrays, precision/recall curves, and
+    the positive fraction.
+
+    Parameters
+    ----------
+    args : List[polars.Series]
+        A two-element list of series: `[positives_tdigests, negatives_tdigests]`.
+        Each series contains binary blobs representing serialized t-digests of scores
+        that will be merged (via `merge_digests`) and deserialized using
+        `datasketches.tdigest_double.deserialize`.
+
+    Returns
+    -------
+    pl.Struct
+        A dict-like structure with keys:
+        - `roc_auc` : float
+        - `average_precision` : float
+        - `tpr` : list[float]            (sorted by FPR ascending)
+        - `fpr` : list[float]            (sorted ascending)
+        - `precision` : list[float]      (monotonically non-increasing w.r.t. recall)
+        - `recall` : list[float]         (descending thresholds)
+        - `pos_fraction` : float         (positives / (positives + negatives))
+
+    Notes
+    -----
+    - The ROC curve is computed from the complementary CDF (1 - CDF(threshold)).
+    - Precision is made non-increasing by applying `np.maximum.accumulate` in reverse
+      to ensure the interpolated AP follows the standard definition.
+    - If either positive or negative digest set is empty, returns zeros.
+
+    """
     pos_series, neg_series = args[0], args[1]
     if pos_series.len() == 0 or neg_series.len() == 0:
         return {
@@ -226,6 +296,40 @@ def binary_metrics_tdigest(args: List[Series]) -> pl.Struct:
 
 
 def calibration_tdigest(args: List[Series]) -> pl.Struct:
+    """
+    Build calibration data from **t-digests** of positive/negative score distributions.
+
+    Partitions the score range into bins, estimates the average **predicted propensity**
+    per bin by querying t-digests (via quantiles within each bin), and computes the
+    **observed positive rate** per bin based on CDF delta mass.
+
+    Parameters
+    ----------
+    args : List[polars.Series]
+        A two-element list `[positives_tdigests, negatives_tdigests]`, where each
+        element is a series of serialized t-digests to be merged for the group.
+
+    Returns
+    -------
+    pl.Struct
+        Dict with:
+        - `calibration_bin` : list[float]
+            Bin centers over the [0, 1] score range.
+        - `calibration_proba` : list[float]
+            Estimated mean predicted propensity in each bin.
+        - `calibration_rate` : list[float]
+            Observed positive rate in each bin.
+
+    Notes
+    -----
+    - Uses a denser binning for low propensities: 10 bins over [0, 0.1), then 16 bins
+      from [0.1, 1], for a total of 26 bins.
+    - The per-bin predicted propensity is a weighted mean of bin-centered quantiles
+      sampled from positive and negative t-digests, weighted by the estimated counts
+      in the bin from each distribution.
+    - Returns `[0.0]` defaults if any digest set is empty.
+
+    """
     pos_series, neg_series = args[0], args[1]
     if pos_series.len() == 0 or neg_series.len() == 0:
         return {'calibration_bin': [0.0], 'calibration_proba': [0.0], 'calibration_rate': [0.0]}
@@ -299,6 +403,51 @@ def calibration_tdigest(args: List[Series]) -> pl.Struct:
 
 @timed
 def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=False):
+    """
+    Compute ML scoring diagnostics (personalization, novelty, ROC/AUC, calibration) by group.
+
+    Filters IH to negative/positive outcomes, creates a boolean outcome label, and
+    aggregates per group the following:
+      - `Count` of qualifying rows,
+      - `personalization` score via `personalization_optimized([CUSTOMER_ID, NAME])`,
+      - `novelty` score via `novelty([CUSTOMER_ID, INTERACTION_ID, NAME])`,
+      - **If `use_t_digest=True`**:
+          * t-digests for `PROPENSITY` and `FINAL_PROPENSITY` split by outcome boolean,
+      - **Else**:
+          * a struct of binary metrics from `pds.query_binary_metrics("Outcome_Boolean", PROPENSITY, threshold=0)`.
+
+    Parameters
+    ----------
+    ih : pl.LazyFrame
+        Interaction History lazy frame containing at least:
+        `OUTCOME`, `CUSTOMER_ID`, `INTERACTION_ID`, `ACTION_ID`, `RANK`, `NAME`,
+        and score columns: `PROPENSITY`, `FINAL_PROPENSITY`.
+    config : dict
+        Configuration with keys:
+        - `group_by` : list[str]
+        - `positive_model_response` : list[Any]
+        - `negative_model_response` : list[Any]
+        - `use_t_digest` : bool or str, optional (default True)
+        - `filter` : Any, optional Polars predicate (non-string) to pre-filter IH.
+    streaming : bool, default False
+        If `background=True`, selects the collection engine (`"streaming"` vs `"auto"`).
+    background : bool, default False
+        If True, collects and returns an eager DataFrame; otherwise returns a LazyFrame.
+
+    Returns
+    -------
+    pl.LazyFrame or pl.DataFrame
+        Aggregated diagnostics per deduplicated `group_by + global_filters` keys.
+
+    Notes
+    -----
+    - Keeps only rows with outcomes in the union of negative and positive responses.
+    - Deduplicates multiple rows per `(INTERACTION_ID, ACTION_ID, RANK)` by keeping the
+      row with the maximum `Outcome_Boolean` inside that interaction key.
+    - Ensures each output group has at least one positive (`.filter(pl.any("Outcome_Boolean").over(grp_by))`).
+    - When `use_t_digest=False`, the `metrics` struct is un-nested into top-level columns.
+
+    """
     grp_by = stable_dedup(config['group_by'] + get_config()["metrics"]["global_filters"])
     negative_model_response = config['negative_model_response']
     positive_model_response = config['positive_model_response']
@@ -394,6 +543,43 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
 @timed
 def compact_model_ml_scores_data(model_roc_auc_data: pl.DataFrame,
                                  config: dict) -> pl.DataFrame:
+    """
+    Compact ML scoring diagnostics to higher-level groups.
+
+    Filters out empty groups (`Count <= 0`), then re-aggregates by the deduplicated
+    union of `config['group_by']` and global filters:
+      - **If `use_t_digest=False`**: computes weighted means for the numeric `scores`
+        columns provided in config (weights = `Count`).
+      - **If `use_t_digest=True`**: computes weighted means for `personalization` and
+        `novelty`, and **merges** any `tdigest_*` columns by group.
+
+    Parameters
+    ----------
+    model_roc_auc_data : pl.DataFrame
+        Eager DataFrame produced by `model_ml_scores(...).collect(...)`.
+    config : dict
+        Configuration with keys:
+        - `group_by` : list[str]
+        - `scores` : list[str]
+            Names of metric columns to aggregate when `use_t_digest=False`.
+        - `use_t_digest` : bool or str, optional (default True)
+
+    Returns
+    -------
+    pl.DataFrame
+        Compacted DataFrame with:
+        - Summed `Count`,
+        - Weighted means for requested metrics (or personalization/novelty),
+        - Merged `tdigest_*` columns when enabled,
+        - Grouping keys preserved.
+
+    Notes
+    -----
+    - `tdigest_columns` are determined by checking for columns starting with `"tdigest"`.
+    - Merging of t-digests uses `merge_digests` over series of binary blobs per group.
+    - All weighted means use `weighted_mean(value, Count)` to respect support size.
+
+    """
     auc_data = model_roc_auc_data.filter(pl.col("Count") > 0)
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
 
