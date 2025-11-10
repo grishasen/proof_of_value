@@ -414,6 +414,16 @@ x = 'Propensity'
 facet_column = "Channel"
 facet_row = "Placement"
 
+[reports.describe_heatmap]
+metric = 'descriptive'
+type = 'heatmap'
+description = '[DESC] Univariate analysis: Heatmap'
+group_by = ['Month', 'Group']
+x = 'Month'
+y = 'Group'
+property = "Outcome"
+score = "Count"
+
 [reports.experiment_z_score]
 metric = "experiment"
 type = "line"

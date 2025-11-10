@@ -839,3 +839,124 @@ def descriptive_hist_plot(data: Union[pl.DataFrame, pd.DataFrame],
     report_data = calculate_reports_data(data, cp_config)
     report_data = report_data.to_pandas()
     return report_data
+
+
+from typing import Union
+import polars as pl
+import pandas as pd
+import streamlit as st
+import plotly.express as px
+
+
+@timed
+def descriptive_heatmap_plot(data: Union[pl.DataFrame, pd.DataFrame], config: dict) -> pd.DataFrame:
+    """
+    Generates an interactive heatmap or 3D surface plot for descriptive metrics using Streamlit and Plotly.
+
+    Args:
+        data (Union[pl.DataFrame, pd.DataFrame]): Input data containing metric values.
+        config (dict): Configuration dictionary containing plot settings such as metric name, axes, and score.
+
+    Returns:
+        pd.DataFrame: The processed DataFrame used for plotting, or an empty DataFrame if no data is available.
+    """
+    metric = config["metric"]
+    m_config = get_config()["metrics"][metric]
+    scores = m_config["scores"]
+    columns = m_config["columns"]
+    num_columns = [col for col in columns if (col + '_Mean') in data.columns]
+    report_grp_by = m_config['group_by'] + config['group_by'] + get_config()["metrics"]["global_filters"]
+    report_grp_by = sorted(list(set(report_grp_by)))
+
+    title = config['description']
+    adv_on = st.toggle("Advanced options", value=True, key="Advanced options" + config['description'],
+                       help="Show advanced reporting options")
+
+    if adv_on:
+        c0, c1, c2, c3 = st.columns(4)
+        with c0:
+            config['x'] = st.selectbox(
+                label='X-Axis',
+                options=report_grp_by,
+                index=report_grp_by.index(config['x']),
+                help="Select X-Axis."
+            )
+
+        with c1:
+            config['y'] = st.selectbox(
+                label='Y-Axis',
+                options=report_grp_by,
+                index=report_grp_by.index(config['y']),
+                help="Select Y-Axis."
+            )
+
+        with c2:
+            columns = sorted(columns)
+            config['property'] = st.selectbox(
+                label="## Select data property ",
+                options=columns,
+                index=columns.index(config['property']),
+                label_visibility='visible',
+                help="Select score to visualize."
+            )
+        with c3:
+            opts = ['Count']
+            for sc in scores:
+                if config['property'] in num_columns:
+                    opts.append(sc)
+            opts = sorted(opts)
+            option = st.selectbox(
+                label="**" + config['property'] + "** score",
+                options=opts,
+                index=opts.index(config['score']) if config['score'] in opts else 0,
+                help="Select score to visualize."
+            )
+
+    grp_by = [config['x'], config['y']]
+    cp_config = config.copy()
+    cp_config['group_by'] = grp_by
+
+    report_data = filter_dataframe(align_column_types(data), case=False)
+    report_data = calculate_reports_data(report_data, cp_config)
+    ih_analysis = report_data.to_pandas()
+
+    if ih_analysis.shape[0] == 0:
+        st.warning("No data available.")
+        return ih_analysis
+
+    new_df = ih_analysis.pivot(index=config['y'], columns=config['x'])[config['property'] + "_" + option].fillna(0)
+    fig = px.imshow(
+        new_df,
+        x=new_df.columns,
+        y=new_df.index,
+        color_continuous_scale=px.colors.sequential.RdBu_r,
+        aspect="auto",
+        title=title,
+        text_auto=",.2f",
+        contrast_rescaling="minmax",
+        height=max(600, 40 * len(new_df.index))
+    )
+
+    fig.update_layout(
+        updatemenus=[
+            dict(
+                buttons=[
+                    dict(args=["type", "heatmap"], label="Heatmap", method="restyle"),
+                    dict(args=["type", "surface"], label="3D Surface", method="restyle")
+                ],
+                direction="down",
+                pad={"r": 10, "t": 10},
+                showactive=True,
+                x=0,
+                xanchor="right",
+                y=1.1,
+                yanchor="top"
+            ),
+        ]
+    )
+
+    fig = fig.update_traces(
+        hovertemplate=f"{config['x']} : %{{x}}<br>{config['y']} : %{{y}}<br>{option} : %{{z}}<extra></extra>"
+    )
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
+    return ih_analysis

@@ -125,6 +125,8 @@ def get_figures() -> dict:
                 figures[report] = descriptive_funnel
             elif params['type'] == 'histogram':
                 figures[report] = descriptive_hist_plot
+            elif params['type'] == 'heatmap':
+                figures[report] = descriptive_heatmap_plot
             else:
                 figures[report] = default_bar_line_plot
         elif params['metric'].startswith("experiment"):
