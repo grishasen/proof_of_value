@@ -147,6 +147,7 @@ if not df.is_empty():
              pl.col(OUTCOME_TIME).dt.quarter().cast(pl.Utf8)).alias("Quarter"),
             (pl.col(OUTCOME_TIME) - pl.col(DECISION_TIME)).dt.total_seconds().alias("ResponseTime")
         ])
+        .sort(DECISION_TIME, descending=True)
         .drop(DROP_IH_COLUMNS, strict=False)
         .collect()
     )
@@ -157,7 +158,7 @@ if not df.is_empty():
                    width='stretch',
                    disabled=True, height=300, hide_index=True)
     st.subheader("Data Summary", divider=True)
-    st.dataframe(df.describe())
+    st.data_editor(df.describe(), width='stretch', disabled=True, hide_index=True)
 
     with st.expander("View Data Sample", expanded=False, icon=":material/analytics:"):
         st.dataframe(df.head(100))
