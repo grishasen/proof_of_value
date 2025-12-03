@@ -91,7 +91,7 @@ def read_dataset_export(
             if not os.path.exists(full_f):
                 continue
             if ext in [".gzip", ".gz"]:
-                extracted_path = extract_compressed_file(full_f, tmp_folder)
+                extracted_path = extract_compressed_file(full_f)
                 extracted_files.append(extracted_path)
             elif ext == ".zip":
                 with zipfile.ZipFile(full_f, 'r') as zip_ref:
