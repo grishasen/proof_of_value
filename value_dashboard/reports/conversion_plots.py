@@ -423,7 +423,7 @@ def conversion_rate_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
     ).sort("Month").to_pandas()
     st.metric(label="**Conversion**", value='{:.2%}'.format(data_copy["ConversionRate"].item()), border=True,
               help=f'Conversion rate', delta='Revenue {:,.0f}'.format(data_copy["Revenue"].item()), delta_color='off',
-              chart_data=data_trend['ConversionRate'], chart_type="area")
+              chart_data=data_trend['ConversionRate'], chart_type="area", delta_arrow='off')
 
 
 @timed
@@ -468,7 +468,7 @@ def conversion_touchpoints_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame]):
     ).sort("Month").to_pandas()
     st.metric(label="**Total conversions**", value='{:,.0f}'.format(data_copy["Positives"].item()), border=True,
               help=f'Conversions and touchpoints', delta=f'Avg Touchpoints: {data_copy["AvgTouchpoints"].item():.2}',
-              delta_color='off', chart_data=data_trend['Positives'], chart_type="bar")
+              delta_color='off', chart_data=data_trend['Positives'], chart_type="bar", delta_arrow='off')
 
 
 @timed

@@ -740,7 +740,7 @@ def ml_scores_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame], metric_name: 
     auc = data_trend['roc_auc'].round(4) * 100
     st.metric(label="**Model AUC**", value='{:.2%}'.format(df["roc_auc"].item()), border=True,
               delta=f"Avg Precision = {'{:.2%}'.format(df['average_precision'].item())}", delta_color='normal',
-              help=f'Model ROC AUC and Average Precision', chart_data=auc, chart_type="area")
+              help=f'Model ROC AUC and Average Precision', chart_data=auc, chart_type="area", delta_arrow='off')
 
 
 def ml_scores_pers_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame], metric_name: str):
@@ -775,4 +775,4 @@ def ml_scores_pers_card(ih_analysis: Union[pl.DataFrame, pd.DataFrame], metric_n
     auc = data_trend['personalization'].round(2)
     st.metric(label="**Personalization**", value='{:.2}'.format(df["personalization"].item()), border=True,
               delta=f"Novelty = {'{:.2}'.format(df['novelty'].item())}", delta_color='off',
-              help=f'Personalization and Novelty', chart_data=auc, chart_type="area")
+              help=f'Personalization and Novelty', chart_data=auc, chart_type="area", delta_arrow='off')
