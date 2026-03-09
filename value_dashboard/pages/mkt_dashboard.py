@@ -42,7 +42,7 @@ for metric in metrics:
 with st.sidebar:
     if df_engagement is not None:
         dynamic_filters = DynamicFilters(df_engagement.to_pandas(),
-                                     filters=get_config()["metrics"]["global_filters"])
+                                         filters=get_config()["metrics"]["global_filters"])
         st.write("Filter data 👇")
         dynamic_filters.display_filters()
 

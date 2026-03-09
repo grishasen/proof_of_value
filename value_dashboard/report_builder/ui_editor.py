@@ -7,8 +7,8 @@ import streamlit as st
 from value_dashboard.report_builder.field_catalog import build_metric_field_catalog, ensure_current_option, \
     ensure_current_options, get_metric_options
 from value_dashboard.report_builder.models import ReportBuilderState
-from value_dashboard.report_builder.recipes import get_default_recipe, get_recipe, get_supported_recipes, \
-    REPORT_RECIPES
+from value_dashboard.report_builder.recipes import get_default_recipe, get_recipe, get_recipe_display_name, \
+    get_supported_recipes
 from value_dashboard.report_builder.serialization import serialize_report_state
 from value_dashboard.report_builder.service import NEW_REPORT_KEY, build_state, build_toml_preview
 from value_dashboard.report_builder.ui_library import render_report_library
@@ -281,7 +281,8 @@ def _render_visual_editor(cfg: dict, state: ReportBuilderState, original_name: s
         st.error("No metrics are defined. Configure the metrics section before creating reports.")
         return
 
-    current_metric = state.metric if state.metric in metrics_options else (metrics_options[0] if metrics_options else "")
+    current_metric = state.metric if state.metric in metrics_options else (
+        metrics_options[0] if metrics_options else "")
     state.metric = st.selectbox(
         "Metric",
         metrics_options,
@@ -298,7 +299,8 @@ def _render_visual_editor(cfg: dict, state: ReportBuilderState, original_name: s
     if default_recipe not in supported_recipes and supported_recipes:
         default_recipe = supported_recipes[0]
 
-    recipe_labels = {recipe_key: REPORT_RECIPES[recipe_key]["label"] for recipe_key in supported_recipes}
+    recipe_labels = {recipe_key: get_recipe_display_name(recipe_key, include_symbol=False) for recipe_key in
+                     supported_recipes}
     state.chart_key = st.selectbox(
         "Visualization",
         supported_recipes,
@@ -306,9 +308,12 @@ def _render_visual_editor(cfg: dict, state: ReportBuilderState, original_name: s
         format_func=lambda value: recipe_labels[value],
         key=f"{key_base}_chart_key",
     )
+    st.write(get_recipe_display_name(state.chart_key, include_symbol=True))
     state.type = get_recipe(state.chart_key)["type"]
 
     state.name = st.text_input("Report Name", value=state.name, key=f"{key_base}_name")
+    state.description = state.description if state.description else state.name
+    st.write(get_recipe_display_name(state.chart_key, include_symbol=True))
     state.description = st.text_area("Description", value=state.description, key=f"{key_base}_description")
 
     catalog = build_metric_field_catalog(cfg, state.metric)

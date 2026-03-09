@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional
 
-
 REPORT_RECIPES: Dict[str, dict] = {
     "line": {
+        "symbol": ":material/show_chart:/:material/bar_chart:",
         "label": "Line / Bar",
         "metric_prefixes": ["engagement", "conversion", "model_ml_scores"],
         "type": "line",
@@ -10,6 +10,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["x", "color", "facet_row", "facet_column"],
     },
     "gauge": {
+        "symbol": ":material/readiness_score:",
         "label": "Gauge",
         "metric_prefixes": ["engagement", "conversion"],
         "type": "gauge",
@@ -17,6 +18,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": [],
     },
     "treemap": {
+        "symbol": ":material/dashboard:",
         "label": "Treemap",
         "metric_prefixes": ["engagement", "conversion", "model_ml_scores"],
         "type": "treemap",
@@ -24,6 +26,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": [],
     },
     "heatmap": {
+        "symbol": ":material/key_visualizer:",
         "label": "Heatmap",
         "metric_prefixes": ["engagement", "conversion", "model_ml_scores"],
         "type": "heatmap",
@@ -31,6 +34,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["x", "y"],
     },
     "scatter": {
+        "symbol": ":material/scatter_plot:",
         "label": "Scatter",
         "metric_prefixes": ["engagement", "conversion", "model_ml_scores"],
         "type": "scatter",
@@ -38,6 +42,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["color", "animation_frame", "animation_group"],
     },
     "bar_polar": {
+        "symbol": ":material/donut_small:",
         "label": "Polar Bar",
         "metric_prefixes": ["engagement", "conversion"],
         "type": "bar_polar",
@@ -45,6 +50,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["theta", "color"],
     },
     "descriptive_line": {
+        "symbol": ":material/show_chart:/:material/bar_chart:",
         "label": "Descriptive Line",
         "metric_prefixes": ["descriptive"],
         "type": "line",
@@ -52,6 +58,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["x", "color", "facet_row", "facet_column"],
     },
     "descriptive_boxplot": {
+        "symbol": ":material/candlestick_chart:",
         "label": "Descriptive Box Plot",
         "metric_prefixes": ["descriptive"],
         "type": "boxplot",
@@ -59,6 +66,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["x", "color", "facet_row", "facet_column"],
     },
     "descriptive_histogram": {
+        "symbol": ":material/leaderboard:",
         "label": "Descriptive Histogram",
         "metric_prefixes": ["descriptive"],
         "type": "histogram",
@@ -66,6 +74,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["facet_row", "facet_column"],
     },
     "descriptive_heatmap": {
+        "symbol": ":material/key_visualizer:",
         "label": "Descriptive Heatmap",
         "metric_prefixes": ["descriptive"],
         "type": "heatmap",
@@ -73,6 +82,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["x", "y"],
     },
     "descriptive_funnel": {
+        "symbol": ":material/tornado:",
         "label": "Descriptive Funnel",
         "metric_prefixes": ["descriptive"],
         "type": "funnel",
@@ -80,6 +90,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["color", "facet_row", "facet_column"],
     },
     "experiment_z_score": {
+        "symbol": ":material/expand:",
         "label": "Experiment Z-Score",
         "metric_prefixes": ["experiment"],
         "type": "line",
@@ -87,6 +98,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["y", "facet_row", "facet_column"],
     },
     "experiment_odds_ratio": {
+        "symbol": ":material/sports_score:",
         "label": "Experiment Odds Ratio",
         "metric_prefixes": ["experiment"],
         "type": "line",
@@ -94,6 +106,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["y", "facet_row", "facet_column"],
     },
     "clv_histogram": {
+        "symbol": ":material/leaderboard:",
         "label": "CLV Histogram",
         "metric_prefixes": ["clv"],
         "type": "histogram",
@@ -101,6 +114,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": ["color", "facet_row", "facet_column"],
     },
     "clv_treemap": {
+        "symbol": ":material/dashboard:",
         "label": "CLV Treemap",
         "metric_prefixes": ["clv"],
         "type": "treemap",
@@ -108,6 +122,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": [],
     },
     "clv_exposure": {
+        "symbol": ":material/exposure:",
         "label": "Customer Exposure",
         "metric_prefixes": ["clv"],
         "type": "exposure",
@@ -115,6 +130,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": [],
     },
     "clv_corr": {
+        "symbol": ":material/percent:",
         "label": "CLV Correlation",
         "metric_prefixes": ["clv"],
         "type": "corr",
@@ -122,6 +138,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": [],
     },
     "clv_model": {
+        "symbol": ":material/network_intel_node:",
         "label": "CLV Model",
         "metric_prefixes": ["clv"],
         "type": "model",
@@ -129,6 +146,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "group_by_fields": [],
     },
     "clv_rfm_density": {
+        "symbol": ":material/water_drop:",
         "label": "RFM Density",
         "metric_prefixes": ["clv"],
         "type": "rfm_density",
@@ -140,6 +158,13 @@ REPORT_RECIPES: Dict[str, dict] = {
 
 def get_recipe(recipe_key: str) -> dict:
     return REPORT_RECIPES[recipe_key]
+
+
+def get_recipe_display_name(recipe_key: str, include_symbol: bool = True) -> str:
+    recipe = get_recipe(recipe_key)
+    if include_symbol and recipe.get("symbol"):
+        return recipe['symbol'] + ' ' + recipe['label']
+    return recipe["label"]
 
 
 def recipe_supports_metric(recipe_key: str, metric_name: str) -> bool:
@@ -212,3 +237,15 @@ def detect_recipe(metric_name: str, report: dict) -> Optional[str]:
     if report_type in {"line", "gauge", "treemap", "heatmap", "scatter", "bar_polar"}:
         return report_type
     return None
+
+
+def get_report_type_display(metric_name: str, report: dict, include_symbol: bool = True) -> str:
+    recipe_key = detect_recipe(metric_name, report)
+    if recipe_key:
+        return get_recipe_display_name(recipe_key, include_symbol=include_symbol)
+
+    report_type = report.get("type", "")
+    if not report_type:
+        return ""
+    fallback = report_type.replace("_", " ").title()
+    return f":material/build: {fallback}" if include_symbol else fallback

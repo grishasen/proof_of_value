@@ -1,10 +1,11 @@
 import copy
 import uuid
 
-import pandas as pd
 import streamlit as st
+import tomlkit
 
 from value_dashboard.report_builder.field_catalog import get_metric_options
+from value_dashboard.report_builder.recipes import get_report_type_display
 from value_dashboard.report_builder.service import NEW_REPORT_KEY, build_blank_report, build_new_report_name, \
     build_report_summaries, get_default_metric
 
@@ -24,12 +25,66 @@ def _set_new_draft(cfg: dict, report: dict, report_name: str):
 
 def _format_report_label(summary: dict) -> str:
     mode = "visual" if summary["mode"] == "visual" else "raw"
-    return f"{summary['name']} · {summary['metric']} / {summary['type']} · {mode}"
+    return f"{summary['name']} · {summary['metric']} / {summary['type_display']} · {mode}"
+
+
+@st.dialog("Report Parameters", width="large")
+def _show_report_parameters_dialog(report_name: str, report: dict):
+    st.write(f"### {report_name}")
+    st.code(
+        tomlkit.dumps({"reports": {report_name: report}}),
+        language="toml",
+    )
+
+
+def render_report_inventory(cfg: dict):
+    reports = cfg.get("reports", {})
+    summaries = build_report_summaries(cfg)
+    for summary in summaries:
+        report = reports[summary["name"]]
+        summary["type_display"] = get_report_type_display(summary["metric"], report)
+
+    st.write("### Available Reports")
+    if not summaries:
+        st.info("No reports defined yet.")
+        return
+
+    widths = [2.2, 1.2, 1.1, 0.9, 2.5, 2.0, 0.6]
+    headers = ["Name", "Metric", "Type", "Mode", "Description", "Group By", ""]
+    header_cols = st.columns(widths, vertical_alignment="center")
+    for idx, header in enumerate(headers):
+        if header:
+            header_cols[idx].markdown(f"**{header}**")
+
+    for summary in summaries:
+        report_name = summary["name"]
+        report = reports[report_name]
+        group_by = report.get("group_by", [])
+        group_by_text = ", ".join(group_by) if isinstance(group_by, list) else str(group_by)
+
+        with st.container(border=True):
+            row_cols = st.columns(widths, vertical_alignment="center")
+            row_cols[0].write(report_name)
+            row_cols[1].write(summary["metric"])
+            row_cols[2].write(summary["type_display"])
+            row_cols[3].write(summary["mode"])
+            row_cols[4].write(summary["description"])
+            row_cols[5].write(group_by_text)
+            if row_cols[6].button(
+                    "",
+                    icon=":material/tune:",
+                    key=f"rb_inventory_params_{report_name}",
+                    help="Show report parameters",
+            ):
+                _show_report_parameters_dialog(report_name, report)
 
 
 def render_report_library(cfg: dict) -> str:
     reports = cfg.setdefault("reports", {})
     summaries = build_report_summaries(cfg)
+    for summary in summaries:
+        report = reports[summary["name"]]
+        summary["type_display"] = get_report_type_display(summary["metric"], report, include_symbol=False)
 
     if "rb_selected_report" not in st.session_state:
         st.session_state.rb_selected_report = summaries[0]["name"] if summaries else NEW_REPORT_KEY
@@ -37,16 +92,6 @@ def render_report_library(cfg: dict) -> str:
         st.session_state.rb_draft_report = None
     if "rb_editor_token" not in st.session_state:
         _reset_editor_token()
-
-    st.write("### Available Reports")
-    if summaries:
-        st.dataframe(
-            pd.DataFrame(summaries)[["name", "metric", "type", "mode", "description"]],
-            width="stretch",
-            hide_index=True,
-        )
-    else:
-        st.info("No reports defined yet.")
 
     st.write("### Report Library")
     st.text_input("Search", key="rb_search")
@@ -88,8 +133,8 @@ def render_report_library(cfg: dict) -> str:
             key="rb_selected_report_picker",
         )
         draft_active = (
-            current_selection == NEW_REPORT_KEY and
-            st.session_state.get("rb_draft_report") is not None
+                current_selection == NEW_REPORT_KEY and
+                st.session_state.get("rb_draft_report") is not None
         )
         if not draft_active and selected_report != current_selection:
             st.session_state.rb_selected_report = selected_report

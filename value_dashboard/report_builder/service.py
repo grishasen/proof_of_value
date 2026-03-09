@@ -1,12 +1,11 @@
 import copy
 import uuid
 
-from value_dashboard.report_builder.field_catalog import get_metric_options
 import tomlkit
 
+from value_dashboard.report_builder.field_catalog import get_metric_options
 from value_dashboard.report_builder.recipes import detect_recipe, get_default_recipe, get_recipe
 from value_dashboard.report_builder.serialization import deserialize_report, serialize_report_state
-
 
 NEW_REPORT_KEY = "__new_report__"
 
