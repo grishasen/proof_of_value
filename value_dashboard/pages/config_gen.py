@@ -24,6 +24,8 @@ supported_responses_models = [
     "gpt-5",
     "gpt-5-mini",
     "gpt-5-nano",
+    "gpt-5.4",
+    "gpt-5.4-pro-2026-03-05",
 ]
 model: str = "gpt-5-mini"
 reasoning_effort = "medium"  # "minimal" | "low" | "medium" | "high"

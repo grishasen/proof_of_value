@@ -3,6 +3,7 @@ import os
 import streamlit as st
 
 from value_dashboard.pipeline import holdings
+from value_dashboard.report_builder import render_report_inventory
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.config_builder import render_config_editor
 
@@ -15,8 +16,8 @@ def clear_config_cache():
 with st.sidebar:
     st.button("Clear config cache 🗑️", on_click=lambda: clear_config_cache())
 
-tabs = ["📄 Configuration", "📝 Readme"]
-conf, readme = st.tabs(tabs)
+tabs = ["📄 Configuration", "📝 Readme", "📊 Reports"]
+conf, readme, reports = st.tabs(tabs)
 
 with conf:
     render_config_editor(get_config().copy())
@@ -30,3 +31,6 @@ with readme:
         readme_buffer.append(line)
 
     st.markdown("".join(readme_buffer))
+
+with reports:
+    render_report_inventory(get_config())

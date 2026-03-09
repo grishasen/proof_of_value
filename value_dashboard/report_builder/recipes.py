@@ -1,0 +1,259 @@
+from typing import Dict, List, Optional
+
+REPORT_RECIPES: Dict[str, dict] = {
+    "line": {
+        "symbol": ":material/show_chart:/:material/bar_chart:",
+        "label": "Line / Bar",
+        "metric_prefixes": ["engagement", "conversion", "model_ml_scores"],
+        "type": "line",
+        "required_fields": ["x", "y"],
+        "group_by_fields": ["x", "color", "facet_row", "facet_column"],
+    },
+    "gauge": {
+        "symbol": ":material/readiness_score:",
+        "label": "Gauge",
+        "metric_prefixes": ["engagement", "conversion"],
+        "type": "gauge",
+        "required_fields": ["value"],
+        "group_by_fields": [],
+    },
+    "treemap": {
+        "symbol": ":material/dashboard:",
+        "label": "Treemap",
+        "metric_prefixes": ["engagement", "conversion", "model_ml_scores"],
+        "type": "treemap",
+        "required_fields": ["color"],
+        "group_by_fields": [],
+    },
+    "heatmap": {
+        "symbol": ":material/key_visualizer:",
+        "label": "Heatmap",
+        "metric_prefixes": ["engagement", "conversion", "model_ml_scores"],
+        "type": "heatmap",
+        "required_fields": ["x", "y", "color"],
+        "group_by_fields": ["x", "y"],
+    },
+    "scatter": {
+        "symbol": ":material/scatter_plot:",
+        "label": "Scatter",
+        "metric_prefixes": ["engagement", "conversion", "model_ml_scores"],
+        "type": "scatter",
+        "required_fields": ["x", "y", "size", "color", "animation_frame", "animation_group"],
+        "group_by_fields": ["color", "animation_frame", "animation_group"],
+    },
+    "bar_polar": {
+        "symbol": ":material/donut_small:",
+        "label": "Polar Bar",
+        "metric_prefixes": ["engagement", "conversion"],
+        "type": "bar_polar",
+        "required_fields": ["r", "theta", "color"],
+        "group_by_fields": ["theta", "color"],
+        "group_by_mode": "replace",
+    },
+    "descriptive_line": {
+        "symbol": ":material/show_chart:/:material/bar_chart:",
+        "label": "Descriptive Line",
+        "metric_prefixes": ["descriptive"],
+        "type": "line",
+        "required_fields": ["x", "property", "score"],
+        "group_by_fields": ["x", "color", "facet_row", "facet_column"],
+    },
+    "descriptive_boxplot": {
+        "symbol": ":material/candlestick_chart:",
+        "label": "Descriptive Box Plot",
+        "metric_prefixes": ["descriptive"],
+        "type": "boxplot",
+        "required_fields": ["x", "property"],
+        "group_by_fields": ["x", "color", "facet_row", "facet_column"],
+    },
+    "descriptive_histogram": {
+        "symbol": ":material/leaderboard:",
+        "label": "Descriptive Histogram",
+        "metric_prefixes": ["descriptive"],
+        "type": "histogram",
+        "required_fields": ["property"],
+        "group_by_fields": ["facet_row", "facet_column"],
+    },
+    "descriptive_heatmap": {
+        "symbol": ":material/key_visualizer:",
+        "label": "Descriptive Heatmap",
+        "metric_prefixes": ["descriptive"],
+        "type": "heatmap",
+        "required_fields": ["x", "y", "property", "score"],
+        "group_by_fields": ["x", "y"],
+    },
+    "descriptive_funnel": {
+        "symbol": ":material/tornado:",
+        "label": "Descriptive Funnel",
+        "metric_prefixes": ["descriptive"],
+        "type": "funnel",
+        "required_fields": ["x", "color", "stages"],
+        "group_by_fields": ["color", "facet_row", "facet_column"],
+    },
+    "experiment_z_score": {
+        "symbol": ":material/expand:",
+        "label": "Experiment Z-Score",
+        "metric_prefixes": ["experiment"],
+        "type": "line",
+        "required_fields": ["y"],
+        "group_by_fields": ["y", "facet_row", "facet_column"],
+    },
+    "experiment_odds_ratio": {
+        "symbol": ":material/sports_score:",
+        "label": "Experiment Odds Ratio",
+        "metric_prefixes": ["experiment"],
+        "type": "line",
+        "required_fields": ["x", "y"],
+        "group_by_fields": ["y", "facet_row", "facet_column"],
+    },
+    "clv_histogram": {
+        "symbol": ":material/leaderboard:",
+        "label": "CLV Histogram",
+        "metric_prefixes": ["clv"],
+        "type": "histogram",
+        "required_fields": ["x"],
+        "group_by_fields": ["color", "facet_row", "facet_column"],
+    },
+    "clv_treemap": {
+        "symbol": ":material/dashboard:",
+        "label": "CLV Treemap",
+        "metric_prefixes": ["clv"],
+        "type": "treemap",
+        "required_fields": [],
+        "group_by_fields": [],
+    },
+    "clv_exposure": {
+        "symbol": ":material/exposure:",
+        "label": "Customer Exposure",
+        "metric_prefixes": ["clv"],
+        "type": "exposure",
+        "required_fields": [],
+        "group_by_fields": [],
+    },
+    "clv_corr": {
+        "symbol": ":material/percent:",
+        "label": "CLV Correlation",
+        "metric_prefixes": ["clv"],
+        "type": "corr",
+        "required_fields": ["x", "y"],
+        "group_by_fields": [],
+    },
+    "clv_model": {
+        "symbol": ":material/network_intel_node:",
+        "label": "CLV Model",
+        "metric_prefixes": ["clv"],
+        "type": "model",
+        "required_fields": [],
+        "group_by_fields": [],
+    },
+    "clv_rfm_density": {
+        "symbol": ":material/water_drop:",
+        "label": "RFM Density",
+        "metric_prefixes": ["clv"],
+        "type": "rfm_density",
+        "required_fields": [],
+        "group_by_fields": [],
+    },
+}
+
+
+def get_recipe(recipe_key: str) -> dict:
+    """Return the authoring recipe metadata used by the builder UI."""
+    return REPORT_RECIPES[recipe_key]
+
+
+def get_recipe_display_name(recipe_key: str, include_symbol: bool = True) -> str:
+    """Build a user-facing label for recipe pickers and report summaries."""
+    recipe = get_recipe(recipe_key)
+    if include_symbol and recipe.get("symbol"):
+        return recipe['symbol'] + ' ' + recipe['label']
+    return recipe["label"]
+
+
+def recipe_supports_metric(recipe_key: str, metric_name: str) -> bool:
+    """Limit recipe choices to the metric families supported by the runtime plots."""
+    recipe = REPORT_RECIPES[recipe_key]
+    return any(metric_name.startswith(prefix) for prefix in recipe["metric_prefixes"])
+
+
+def get_supported_recipes(metric_name: str) -> List[str]:
+    """Return only recipes that can be safely authored for the selected metric."""
+    return [
+        recipe_key for recipe_key in REPORT_RECIPES
+        if recipe_supports_metric(recipe_key, metric_name)
+    ]
+
+
+def get_default_recipe(metric_name: str) -> Optional[str]:
+    """Pick a sensible starter visualization for new reports."""
+    if metric_name.startswith("engagement"):
+        return "line"
+    if metric_name.startswith("conversion"):
+        return "line"
+    if metric_name.startswith("model_ml_scores"):
+        return "line"
+    if metric_name.startswith("descriptive"):
+        return "descriptive_line"
+    if metric_name.startswith("experiment"):
+        return "experiment_z_score"
+    if metric_name.startswith("clv"):
+        return "clv_histogram"
+    return None
+
+
+def detect_recipe(metric_name: str, report: dict) -> Optional[str]:
+    """Map existing TOML reports back to a visual recipe when the shape is supported."""
+    report_type = report.get("type")
+    x_axis = report.get("x")
+
+    if metric_name.startswith("descriptive"):
+        if report_type == "line":
+            return "descriptive_line"
+        if report_type == "boxplot":
+            return "descriptive_boxplot"
+        if report_type == "histogram":
+            return "descriptive_histogram"
+        if report_type == "heatmap":
+            return "descriptive_heatmap"
+        if report_type == "funnel":
+            return "descriptive_funnel"
+        return None
+
+    if metric_name.startswith("experiment"):
+        if x_axis == "z_score":
+            return "experiment_z_score"
+        if isinstance(x_axis, str) and (x_axis.startswith("g") or x_axis.startswith("chi2")):
+            return "experiment_odds_ratio"
+        return None
+
+    if metric_name.startswith("clv"):
+        if report_type == "histogram":
+            return "clv_histogram"
+        if report_type == "treemap":
+            return "clv_treemap"
+        if report_type == "exposure":
+            return "clv_exposure"
+        if report_type == "corr":
+            return "clv_corr"
+        if report_type == "model":
+            return "clv_model"
+        if report_type == "rfm_density":
+            return "clv_rfm_density"
+        return None
+
+    if report_type in {"line", "gauge", "treemap", "heatmap", "scatter", "bar_polar"}:
+        return report_type
+    return None
+
+
+def get_report_type_display(metric_name: str, report: dict, include_symbol: bool = True) -> str:
+    """Format report types consistently across the builder and the inventory view."""
+    recipe_key = detect_recipe(metric_name, report)
+    if recipe_key:
+        return get_recipe_display_name(recipe_key, include_symbol=include_symbol)
+
+    report_type = report.get("type", "")
+    if not report_type:
+        return ""
+    fallback = report_type.replace("_", " ").title()
+    return f"◦ {fallback}" if include_symbol else fallback
