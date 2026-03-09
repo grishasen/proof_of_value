@@ -100,7 +100,7 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         with c1:
             columns = sorted(columns)
             config['y'] = st.selectbox(
-                label="## Select data property ",
+                label="Data property ",
                 options=columns,
                 index=columns.index(config['y']),
                 label_visibility='visible',
@@ -342,7 +342,7 @@ def descriptive_box_plot(data: Union[pl.DataFrame, pd.DataFrame],
         with c1:
             num_columns = sorted(num_columns)
             config['y'] = st.selectbox(
-                label="## Select data property ",
+                label="Data property ",
                 options=num_columns,
                 index=num_columns.index(config['y']),
                 label_visibility='visible',
@@ -699,7 +699,7 @@ def descriptive_hist_plot(data: Union[pl.DataFrame, pd.DataFrame],
         with c1:
             num_columns = sorted(num_columns)
             config['x'] = st.selectbox(
-                label="## Select data property ",
+                label="Data property ",
                 options=num_columns,
                 index=num_columns.index(config['x']),
                 label_visibility='visible',
@@ -893,7 +893,7 @@ def descriptive_heatmap_plot(data: Union[pl.DataFrame, pd.DataFrame], config: di
         with c2:
             columns = sorted(columns)
             config['property'] = st.selectbox(
-                label="## Select data property ",
+                label="Data property ",
                 options=columns,
                 index=columns.index(config['property']),
                 label_visibility='visible',
