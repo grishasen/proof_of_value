@@ -25,11 +25,11 @@ supported_responses_models = [
     "gpt-5-mini",
     "gpt-5-nano",
     "gpt-5.4",
-    "gpt-5.4-pro-2026-03-05",
+    "gpt-5.4-pro",
 ]
-model: str = "gpt-5-mini"
-reasoning_effort = "medium"  # "minimal" | "low" | "medium" | "high"
-verbosity = "low"  # "low" | "medium" | "high"
+model: str = "gpt-5.4"
+reasoning_effort = "high"  # "minimal" | "low" | "medium" | "high"
+verbosity = "medium"  # "low" | "medium" | "high"
 
 
 @st.fragment()
@@ -167,22 +167,125 @@ if not df.is_empty():
 
     with pl.Config(tbl_cols=len(schema_df), tbl_rows=len(schema_df)):
         prompt = f"""
-            Given interaction history dataset schema (column names and types) and configuration file template, please create 
-            similar config file, suited for this data. 
-            Keep all the reports, metrics and other settings, but adjust columns, so they correspond to the 
-            data in the file provided. Check columns available in the schema and include in the configuration 
-            only those available in the sample. Do not generate 'chat_with_data' section.
-            Replace names in template (in filters, group-by and report parameters) with column names in the schema (they may differ by case or have different prefixes or suffixes).
-            Set 'file_type' to either 'parquet' (use file name extension to determine file type) or 'pega_ds_export' otherwise.
-            Set 'file_pattern' extension accordingly.
-            If column of type 'String' is not identifier column (ends with ID) or 'Outcome' and has number of unique values more than 1 and less than 100 - 
-            append this column name to 'group_by' property of each metric in 'metrics' section.
-            Always include time columns (Year, Quarter, Month, Day) and global filters to 'group_by' parameters.
-            File name: {str(uploaded_file.name)}.
-            Dataset schema: {schema_df}.
-            Template config file: {tomlkit.dumps(template_config)}.
-            Do not include those columns in the config: {capitalize(DROP_IH_COLUMNS)}
-            """
+        You generate only valid TOML configuration for the Value Dashboard application.
+
+        Task:
+        Create a configuration file from the provided template and dataset schema.
+        Use the template as the structural baseline, but keep only metrics, fields, and reports that can be mapped safely to the provided schema.
+
+        Available inputs:
+        - File name: {str(uploaded_file.name)}
+        - Dataset schema: {schema_df}
+        - Template config file: {tomlkit.dumps(template_config)}
+        - Columns that must not be used: {capitalize(DROP_IH_COLUMNS)}
+
+        Derived fields that are available even if not present in the original file:
+        - Day
+        - Month
+        - Year
+        - Quarter
+        - ResponseTime
+
+        Hard rules:
+        1. Output valid TOML only.
+        2. Do not include markdown, explanations, comments, or code fences.
+        3. Do not generate the [chat_with_data] section.
+        4. Keep the same top-level TOML structure as the template whenever possible.
+        5. Never invent new columns, but you can remove column from metric if it's not available in the dataset schema.
+        6. Only use:
+           - columns present in the dataset schema
+           - derived fields: Day, Month, Year, Quarter, ResponseTime
+        7. If report cannot be mapped confidently, omit it instead of guessing.
+        8. Keep metric names and report keys unchanged when they are retained.
+        9. Preserve the template style and value types as much as possible.
+        10. Do not use any column listed in: {capitalize(DROP_IH_COLUMNS)}
+
+        Column mapping rules:
+        1. Match columns case-insensitively first.
+        2. If no exact match exists, allow safe prefix/suffix variations.
+        3. Prefer semantically obvious matches over approximate text similarity.
+        4. Preserve the actual column spelling from the schema in the final TOML.
+        5. Treat identifier columns (names ending with ID) as identifiers, not grouping dimensions, unless they are explicitly required for CLV settings.
+        6. Prefer low-cardinality business dimensions for filters and group_by fields.
+        7. Prefer categorical columns with unique count greater than 1 and less than 100 for filters and group_by.
+        8. Keep Outcome-like columns available for descriptive and funnel reports.
+        9. Keep numeric columns available for descriptive summaries and CLV settings.
+
+        File settings rules:
+        1. Set ih.file_type to "parquet" only if the uploaded file name ends with ".parquet".
+        2. Otherwise set ih.file_type to "pega_ds_export".
+        3. Set ih.file_pattern to "**/*.parquet" for parquet input.
+        4. Set ih.file_pattern to "**/*.json" for non-parquet input.
+
+        Metrics rules:
+        1. Keep metrics.global_filters populated only with safe low-cardinality business dimensions.
+        2. For each metric, include Day, Month, Year, Quarter in metrics.<metric>.group_by.
+        3. Also include selected global_filters in metrics.<metric>.group_by.
+        4. Add additional categorical business columns to metrics.<metric>.group_by only if they are present in schema and suitable for grouping.
+        5. Remove metric-specific fields that cannot be mapped safely.
+        7. Keep all metric definitions, but ensure grouping fields exist.
+
+        Suggested semantic mappings:
+        - Channel -> business channel field
+        - PlacementType -> placement / placement type field
+        - Issue -> issue / goal / business objective
+        - Group -> business group / action group / product group field
+        - PropensitySource -> model name field
+        - Outcome -> outcome / response / result field
+        - ExperimentName -> experiment name field
+        - ExperimentGroup -> experiment variant / test-control group field
+        - PurchasedDateTime -> purchase date / transaction timestamp field
+        - CustomerID -> customer identifier
+        - HoldingID -> order / holding / contract identifier
+        - OneTimeCost -> monetary / revenue / amount field
+
+        Descriptive metric rules:
+        1. metrics.descriptive.columns must contain only columns that exist in schema or derived fields.
+        2. Prefer these when available: Outcome, Propensity, FinalPropensity, Priority, ResponseTime, Weight, OutcomeWeight.
+        3. Keep only columns that are meaningful for descriptive summaries.
+
+        Report retention rules:
+        1. Keep a report only if all required fields can be mapped safely.
+        2. Remove any report that references a missing or ambiguous field.
+        3. Create new reports if there are new business dimensions/group by fields identified. 
+        4. Keep report descriptions from the template for retained reports.
+        5. Keep generic reports for retained metrics even if specialized reports are dropped.
+
+        Report field requirements:
+        - line: requires x and y
+        - heatmap: requires x, y, color
+        - scatter: requires x, y, size, color, animation_frame, animation_group
+        - treemap: requires group_by; also requires color when used by the template
+        - gauge: requires value and valid group_by
+        - bar_polar: requires r, theta, color
+        - boxplot: requires x and y
+        - histogram: requires x
+        - funnel: requires x, color, stages
+        - experiment z-score report: requires x="z_score" and y
+        - experiment odds-ratio report: requires x mapped to a valid odds-ratio statistic and y
+        - corr: requires x and y
+
+        Metric-specific report rules:
+        1. engagement reports may use line, gauge, treemap, heatmap, scatter, bar_polar.
+        2. conversion reports may use line, gauge, treemap, heatmap, scatter, bar_polar.
+        3. model_ml_scores reports may use line, treemap, heatmap, scatter.
+        4. descriptive reports may use line, boxplot, histogram, heatmap, funnel.
+        5. experiment reports may use z-score and odds-ratio style reports only when experiment fields are available.
+        6. clv reports may use histogram, treemap, exposure, corr, model, rfm_density only when CLV fields are available.
+
+        Output requirements:
+        1. Return a complete valid TOML document.
+        2. Exclude [chat_with_data].
+        3. Keep retained sections in the same logical order as the template.
+        4. Do not include any field, metric, report, or group_by value that is not supported by the provided schema or derived fields.
+
+        Final self-check before output:
+        1. Every referenced column exists in schema or is one of Day, Month, Year, Quarter, ResponseTime.
+        2. Every report metric exists in [metrics].
+        3. Every retained report has all required fields.
+        4. No omitted field remains referenced anywhere else.
+        5. Output is valid TOML only.
+        """
 
         st.write("## Config from sample")
         if st.button("Generate config", key='UploadBtn', type='primary'):

@@ -68,9 +68,9 @@ positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
 
 [metrics.engagement]
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "HoldOutControlGroup", "PropensitySource", "Issue", "Group"]
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group"]
 filter = """"""
-scores = ["CTR", "Lift", "Lift_Z_Score", "Lift_P_Val"]
+scores = ["CTR", "Lift", "Lift_Z_Score", "Lift_P_Val", "Positives", "Negatives", "Count"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
 
@@ -145,6 +145,15 @@ color = "CTR"
 x = "Month"
 y = "Group"
 
+[reports.heatmap_month_group_pos_counts]
+metric = "engagement"
+type = "heatmap"
+description = "[BIZ] Monthly Volumes Heatmap"
+group_by = ["Month", "Group"]
+color = "Negatives"
+x = "Month"
+y = "Group"
+
 [reports.scatter_month_group_ctr]
 metric = 'engagement'
 type = 'scatter'
@@ -170,8 +179,7 @@ color = "PropensitySource"
 facet_row = "Channel"
 facet_column = "PlacementType"
 
-
-[reports.monthly_average_precision_score]
+[reports.daily_average_precision_score]
 metric = "model_ml_scores"
 type = "line"
 description = "[ML] Daily average precision score"
@@ -181,6 +189,29 @@ y = "average_precision"
 color = "PropensitySource"
 facet_row = "Channel"
 facet_column = "PlacementType"
+
+[reports.model_average_precision_heatmap]
+metric = "model_ml_scores"
+type = "heatmap"
+description = "[ML] Average precision heatmap"
+group_by = ["Channel", "PlacementType"]
+color = "average_precision"
+x = "Channel"
+y = "PlacementType"
+
+[reports.model_personalization_vs_novelty]
+metric = "model_ml_scores"
+type = "scatter"
+description = "[ML] Personalization vs novelty"
+group_by = ["Month", "Channel", "PlacementType", "PropensitySource"]
+color = "PlacementType"
+size = "average_precision"
+animation_frame = "Month"
+animation_group = "PropensitySource"
+x = "personalization"
+y = "novelty"
+log_x = "false"
+log_y = "false"
 
 [reports.treemap_channel_placement_pers]
 metric = "model_ml_scores"
@@ -207,18 +238,7 @@ color = "Group"
 facet_row = "Channel"
 facet_column = "PlacementType"
 
-[reports.daily_control_group_ctr]
-metric = "engagement"
-type = "line"
-description = "[ENG] Daily CTR vs HoldOut Control Group"
-group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "HoldOutControlGroup"]
-x = "Day"
-y = "CTR"
-color = "HoldOutControlGroup"
-facet_row = "Channel"
-facet_column = "PlacementType"
-
-[reports.monthly_lift]
+[reports.daily_lift]
 metric = "engagement"
 type = "line"
 description = "[ENG] Daily Lift vs Random Action"
@@ -229,7 +249,7 @@ color = "Issue"
 facet_row = "Channel"
 facet_column = "PlacementType"
 
-[reports.monthly_lift_significance]
+[reports.daily_lift_significance]
 metric = "engagement"
 type = "line"
 description = "[ENG] Lift vs Random Action Significance"
@@ -250,14 +270,14 @@ y = "ConversionRate"
 color = "PlacementType"
 facet_row = "Channel"
 
-[reports.gauge_channel_model_type_conversion]
+[reports.gauge_channel_placement_type_conversion]
 metric = "conversion"
 type = "gauge"
 description = "[CONV] Conversion (Channel/Placement Type)"
 group_by = ["Channel", "PlacementType"]
 value = "ConversionRate"
 
-[reports.gauge_channel_model_type_conversion.reference]
+[reports.gauge_channel_placement_type_conversion.reference]
 Web_Engagement = 0.09
 Web_Conversion = 0.09
 Mobile_Engagement = 0.065
@@ -273,6 +293,17 @@ y = 'Propensity'
 score = 'Mean'
 color = 'Issue'
 facet_row = "Channel"
+facet_column = "PlacementType"
+
+[reports.response_time_trend]
+metric = 'descriptive'
+type = 'line'
+description = '[OPS] Mean response time trend'
+group_by = ['Day', 'Month', 'Year', 'Quarter', 'Channel', 'PlacementType', "PropensitySource", 'Issue', 'Group', 'Outcome']
+x = 'Day'
+y = 'ResponseTime'
+score = 'Mean'
+color = 'Channel'
 facet_column = "PlacementType"
 
 [reports.describe_dataset_boxplot]
@@ -410,4 +441,3 @@ engagement = "Measures of user interaction with the product or service. Main KPI
 conversion = "Measures conversion of a certain business action. Conversion Rate: The percentage of users who take a desired action, such as making a purchase or signing up for a service. Revenue: Revenue aggregations."
 experiment = "Used to calculate various metrics used during A/B testing. Measures difference between test and control group. Main measures are z-score, odds ratio, confidence bands."
 clv = "Customer Lifetime Value analysis metrics. frequency: represents the number of repeat purchases that a customer has made, i.e. one less than the total number of purchases. tenure: represents a customer’s “age”, i.e. the duration between a customer’s first purchase and the end of the period of study. recency: represents the time period when a customer made their most recent purchase. This is equal to the duration between a customer’s first and last purchase. If a customer has made only 1 purchase, their recency is 0. monetary_value: represents the average value of a given customer’s repeat purchases. Customers who have only made a single purchase have monetary values of zero."
-

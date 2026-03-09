@@ -250,7 +250,7 @@ def conversion_rate_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
         cols = math.isqrt(ih_analysis[grp_by[0]].unique().shape[0])
         rows = cols + 1
 
-    reference = config['reference']
+    reference = config.get('reference', {})
     ih_analysis['Name'] = ih_analysis[grp_by].apply(lambda r: ' '.join(r.values.astype(str)), axis=1)
     ih_analysis['CName'] = ih_analysis[grp_by].apply(lambda r: '_'.join(r.values.astype(str)), axis=1)
     fig = make_subplots(rows=rows,
