@@ -9,26 +9,18 @@ import streamlit as st
 import tomlkit
 from jinja2 import Environment
 from pandasai.core.prompts import BasePrompt
-from pandasai_litellm import LiteLLM
 
 from value_dashboard.metrics.constants import DROP_IH_COLUMNS, OUTCOME_TIME, DECISION_TIME
 from value_dashboard.utils.config import get_config, set_config
 from value_dashboard.utils.file_utils import read_dataset_export
+from value_dashboard.utils.llm_utils import render_litellm_sidebar
 from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.polars_utils import schema_with_unique_counts
 from value_dashboard.utils.py_utils import capitalize
 
 logger = get_logger(__name__)
-
-supported_responses_models = [
-    "gpt-5",
-    "gpt-5-mini",
-    "gpt-5-nano",
-    "gpt-5.4",
-    "gpt-5.4-pro",
-]
 model: str = "gpt-5.4"
-reasoning_effort = "high"  # "minimal" | "low" | "medium" | "high"
+reasoning_effort = "medium"  # "minimal" | "low" | "medium" | "high"
 verbosity = "medium"  # "low" | "medium" | "high"
 
 
@@ -77,34 +69,13 @@ with st.sidebar:
         st.error(f"Configuration file is not valid TOML. {e}")
         st.stop()
 
-    api_key_input = st.text_input(
-        "Enter API Key (Leave empty to use environment variable)",
-        type="password",
-        value=os.environ.get("OPENAI_API_KEY"),
+    llm = render_litellm_sidebar(
+        key_prefix="config_gen",
+        default_model=model,
+        reasoning_effort=reasoning_effort,
+        verbosity=verbosity,
+        missing_key_message="Please configure LLM API key.",
     )
-    st.markdown(
-        """
-    <style>
-        [title="Show password text"] {
-            display: none;
-        }
-    </style>
-    """,
-        unsafe_allow_html=True,
-    )
-    openai_api_key = (
-        api_key_input if api_key_input else os.environ.get("OPENAI_API_KEY")
-    )
-    if not openai_api_key:
-        st.error("Please configure LLM API key.")
-        st.stop()
-    model_choice = st.selectbox(
-        "Choose Model",
-        options=supported_responses_models,
-        index=supported_responses_models.index(model)
-    )
-    llm = LiteLLM(model=model_choice, api_key=openai_api_key,
-                  reasoning_effort=reasoning_effort, verbosity=verbosity)
 
 st.subheader("Choose file with IH sample", divider='red')
 uploaded_file = st.file_uploader("*", type=["zip", "parquet", "json", "gzip"],

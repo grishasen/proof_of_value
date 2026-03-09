@@ -10,12 +10,12 @@ from PIL import Image
 from dotenv import load_dotenv
 from pandasai import Agent
 from pandasai.core.response import ChartResponse, DataFrameResponse
-from pandasai_openai import OpenAI
 
 from value_dashboard.metrics.clv import rfm_summary
 from value_dashboard.pipeline.holdings import load_holdings_data as load_holdings_data
 from value_dashboard.pipeline.ih import load_data as ih_load_data
 from value_dashboard.utils.config import get_config
+from value_dashboard.utils.llm_utils import render_litellm_sidebar
 
 pio.defaults.default_scale = 4
 pio.defaults.default_height = 480
@@ -45,42 +45,15 @@ if "data_loaded" not in st.session_state:
 
 # Sidebar for API Key settings
 with st.sidebar:
-    # Get API key from input or environment variable
-    api_key_input = st.text_input(
-        "Enter API Key (Leave empty to use environment variable)",
-        type="password",
-        value=os.environ.get("OPENAI_API_KEY"),
-    )
-    # Add css to hide item with title "Show password text"
-    st.markdown(
-        """
-    <style>
-        [title="Show password text"] {
-            display: none;
-        }
-    </style>
-    """,
-        unsafe_allow_html=True,
-    )
-
-    openai_api_key = (
-        api_key_input if api_key_input else os.environ.get("OPENAI_API_KEY")
-    )
-
-    if not openai_api_key:
-        st.error("Please configure API key.")
-        st.stop()
-
-    all_models = OpenAI._supported_chat_models
-    model_choice = st.selectbox(
-        "Choose Model",
-        options=all_models,
-        index=all_models.index(OpenAI.model)
-    )
-
-    llm = OpenAI(
-        api_token=openai_api_key,
-        model=model_choice
+    model: str = "gpt-5.4"
+    reasoning_effort = "low"  # "minimal" | "low" | "medium" | "high"
+    verbosity = "low"  # "low" | "medium" | "high"
+    llm = render_litellm_sidebar(
+        key_prefix="chat_with_data",
+        default_model=model,
+        reasoning_effort=reasoning_effort,
+        verbosity=verbosity,
+        missing_key_message="Please configure API key.",
     )
     if llm:
         metrics_data = ih_load_data() if st.session_state.get('data_loaded', default=False) else {}
@@ -181,7 +154,7 @@ def print_response(message):
 
 def chat_window(analyst):
     new_chat = False
-    if "messages" not in st.session_state:
+    if "messages" not in st.session_state or not st.session_state.messages:
         st.session_state.messages = []
         new_chat = True
 
@@ -197,7 +170,8 @@ def chat_window(analyst):
         try:
             st.toast("Getting response...")
             with st.spinner('Getting response...'):
-                response = analyst.chat(prompt) if new_chat else analyst.follow_up(prompt)
+                response = analyst.chat(analyst.description + " " + prompt) if new_chat else analyst.follow_up(
+                    analyst.description + " " + prompt)
             path = ''
             if isinstance(response, ChartResponse):
                 saved_resp = response.get_base64_image()
