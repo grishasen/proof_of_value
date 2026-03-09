@@ -6,6 +6,7 @@ from value_dashboard.report_builder.recipes import detect_recipe, get_recipe
 
 
 def _parse_bool(value: Any) -> bool:
+    """Normalize bool-like TOML values that may come back as strings."""
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -14,6 +15,7 @@ def _parse_bool(value: Any) -> bool:
 
 
 def _parse_list(value: Any) -> list:
+    """Support legacy list values stored either as arrays or comma-separated strings."""
     if isinstance(value, list):
         return value
     if isinstance(value, str):
@@ -22,6 +24,7 @@ def _parse_list(value: Any) -> list:
 
 
 def deserialize_report(report_name: str, report: dict) -> ReportBuilderState:
+    """Convert a persisted TOML report into builder state while preserving unknown keys."""
     metric_name = report.get("metric", "")
     chart_key = detect_recipe(metric_name, report)
     state = ReportBuilderState(
@@ -131,6 +134,7 @@ def deserialize_report(report_name: str, report: dict) -> ReportBuilderState:
         state.y = report.get("y")
         known_keys.update({"x", "y"})
 
+    # Preserve manual keys so visual editing does not silently destroy TOML authored by hand.
     state.extras = {
         key: copy.deepcopy(value)
         for key, value in report.items()
@@ -140,22 +144,33 @@ def deserialize_report(report_name: str, report: dict) -> ReportBuilderState:
 
 
 def _assign_if_value(payload: Dict[str, Any], key: str, value: Any):
+    """Skip empty values so saved TOML stays compact and close to the existing style."""
     if value in (None, "", [], {}):
         return
     payload[key] = value
 
 
 def _merge_group_by(state: ReportBuilderState) -> list:
+    """Keep explicit group_by entries and UI-mapped dimensions aligned on save."""
     recipe = get_recipe(state.chart_key)
-    group_by = list(state.group_by)
+    derived_group_by = []
     for field_name in recipe.get("group_by_fields", []):
         value = getattr(state, field_name, None)
-        if value not in (None, "", []) and value not in group_by:
+        if value not in (None, "", []) and value not in derived_group_by:
+            derived_group_by.append(value)
+
+    if recipe.get("group_by_mode") == "replace":
+        return derived_group_by
+
+    group_by = list(state.group_by)
+    for value in derived_group_by:
+        if value not in group_by:
             group_by.append(value)
     return group_by
 
 
 def serialize_report_state(state: ReportBuilderState) -> dict:
+    """Write builder state back to the current TOML report structure."""
     report = copy.deepcopy(state.extras)
     report["metric"] = state.metric
     report["type"] = get_recipe(state.chart_key)["type"]

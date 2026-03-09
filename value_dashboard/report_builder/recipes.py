@@ -48,6 +48,7 @@ REPORT_RECIPES: Dict[str, dict] = {
         "type": "bar_polar",
         "required_fields": ["r", "theta", "color"],
         "group_by_fields": ["theta", "color"],
+        "group_by_mode": "replace",
     },
     "descriptive_line": {
         "symbol": ":material/show_chart:/:material/bar_chart:",
@@ -157,10 +158,12 @@ REPORT_RECIPES: Dict[str, dict] = {
 
 
 def get_recipe(recipe_key: str) -> dict:
+    """Return the authoring recipe metadata used by the builder UI."""
     return REPORT_RECIPES[recipe_key]
 
 
 def get_recipe_display_name(recipe_key: str, include_symbol: bool = True) -> str:
+    """Build a user-facing label for recipe pickers and report summaries."""
     recipe = get_recipe(recipe_key)
     if include_symbol and recipe.get("symbol"):
         return recipe['symbol'] + ' ' + recipe['label']
@@ -168,11 +171,13 @@ def get_recipe_display_name(recipe_key: str, include_symbol: bool = True) -> str
 
 
 def recipe_supports_metric(recipe_key: str, metric_name: str) -> bool:
+    """Limit recipe choices to the metric families supported by the runtime plots."""
     recipe = REPORT_RECIPES[recipe_key]
     return any(metric_name.startswith(prefix) for prefix in recipe["metric_prefixes"])
 
 
 def get_supported_recipes(metric_name: str) -> List[str]:
+    """Return only recipes that can be safely authored for the selected metric."""
     return [
         recipe_key for recipe_key in REPORT_RECIPES
         if recipe_supports_metric(recipe_key, metric_name)
@@ -180,6 +185,7 @@ def get_supported_recipes(metric_name: str) -> List[str]:
 
 
 def get_default_recipe(metric_name: str) -> Optional[str]:
+    """Pick a sensible starter visualization for new reports."""
     if metric_name.startswith("engagement"):
         return "line"
     if metric_name.startswith("conversion"):
@@ -196,6 +202,7 @@ def get_default_recipe(metric_name: str) -> Optional[str]:
 
 
 def detect_recipe(metric_name: str, report: dict) -> Optional[str]:
+    """Map existing TOML reports back to a visual recipe when the shape is supported."""
     report_type = report.get("type")
     x_axis = report.get("x")
 
@@ -240,6 +247,7 @@ def detect_recipe(metric_name: str, report: dict) -> Optional[str]:
 
 
 def get_report_type_display(metric_name: str, report: dict, include_symbol: bool = True) -> str:
+    """Format report types consistently across the builder and the inventory view."""
     recipe_key = detect_recipe(metric_name, report)
     if recipe_key:
         return get_recipe_display_name(recipe_key, include_symbol=include_symbol)
@@ -248,4 +256,4 @@ def get_report_type_display(metric_name: str, report: dict, include_symbol: bool
     if not report_type:
         return ""
     fallback = report_type.replace("_", " ").title()
-    return f":material/build: {fallback}" if include_symbol else fallback
+    return f"◦ {fallback}" if include_symbol else fallback

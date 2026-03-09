@@ -5,10 +5,12 @@ from value_dashboard.report_builder.recipes import get_recipe
 
 
 def _value_in_catalog(value, options) -> bool:
+    """Treat empty values as separately validated and otherwise require catalog membership."""
     return value in (None, "", []) or value in options
 
 
 def validate_report_state(state, cfg: dict) -> List[str]:
+    """Validate only against config-derived metadata so manual TOML edits remain compatible."""
     issues = []
     metrics = cfg.get("metrics", {})
     metric_name = state.metric

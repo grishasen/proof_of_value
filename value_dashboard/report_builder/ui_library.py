@@ -5,16 +5,19 @@ import streamlit as st
 import tomlkit
 
 from value_dashboard.report_builder.field_catalog import get_metric_options
+from value_dashboard.report_builder.metric_display import get_metric_display_name
 from value_dashboard.report_builder.recipes import get_report_type_display
 from value_dashboard.report_builder.service import NEW_REPORT_KEY, build_blank_report, build_new_report_name, \
     build_report_summaries, get_default_metric
 
 
 def _reset_editor_token():
+    """Force Streamlit to rebuild editor widgets after report selection changes."""
     st.session_state.rb_editor_token = uuid.uuid4().hex[:8]
 
 
 def _set_new_draft(cfg: dict, report: dict, report_name: str):
+    """Store a detached draft so new reports do not overwrite persisted reports prematurely."""
     st.session_state.rb_selected_report = NEW_REPORT_KEY
     st.session_state.rb_draft_report = {
         "__name__": report_name,
@@ -24,8 +27,10 @@ def _set_new_draft(cfg: dict, report: dict, report_name: str):
 
 
 def _format_report_label(summary: dict) -> str:
+    """Show report identity, metric and editor mode in one compact library label."""
     mode = "visual" if summary["mode"] == "visual" else "raw"
-    return f"{summary['name']} · {summary['metric']} / {summary['type_display']} · {mode}"
+    metric_label = get_metric_display_name(summary["metric"], include_symbol=False)
+    return f"{summary['name']} · {metric_label} / {summary['type_display']} · {mode}"
 
 
 @st.dialog("Report Parameters", width="large")
@@ -38,6 +43,7 @@ def _show_report_parameters_dialog(report_name: str, report: dict):
 
 
 def render_report_inventory(cfg: dict):
+    """Render a read-only report inventory with a quick TOML inspector per report."""
     reports = cfg.get("reports", {})
     summaries = build_report_summaries(cfg)
     for summary in summaries:
@@ -65,7 +71,7 @@ def render_report_inventory(cfg: dict):
         with st.container(border=True):
             row_cols = st.columns(widths, vertical_alignment="center")
             row_cols[0].write(report_name)
-            row_cols[1].write(summary["metric"])
+            row_cols[1].markdown(get_metric_display_name(summary["metric"]))
             row_cols[2].write(summary["type_display"])
             row_cols[3].write(summary["mode"])
             row_cols[4].write(summary["description"])
@@ -80,6 +86,7 @@ def render_report_inventory(cfg: dict):
 
 
 def render_report_library(cfg: dict) -> str:
+    """Render the interactive report picker and draft actions used by the builder."""
     reports = cfg.setdefault("reports", {})
     summaries = build_report_summaries(cfg)
     for summary in summaries:
@@ -94,11 +101,28 @@ def render_report_library(cfg: dict) -> str:
         _reset_editor_token()
 
     st.write("### Report Library")
-    st.text_input("Search", key="rb_search")
+    st.text_input(
+        "Search",
+        key="rb_search",
+        help="Filter reports by report name or description.",
+    )
     metric_options = ["All"] + sorted(get_metric_options(cfg))
-    st.selectbox("Metric Filter", metric_options, key="rb_metric_filter")
+    st.selectbox(
+        "Metric Filter",
+        metric_options,
+        key="rb_metric_filter",
+        format_func=lambda value: "All Metrics" if value == "All" else get_metric_display_name(
+            value, include_symbol=False
+        ),
+        help="Limit the library to reports built on a specific metric.",
+    )
     type_options = ["All"] + sorted(list({summary["type"] for summary in summaries if summary["type"]}))
-    st.selectbox("Type Filter", type_options, key="rb_type_filter")
+    st.selectbox(
+        "Type Filter",
+        type_options,
+        key="rb_type_filter",
+        help="Limit the library to reports that save as the selected TOML report type.",
+    )
 
     filtered = summaries
     search_value = st.session_state.get("rb_search", "").strip().lower()
@@ -131,6 +155,7 @@ def render_report_library(cfg: dict) -> str:
             index=selected_index,
             format_func=lambda value: label_map[value],
             key="rb_selected_report_picker",
+            help="Open an existing report or keep the active draft selected until you save it.",
         )
         draft_active = (
                 current_selection == NEW_REPORT_KEY and
@@ -142,7 +167,11 @@ def render_report_library(cfg: dict) -> str:
             _reset_editor_token()
         elif draft_active:
             st.caption("Draft is active. Save it or open an existing report explicitly.")
-            if st.button("Open Selected Report", key="rb_open_selected_report"):
+            if st.button(
+                    "Open Selected Report",
+                    key="rb_open_selected_report",
+                    help="Discard the current draft view and load the selected saved report.",
+            ):
                 st.session_state.rb_selected_report = selected_report
                 st.session_state.rb_draft_report = None
                 _reset_editor_token()
@@ -152,17 +181,27 @@ def render_report_library(cfg: dict) -> str:
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("New", key="rb_new_report"):
+        if st.button("New", key="rb_new_report", help="Start a new draft report using the default metric."):
             metric_name = get_default_metric(cfg)
             report_name = build_new_report_name(reports)
             _set_new_draft(cfg, build_blank_report(metric_name), report_name)
     with col2:
-        if st.button("Duplicate", key="rb_duplicate_report", disabled=current_selection not in reports):
+        if st.button(
+                "Duplicate",
+                key="rb_duplicate_report",
+                disabled=current_selection not in reports,
+                help="Create a draft copy of the selected report with a new generated name.",
+        ):
             source_report = copy.deepcopy(reports[current_selection])
             draft_name = build_new_report_name(reports, current_selection)
             _set_new_draft(cfg, source_report, draft_name)
     with col3:
-        if st.button("Delete", key="rb_delete_report", disabled=current_selection not in reports):
+        if st.button(
+                "Delete",
+                key="rb_delete_report",
+                disabled=current_selection not in reports,
+                help="Remove the selected saved report from the current config draft.",
+        ):
             del reports[current_selection]
             cfg["reports"] = reports
             st.session_state.rb_draft_report = None

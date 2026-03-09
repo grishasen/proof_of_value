@@ -11,6 +11,7 @@ NEW_REPORT_KEY = "__new_report__"
 
 
 def build_report_summaries(cfg: dict) -> list[dict]:
+    """Prepare lightweight report metadata for the library and inventory views."""
     summaries = []
     reports = cfg.get("reports", {})
     for name, report in reports.items():
@@ -28,11 +29,13 @@ def build_report_summaries(cfg: dict) -> list[dict]:
 
 
 def get_default_metric(cfg: dict) -> str:
+    """Pick the first configured metric when a new report is created."""
     metrics = get_metric_options(cfg)
     return metrics[0] if metrics else ""
 
 
 def build_blank_report(metric_name: str) -> dict:
+    """Create a minimal report payload that still matches the persisted TOML shape."""
     return {
         "metric": metric_name,
         "type": "",
@@ -42,6 +45,7 @@ def build_blank_report(metric_name: str) -> dict:
 
 
 def build_new_report_name(reports: dict, source_name: str | None = None) -> str:
+    """Generate a non-conflicting draft name for new or duplicated reports."""
     base_name = source_name + "_" if source_name else "report_"
     name = base_name + uuid.uuid4().hex[:8]
     while name in reports:
@@ -50,6 +54,7 @@ def build_new_report_name(reports: dict, source_name: str | None = None) -> str:
 
 
 def get_editor_seed_report(cfg: dict, selected_report: str, draft_report: dict | None) -> tuple[str, dict]:
+    """Resolve the report payload that should be opened in the editor this render cycle."""
     reports = cfg.get("reports", {})
     if selected_report != NEW_REPORT_KEY and selected_report in reports:
         return selected_report, copy.deepcopy(reports[selected_report])
@@ -61,6 +66,7 @@ def get_editor_seed_report(cfg: dict, selected_report: str, draft_report: dict |
 
 
 def build_state(cfg: dict, selected_report: str, draft_report: dict | None):
+    """Hydrate UI state from TOML and attach a default recipe for new supported reports."""
     report_name, report = get_editor_seed_report(cfg, selected_report, draft_report)
     state = deserialize_report(report_name, report)
 
@@ -75,5 +81,6 @@ def build_state(cfg: dict, selected_report: str, draft_report: dict | None):
 
 
 def build_toml_preview(state) -> str:
+    """Render the exact TOML fragment that will be written for the current state."""
     report = serialize_report_state(state)
     return tomlkit.dumps({"reports": {state.name: report}})
