@@ -18,6 +18,7 @@ ONE_TIME_COST = "OneTimeCost"
 HOLDING_ID = "HoldingID"
 INTERACTION_ID = "InteractionID"
 PROPENSITY = "Propensity"
+PRIORITY = "Priority"
 FINAL_PROPENSITY = "FinalPropensity"
 DECISION_TIME = 'DecisionTime'
 ACTION_ID = 'ActionID'
@@ -28,7 +29,12 @@ DROP_IH_COLUMNS = [
     "pyUnit", "pyDivision", "pyComponent", "pyApplicationVersion", "pyStrategy",
     "pyApplication", "pyFulfilled", "IPAddress", "pyInteraction", "pyLatitude",
     "pyLongitude", "pyOperator", "pyPartitionKey", "pyWorkID", "WorkID", "pyBehaviour",
-    "pyIsPropositionActive"
+    "pyIsPropositionActive", "pyISFactID", "pyInternalTags", "pxStreamPosition",
+    "ReferrerUrl"
+]
+REQ_IH_COLUMNS = [
+    NAME, ISSUE, GROUP, RANK, CHANNEL, CUSTOMER_ID, OUTCOME, PROPENSITY, FINAL_PROPENSITY,
+    PRIORITY, INTERACTION_ID, MODELCONTROLGROUP
 ]
 
 _scores = [''.join(p) for p in product('1234', repeat=3)]

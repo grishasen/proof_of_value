@@ -44,7 +44,7 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
                 "Column": col,
                 "Data Type": str(dtype),
                 "Unique Count": "N/A",
-                "Mode": "N/A",
+                "Most occurring": "N/A",
                 "Values": ''
             })
         elif dtype == pl.Utf8:
@@ -55,7 +55,7 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
                 "Column": col,
                 "Data Type": str(dtype),
                 "Unique Count": unique_count,
-                "Mode": str(mode),
+                "Most occurring": str(mode),
                 "Values": str(unique) if unique_count < 10 else '...'
             })
         elif dtype == NoneType:
@@ -66,24 +66,25 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
                 "Column": col,
                 "Data Type": str(dtype),
                 "Unique Count": unique_count,
-                "Mode": str(mode),
+                "Most occurring": str(mode),
                 "Values": str(unique) if unique_count < 10 else '...'
             })
         elif dtype.is_numeric():
+            col_data = df[col].drop_nulls().drop_nans()
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
                 "Unique Count": "N/A",
-                "Mode": "N/A",
-                "Values": "Min = " + f'{df[col].min():.4f}' + " Max = " + f'{df[col].max():.4f}' + " Mean = "
-                          + f'{df[col].mean():.4f}' + " Median = " + f'{df[col].median():.4f}'
+                "Most occurring": "N/A",
+                "Values": "Min = " + f'{col_data.min():.4f}' + " Max = " + f'{col_data.max():.4f}' + " Mean = "
+                          + f'{col_data.mean():.4f}' + " Median = " + f'{col_data.median():.4f}'
             })
         else:
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
                 "Unique Count": "N/A",
-                "Mode": "N/A",
+                "Most occurring": "N/A",
                 "Values": "Min = " + f'{df[col].min()}' + " Max = " + f'{df[col].max()}'
             })
 

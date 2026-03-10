@@ -33,7 +33,7 @@ def get_pages():
         pages.append(create_page("value_dashboard/pages/clv_analysis.py", "CLV Insights"))
     pages.append(create_page("value_dashboard/pages/toml_editor.py", "Configuration"))
     if not is_demo_mode():
-        pages.append(create_page("value_dashboard/pages/config_gen.py", "GenAI Config"))
+        pages.append(create_page("value_dashboard/pages/config_studio.py", "Config Studio"))
     return [p for p in pages if p is not None]
 
 

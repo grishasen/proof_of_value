@@ -32,6 +32,7 @@ def render_litellm_sidebar(
         missing_key_message: str = "Please configure API key.",
         env_var_name: str = "OPENAI_API_KEY",
         supported_models: list[str] | None = None,
+        require_api_key: bool = True,
 ) -> LiteLLM:
     """Render common LiteLLM sidebar controls and return a configured client."""
     models = supported_models or SUPPORTED_LITELLM_MODELS
@@ -57,8 +58,11 @@ def render_litellm_sidebar(
 
     api_key = api_key_input if api_key_input else os.environ.get(env_var_name)
     if not api_key:
-        st.error(missing_key_message)
-        st.stop()
+        if require_api_key:
+            st.error(missing_key_message)
+            st.stop()
+        st.info("Add an API key when you are ready for AI-assisted generation.")
+        return None
 
     model_choice = st.selectbox(
         model_label,

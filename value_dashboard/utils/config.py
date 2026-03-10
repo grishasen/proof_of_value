@@ -70,7 +70,8 @@ def chat_with_data() -> bool:
 
 
 def set_config(cfg_file: str):
-    del st.session_state.app_config
+    if "app_config" in st.session_state:
+        del st.session_state.app_config
     from value_dashboard.pipeline import holdings
     holdings.get_reports_data.clear()
     st.session_state.app_config = cfg_file
