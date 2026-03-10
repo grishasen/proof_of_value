@@ -36,9 +36,10 @@ def eng_conv_ml_heatmap_plot(data: Union[pl.DataFrame, pd.DataFrame],
         st.warning("No data available.")
         return ih_analysis
     new_df = ih_analysis.pivot(index=config['y'], columns=config['x'])[config['color']].fillna(0)
+    maxval = ih_analysis[config['color']].max()
     fig = px.imshow(new_df, x=new_df.columns, y=new_df.index,
                     color_continuous_scale=px.colors.sequential.RdBu_r,
-                    text_auto=",.2%",
+                    text_auto=",.2%" if maxval < 100 else ",.2f",
                     aspect="auto",
                     title=config['description'],
                     contrast_rescaling="minmax",
