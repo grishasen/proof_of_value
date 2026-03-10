@@ -47,9 +47,10 @@ Output contract:
 5. Never invent fields.
 6. Only use approved fields listed below.
 7. Use the template as the style and recipe baseline.
-8. Keep only reports that can be mapped safely.
-9. You may add useful reports when the approved schema clearly supports them.
-10. Every referenced field must exist in the approved field list.
+8. Try to keep all metrics, especially enagement, model_ml_scores, descriptive and conversion.
+9. Keep only reports that can be mapped safely.
+10. You may add useful reports when the approved schema clearly supports them.
+11. Every referenced field must exist in the approved field list.
 
 File name:
 {file_name}

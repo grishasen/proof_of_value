@@ -1,4 +1,3 @@
-import copy
 import os
 import re
 import uuid
@@ -12,7 +11,6 @@ from streamlit_tags import st_tags
 
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.config import set_config
-from value_dashboard.utils.py_utils import isBool
 
 
 def serialize_exprs(obj):

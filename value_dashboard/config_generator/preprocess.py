@@ -24,8 +24,8 @@ def detect_ih_file_settings(file_name: str) -> tuple[str, str]:
 
 
 @st.cache_data(show_spinner=False)
-def load_ih_sample(file_name: str, file_bytes: bytes) -> pl.DataFrame:
-    """Load a single uploaded IH sample and normalize column naming like the IH pipeline."""
+def load_ih_sample(file_name: str, file_bytes: bytes, sample_size: int = 100_000) -> pl.DataFrame:
+    """Load a single uploaded IH sample, normalize it, and optionally down-sample large inputs."""
     with tempfile.TemporaryDirectory(prefix="config_studio_ih_") as temp_dir:
         file_path = os.path.join(temp_dir, file_name)
         with open(file_path, "wb") as handle:
@@ -36,7 +36,10 @@ def load_ih_sample(file_name: str, file_bytes: bytes) -> pl.DataFrame:
     leave_cols = list(set(dframe_columns).difference(set(DROP_IH_COLUMNS)))
     capitalized = capitalize(leave_cols)
     rename_map = dict(zip(leave_cols, capitalized))
-    return sample.select(leave_cols).rename(rename_map)
+    normalized_sample = sample.select(leave_cols).rename(rename_map)
+    if sample_size > 0 and normalized_sample.height > sample_size:
+        normalized_sample = normalized_sample.sample(n=sample_size, shuffle=True, seed=42)
+    return normalized_sample
 
 
 def _safe_literal(value: Any) -> Any:
@@ -106,9 +109,8 @@ def compile_filter_rules(filter_rows: list[dict]) -> str:
     return " & ".join(f"({expression})" for expression in compiled)
 
 
-def compile_calculated_fields(field_rows: list[dict]) -> tuple[list[Any], str]:
-    """Turn calculated field rows into executable expressions and config text."""
-    expressions = []
+def _compile_calculated_field_text_rows(field_rows: list[dict]) -> list[str]:
+    """Normalize calculated-field rows into runtime-ready Polars expressions."""
     text_rows = []
     for row in field_rows:
         if not row.get("Enabled", True):
@@ -121,9 +123,25 @@ def compile_calculated_fields(field_rows: list[dict]) -> tuple[list[Any], str]:
             compiled_text = expression_text
         else:
             compiled_text = f"({expression_text}).alias({field_name!r})"
-        expressions.append(_eval_polars_expression(compiled_text))
         text_rows.append(compiled_text)
-    return expressions, str(text_rows)
+    return text_rows
+
+
+def build_calculated_fields_config_text(field_rows: list[dict]) -> str:
+    """Render ih.extensions.columns in the multiline runtime format used by config.toml."""
+    text_rows = _compile_calculated_field_text_rows(field_rows)
+    if not text_rows:
+        return ""
+    return "[\n    " + ",\n    ".join(text_rows) + "\n]"
+
+
+def compile_calculated_fields(field_rows: list[dict]) -> tuple[list[Any], str]:
+    """Turn calculated field rows into executable expressions and config text."""
+    expressions = []
+    text_rows = _compile_calculated_field_text_rows(field_rows)
+    for compiled_text in text_rows:
+        expressions.append(_eval_polars_expression(compiled_text))
+    return expressions, build_calculated_fields_config_text(field_rows)
 
 
 def _apply_default_values(dataframe: pl.DataFrame, default_values: dict[str, Any]) -> pl.DataFrame:
@@ -170,6 +188,7 @@ def _derive_time_fields(dataframe: pl.DataFrame) -> pl.DataFrame:
 def apply_ih_preprocessing(
         file_name: str,
         file_bytes: bytes,
+        sample_size: int,
         outcome_time_col: str,
         decision_time_col: str,
         default_values: dict[str, Any],
@@ -177,7 +196,7 @@ def apply_ih_preprocessing(
         calculated_field_rows: list[dict],
 ) -> tuple[pl.DataFrame, list[str], str]:
     """Apply generator-side IH preprocessing with the same semantics as the runtime pipeline."""
-    dataframe = load_ih_sample(file_name, file_bytes)
+    dataframe = load_ih_sample(file_name, file_bytes, sample_size=sample_size)
     dataframe = _apply_default_values(dataframe, default_values)
     dataframe = _alias_time_columns(dataframe, outcome_time_col, decision_time_col)
 

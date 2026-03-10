@@ -10,7 +10,7 @@ import tomlkit
 from value_dashboard.config_generator.ai import build_ai_config_prompt, build_final_config, generate_ai_sections, \
     save_generated_config
 from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, build_ih_config, build_schema_preview, \
-    compile_filter_rules, detect_ih_file_settings, load_ih_sample
+    build_calculated_fields_config_text, compile_filter_rules, detect_ih_file_settings, load_ih_sample
 from value_dashboard.metrics.constants import DECISION_TIME, OUTCOME_TIME, REQ_IH_COLUMNS
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.config_builder import render_section, render_value, serialize_exprs
@@ -20,6 +20,17 @@ st.set_page_config(page_title="Config Studio", layout="wide")
 
 FILTER_OPERATORS = ["==", "!=", ">", ">=", "<", "<=", "contains", "starts with", "in", "not in", "is null",
                     "is not null"]
+IH_FILE_TYPES = ["parquet", "pega_ds_export"]
+HIVE_PARTITIONING_HELP = (
+    "For parquet scans, infer statistics and schema from hive-partitioned paths and use them to prune reads."
+)
+STREAMING_HELP = (
+    "Prefer Polars' streaming engine during collection instead of the default auto engine."
+)
+BACKGROUND_HELP = (
+    "Run collection in the background and return a handle that can fetch or cancel the result. "
+    "Polars marks background mode as unstable."
+)
 STEP_OPTIONS = [
     "1. Sample",
     "2. Time Fields",
@@ -102,6 +113,25 @@ def _default_time_column(columns: list[str], preferred: str) -> str:
     return columns[0] if columns else ""
 
 
+def _apply_ih_runtime_settings(ih_config: dict) -> dict:
+    """Overlay the studio IH runtime controls onto the generated ih config."""
+    ih_config["file_type"] = st.session_state.get("config_studio_file_type", ih_config.get("file_type", ""))
+    ih_config["file_pattern"] = st.session_state.get("config_studio_file_pattern", ih_config.get("file_pattern", ""))
+    ih_config["ih_group_pattern"] = st.session_state.get(
+        "config_studio_ih_group_pattern", ih_config.get("ih_group_pattern", "")
+    )
+    ih_config["hive_partitioning"] = st.session_state.get(
+        "config_studio_hive_partitioning", bool(ih_config.get("hive_partitioning", False))
+    )
+    ih_config["streaming"] = st.session_state.get(
+        "config_studio_streaming", bool(ih_config.get("streaming", False))
+    )
+    ih_config["background"] = st.session_state.get(
+        "config_studio_background", bool(ih_config.get("background", False))
+    )
+    return ih_config
+
+
 def _reset_report_builder_state():
     """Clear shared report-builder widget state when the studio draft changes."""
     for key in ("rb_selected_report", "rb_draft_report", "rb_editor_token", "rb_search", "rb_metric_filter",
@@ -122,15 +152,23 @@ def _set_draft_config(config: dict):
     st.session_state["config_studio_generated_toml"] = tomlkit.dumps(serialize_exprs(deepcopy(config)))
 
 
-def _initialize_editor_state(template_config: dict, file_signature: str, sample_columns: list[str]):
+def _initialize_editor_state(template_config: dict, file_signature: str, sample_columns: list[str], file_name: str):
     if st.session_state.get("config_studio_file_signature") == file_signature:
         return
+    template_ih = template_config.get("ih", {})
+    detected_file_type, detected_file_pattern = detect_ih_file_settings(file_name)
     st.session_state["config_studio_file_signature"] = file_signature
     st.session_state["config_studio_defaults_rows"] = _default_defaults_rows(template_config)
     st.session_state["config_studio_filter_rows"] = _default_filter_rows()
     st.session_state["config_studio_calculated_rows"] = _default_calculated_rows()
     st.session_state["config_studio_filter_mode"] = "Rules"
     st.session_state["config_studio_raw_filter"] = ""
+    st.session_state["config_studio_file_type"] = detected_file_type
+    st.session_state["config_studio_file_pattern"] = detected_file_pattern
+    st.session_state["config_studio_ih_group_pattern"] = template_ih.get("ih_group_pattern", "")
+    st.session_state["config_studio_hive_partitioning"] = bool(template_ih.get("hive_partitioning", False))
+    st.session_state["config_studio_streaming"] = bool(template_ih.get("streaming", False))
+    st.session_state["config_studio_background"] = bool(template_ih.get("background", False))
     st.session_state["config_studio_outcome_time"] = _default_time_column(sample_columns, OUTCOME_TIME)
     st.session_state["config_studio_decision_time"] = _default_time_column(sample_columns, DECISION_TIME)
     st.session_state["config_studio_step"] = STEP_OPTIONS[0]
@@ -178,16 +216,17 @@ def _render_metrics_bar(sample_df, working_df, approved_fields: list[str]):
 
 
 def _render_sample_step(sample_df, file_name: str):
-    file_type, file_pattern = detect_ih_file_settings(file_name)
-    meta_col1, meta_col2 = st.columns([1.2, 1.8], gap="large")
+    detected_file_type, detected_file_pattern = detect_ih_file_settings(file_name)
+    file_type = st.session_state.get("config_studio_file_type", detected_file_type)
+    file_pattern = st.session_state.get("config_studio_file_pattern", detected_file_pattern)
+    meta_col1, meta_col2 = st.columns([1.2, 1.8], gap="small")
     with meta_col1:
         with st.container(border=True):
             st.write("### Sample Source")
             st.caption("The new studio keeps the upload local to the app session and profiles it before any AI call.")
-            st.markdown(f"<span class='config-studio-chip'>File type: {file_type}</span>", unsafe_allow_html=True)
-            st.markdown(f"<span class='config-studio-chip'>Pattern: {file_pattern}</span>", unsafe_allow_html=True)
-            st.markdown(f"<span class='config-studio-chip'>Columns: {len(sample_df.columns)}</span>",
-                        unsafe_allow_html=True)
+            st.write(f"File type: {file_type}")
+            st.write(f"Pattern: {file_pattern}")
+            st.write(f"Columns: {len(sample_df.columns)}")
     with meta_col2:
         with st.container(border=True):
             st.write("### Raw Schema")
@@ -223,12 +262,58 @@ def _render_time_step(sample_df):
 
 
 def _render_preprocess_step(sample_df, filter_field_options: list[str]):
-    editor_col1, editor_col2 = st.columns([1.05, 0.95], gap="large")
+    with st.container(border=True):
+        col1, col2 = st.columns([0.8, 0.2])
+        col1.subheader("IH Runtime Settings",
+                       help="These settings are written into the generated `[ih]` section and reused by the AI draft.")
+        with col2:
+            with st.popover("Runtime Behaviour", icon=":material/flare:"):
+                st.markdown("- Defaults run before filters.")
+                st.markdown("- The IH filter runs before calculated fields.")
+                st.markdown("- Day / Month / Year / Quarter / ResponseTime are derived before field approval.")
+                st.markdown("- Approved fields affect AI, not ingestion.")
+        runtime_col1, runtime_col2, runtime_col3, runtime_col4, runtime_col5, runtime_col6 = st.columns(6)
+        st.session_state["config_studio_file_type"] = runtime_col1.selectbox(
+            "File Type",
+            options=IH_FILE_TYPES,
+            index=IH_FILE_TYPES.index(st.session_state["config_studio_file_type"])
+            if st.session_state.get("config_studio_file_type") in IH_FILE_TYPES else 0,
+            help="Choose the IH runtime reader. Supported values in this app are `parquet` and `pega_ds_export`.",
+        )
+        st.session_state["config_studio_ih_group_pattern"] = runtime_col2.text_input(
+            "IH Group Pattern",
+            value=st.session_state.get("config_studio_ih_group_pattern", ""),
+            help="Regex used by the runtime to derive IH file groups from file names.",
+        )
+        st.session_state["config_studio_file_pattern"] = runtime_col3.text_input(
+            "File Pattern",
+            value=st.session_state.get("config_studio_file_pattern", ""),
+            help="Glob pattern used by the runtime to find IH files.",
+        )
+        with runtime_col4:
+            st.session_state["config_studio_hive_partitioning"] = st.checkbox(
+                "Hive Partitioning",
+                value=st.session_state.get("config_studio_hive_partitioning", False),
+                help=HIVE_PARTITIONING_HELP,
+            )
+        with runtime_col5:
+            st.session_state["config_studio_streaming"] = st.checkbox(
+                "Streaming",
+                value=st.session_state.get("config_studio_streaming", False),
+                help=STREAMING_HELP,
+            )
+        with runtime_col6:
+            st.session_state["config_studio_background"] = st.checkbox(
+                "Background",
+                value=st.session_state.get("config_studio_background", False),
+                help=BACKGROUND_HELP,
+            )
+    editor_col1, editor_col2 = st.columns([1.0, 1.0], gap="small")
     with editor_col1:
         with st.container(border=True):
             title_col, action_col = st.columns([0.78, 0.22], vertical_alignment="center")
             with title_col:
-                st.write("### Default Values")
+                st.write("### Default Column Values")
             with action_col:
                 if st.button("Add Row", key="config_studio_add_default_row", use_container_width=True):
                     _append_editor_row("config_studio_defaults_rows", _blank_default_row)
@@ -255,49 +340,9 @@ def _render_preprocess_step(sample_df, filter_field_options: list[str]):
             )
             st.session_state["config_studio_defaults_rows"] = _normalize_rows(edited_defaults)
 
-        with st.container(border=True):
-            title_col, example_col = st.columns([0.8, 0.2], vertical_alignment="center")
-            with title_col:
-                heading_col, action_col = st.columns([0.68, 0.32], vertical_alignment="center")
-                with heading_col:
-                    st.write("### Calculated Fields")
-                with action_col:
-                    if st.button("Add Row", key="config_studio_add_calculated_row", use_container_width=True):
-                        _append_editor_row("config_studio_calculated_rows", _blank_calculated_row)
-                        st.rerun()
-            with example_col:
-                with st.popover("Examples", icon=":material/flare:"):
-                    st.code(
-                        """pl.col("Treatment")
-pl.when(pl.col("PlacementType") != "").then(pl.col("PlacementType")).otherwise(pl.lit("Hero"))""",
-                        language="python",
-                    )
-                    st.caption("Enter the expression body. The studio will alias it to the field name automatically.")
-            calculated_frame = _editor_frame(
-                st.session_state["config_studio_calculated_rows"],
-                ["Name", "Expression", "Enabled"],
-                _blank_calculated_row,
-            )
-            edited_calculated = st.data_editor(
-                calculated_frame,
-                num_rows="dynamic",
-                width="stretch",
-                hide_index=True,
-                key="config_studio_calculated_editor",
-                column_config={
-                    "Name": st.column_config.TextColumn("Name", help="Name of the generated field."),
-                    "Expression": st.column_config.TextColumn(
-                        "Expression",
-                        help="Polars expression body using pl and np. Do not add .alias(...) unless you want to fully control the expression.",
-                    ),
-                    "Enabled": st.column_config.CheckboxColumn("Enabled"),
-                },
-            )
-            st.session_state["config_studio_calculated_rows"] = _normalize_rows(edited_calculated)
-
     with editor_col2:
         with st.container(border=True):
-            title_col, action_col = st.columns([0.72, 0.28], vertical_alignment="center")
+            title_col, action_col = st.columns([0.7, 0.3], vertical_alignment="center")
             with title_col:
                 st.write("### IH Filter")
             with action_col:
@@ -349,12 +394,41 @@ pl.when(pl.col("PlacementType") != "").then(pl.col("PlacementType")).otherwise(p
                 )
                 st.caption("Example: pl.col(\"Outcome\").is_in([\"Pending\", \"Impression\", \"Clicked\"])")
         with st.container(border=True):
-            st.write("### Runtime Notes")
-            st.caption("The generator follows runtime IH semantics as closely as possible.")
-            st.markdown("- Defaults run before filters.")
-            st.markdown("- The IH filter runs before calculated fields.")
-            st.markdown("- Day / Month / Year / Quarter / ResponseTime are derived before field approval.")
-            st.markdown("- Approved fields affect AI, not ingestion.")
+            title_col, action_col, example_col = st.columns([0.4, 0.3, 0.3], vertical_alignment="center")
+            with title_col:
+                st.write("### Calculated Fields")
+            with action_col:
+                if st.button("Add Row", key="config_studio_add_calculated_row", use_container_width=True):
+                    _append_editor_row("config_studio_calculated_rows", _blank_calculated_row)
+                    st.rerun()
+            with example_col:
+                with st.popover("Examples", icon=":material/flare:"):
+                    st.code(
+                        """pl.when(pl.col("CustomerID").str.slice(0, 1) == "C").then(pl.lit("Customers known")).otherwise(pl.lit("Device/Anonymous")).alias("CustomerType")""",
+                        language="python",
+                    )
+                    st.caption("Enter the expression body. The studio will alias it to the field name automatically.")
+            calculated_frame = _editor_frame(
+                st.session_state["config_studio_calculated_rows"],
+                ["Name", "Expression", "Enabled"],
+                _blank_calculated_row,
+            )
+            edited_calculated = st.data_editor(
+                calculated_frame,
+                num_rows="dynamic",
+                width="stretch",
+                hide_index=True,
+                key="config_studio_calculated_editor",
+                column_config={
+                    "Name": st.column_config.TextColumn("Name", help="Name of the generated field."),
+                    "Expression": st.column_config.TextColumn(
+                        "Expression",
+                        help="Polars expression body using pl and np. Do not add .alias(...) unless you want to fully control the expression.",
+                    ),
+                    "Enabled": st.column_config.CheckboxColumn("Enabled"),
+                },
+            )
+            st.session_state["config_studio_calculated_rows"] = _normalize_rows(edited_calculated)
 
 
 def _render_field_step(working_df):
@@ -367,7 +441,7 @@ def _render_field_step(working_df):
     required_fields = sorted([field for field in REQ_IH_COLUMNS if field in available_fields], key=str.casefold)
     optional_fields = [field for field in available_fields if field not in required_fields]
     current_optional_selection = [field for field in current_selection if field in optional_fields]
-    selection_col1, selection_col2 = st.columns([1.15, 0.85], gap="large")
+    selection_col1, selection_col2 = st.columns([1.15, 0.85], gap="small")
     with selection_col1:
         with st.container(border=True):
             st.write("### Approved Field Catalog")
@@ -423,8 +497,9 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pd.DataFr
         filter_expression=filter_expression,
         calculated_fields_text=calculated_fields_text,
     )
+    ih_config = _apply_ih_runtime_settings(ih_config)
 
-    prep_col1, prep_col2 = st.columns([1, 1], gap="large")
+    prep_col1, prep_col2 = st.columns([1, 1], gap="small")
     with prep_col1:
         with st.container(border=True):
             st.write("#### IH Config Preview")
@@ -695,11 +770,19 @@ def main():
     with st.sidebar:
         st.write("### Studio Controls")
         st.caption("AI is optional until the final draft step.")
+        sample_size = st.number_input(
+            "Max Sample Rows",
+            min_value=1_000,
+            max_value=1_000_000,
+            value=100_000,
+            step=1_000,
+            help="If the uploaded IH sample is larger than this limit, Config Studio will use a random sample of this many rows.",
+        )
         llm = render_litellm_sidebar(
             key_prefix="config_studio",
             default_model="gpt-5.4",
             reasoning_effort="low",
-            verbosity="low",
+            verbosity="medium",
             missing_key_message="Please configure LLM API key.",
             require_api_key=False,
         )
@@ -716,8 +799,8 @@ def main():
 
     file_bytes = uploaded_file.getvalue()
     file_name = uploaded_file.name
-    sample_df = load_ih_sample(file_name, file_bytes)
-    _initialize_editor_state(template_config, f"{file_name}:{len(file_bytes)}", sample_df.columns)
+    sample_df = load_ih_sample(file_name, file_bytes, sample_size=sample_size)
+    _initialize_editor_state(template_config, f"{file_name}:{len(file_bytes)}", sample_df.columns, file_name)
 
     filter_expression = (
         compile_filter_rules(st.session_state["config_studio_filter_rows"])
@@ -725,11 +808,13 @@ def main():
         else st.session_state["config_studio_raw_filter"]
     )
     default_values = _build_default_values_map(st.session_state["config_studio_defaults_rows"])
+    calculated_fields_text = build_calculated_fields_config_text(st.session_state["config_studio_calculated_rows"])
     preprocessing_error = None
     try:
-        working_df, working_columns, calculated_fields_text = apply_ih_preprocessing(
+        working_df, working_columns, _ = apply_ih_preprocessing(
             file_name=file_name,
             file_bytes=file_bytes,
+            sample_size=sample_size,
             outcome_time_col=st.session_state["config_studio_outcome_time"],
             decision_time_col=st.session_state["config_studio_decision_time"],
             default_values=default_values,
