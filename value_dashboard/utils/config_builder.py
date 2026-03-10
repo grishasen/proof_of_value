@@ -7,7 +7,6 @@ import pandas as pd
 import polars as pl
 import streamlit as st
 import tomlkit
-from streamlit_tags import st_tags
 
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.config import set_config
@@ -113,8 +112,9 @@ def render_value(key, value, path=""):
     elif isinstance(value, float):
         return st.number_input(label, value=value, format="%.6f")
     elif isinstance(value, list):
-        new_val = st_tags(
-            label=label, text="", value=value, key=label + " (list)"
+        new_val = st.multiselect(
+            label=label, options=value, key=label + " (list)", default=value,
+            accept_new_options=True
         )
         return parse_list(new_val)
     elif isinstance(value, dict):
