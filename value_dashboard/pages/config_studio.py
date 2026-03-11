@@ -31,6 +31,12 @@ BACKGROUND_HELP = (
     "Run collection in the background and return a handle that can fetch or cancel the result. "
     "Polars marks background mode as unstable."
 )
+CONFIG_STUDIO_PRESERVE_KEYS = {
+    "config_studio_api_key",
+    "config_studio_model",
+    "config_studio_reasoning_effort",
+    "config_studio_verbosity",
+}
 STEP_OPTIONS = [
     "1. Sample",
     "2. Time Fields",
@@ -140,6 +146,14 @@ def _reset_report_builder_state():
             del st.session_state[key]
 
 
+def _clear_config_studio_state():
+    """Drop all file-specific Config Studio state before initializing a new IH sample."""
+    for key in list(st.session_state.keys()):
+        if key.startswith("config_studio") and key not in CONFIG_STUDIO_PRESERVE_KEYS:
+            del st.session_state[key]
+    _reset_report_builder_state()
+
+
 def _set_step(step_label: str):
     """Queue a programmatic step change for the next rerun."""
     st.session_state["config_studio_step"] = step_label
@@ -155,6 +169,7 @@ def _set_draft_config(config: dict):
 def _initialize_editor_state(template_config: dict, file_signature: str, sample_columns: list[str], file_name: str):
     if st.session_state.get("config_studio_file_signature") == file_signature:
         return
+    _clear_config_studio_state()
     template_ih = template_config.get("ih", {})
     detected_file_type, detected_file_pattern = detect_ih_file_settings(file_name)
     st.session_state["config_studio_file_signature"] = file_signature
@@ -178,7 +193,6 @@ def _initialize_editor_state(template_config: dict, file_signature: str, sample_
     st.session_state["config_studio_generated_toml"] = None
     st.session_state["config_studio_draft_config"] = None
     st.session_state["config_studio_selected_fields"] = []
-    _reset_report_builder_state()
 
 
 def _build_default_values_map(default_rows: list[dict]) -> dict:
@@ -243,20 +257,22 @@ def _render_time_step(sample_df):
     columns = sample_df.columns
     col1, col2 = st.columns(2)
     with col1:
-        st.session_state["config_studio_outcome_time"] = st.selectbox(
+        config_studio_outcome_time = st.selectbox(
             "Outcome Time Column",
             options=columns,
             index=columns.index(st.session_state["config_studio_outcome_time"])
             if st.session_state["config_studio_outcome_time"] in columns else 0,
             help="Choose the source timestamp used to derive Day, Month, Year, Quarter, and ResponseTime.",
+            key="config_studio_outcome_time"
         )
     with col2:
-        st.session_state["config_studio_decision_time"] = st.selectbox(
+        config_studio_decision_time = st.selectbox(
             "Decision Time Column",
             options=columns,
             index=columns.index(st.session_state["config_studio_decision_time"])
             if st.session_state["config_studio_decision_time"] in columns else 0,
             help="Choose the source timestamp used as the baseline for ResponseTime.",
+            key="config_studio_decision_time"
         )
     st.info("These two source columns will be aliased to OutcomeTime and DecisionTime inside the generated IH config.")
 
@@ -279,34 +295,40 @@ def _render_preprocess_step(sample_df, filter_field_options: list[str]):
             index=IH_FILE_TYPES.index(st.session_state["config_studio_file_type"])
             if st.session_state.get("config_studio_file_type") in IH_FILE_TYPES else 0,
             help="Choose the IH runtime reader. Supported values in this app are `parquet` and `pega_ds_export`.",
+            key="config_studio_file_type_w"
         )
         st.session_state["config_studio_ih_group_pattern"] = runtime_col2.text_input(
             "IH Group Pattern",
             value=st.session_state.get("config_studio_ih_group_pattern", ""),
             help="Regex used by the runtime to derive IH file groups from file names.",
+            key="config_studio_ih_group_pattern_w"
         )
         st.session_state["config_studio_file_pattern"] = runtime_col3.text_input(
             "File Pattern",
             value=st.session_state.get("config_studio_file_pattern", ""),
             help="Glob pattern used by the runtime to find IH files.",
+            key="config_studio_file_pattern_w"
         )
         with runtime_col4:
             st.session_state["config_studio_hive_partitioning"] = st.checkbox(
                 "Hive Partitioning",
                 value=st.session_state.get("config_studio_hive_partitioning", False),
                 help=HIVE_PARTITIONING_HELP,
+                key="config_studio_hive_partitioning_w"
             )
         with runtime_col5:
             st.session_state["config_studio_streaming"] = st.checkbox(
                 "Streaming",
                 value=st.session_state.get("config_studio_streaming", False),
                 help=STREAMING_HELP,
+                key="config_studio_streaming_w"
             )
         with runtime_col6:
             st.session_state["config_studio_background"] = st.checkbox(
                 "Background",
                 value=st.session_state.get("config_studio_background", False),
                 help=BACKGROUND_HELP,
+                key="config_studio_background_w"
             )
     editor_col1, editor_col2 = st.columns([1.0, 1.0], gap="small")
     with editor_col1:
@@ -314,10 +336,10 @@ def _render_preprocess_step(sample_df, filter_field_options: list[str]):
             title_col, action_col = st.columns([0.78, 0.22], vertical_alignment="center")
             with title_col:
                 st.write("### Default Column Values")
-            with action_col:
-                if st.button("Add Row", key="config_studio_add_default_row", use_container_width=True):
-                    _append_editor_row("config_studio_defaults_rows", _blank_default_row)
-                    st.rerun()
+            # with action_col:
+            #    if st.button("Add Row", key="config_studio_add_default_row", use_container_width=True):
+            #        _append_editor_row("config_studio_defaults_rows", _blank_default_row)
+            #        st.rerun()
             st.caption("Defaults are applied before filters. They may fill nulls or create missing columns.")
             default_frame = _editor_frame(
                 st.session_state["config_studio_defaults_rows"],
@@ -337,6 +359,7 @@ def _render_preprocess_step(sample_df, filter_field_options: list[str]):
                     ),
                     "Enabled": st.column_config.CheckboxColumn("Enabled"),
                 },
+
             )
             st.session_state["config_studio_defaults_rows"] = _normalize_rows(edited_defaults)
 
@@ -345,10 +368,10 @@ def _render_preprocess_step(sample_df, filter_field_options: list[str]):
             title_col, action_col = st.columns([0.7, 0.3], vertical_alignment="center")
             with title_col:
                 st.write("### IH Filter")
-            with action_col:
-                if st.button("Add Rule", key="config_studio_add_filter_row", use_container_width=True):
-                    _append_editor_row("config_studio_filter_rows", _blank_filter_row)
-                    st.rerun()
+            # with action_col:
+            #    if st.button("Add Rule", key="config_studio_add_filter_row", use_container_width=True):
+            #        _append_editor_row("config_studio_filter_rows", _blank_filter_row)
+            #        st.rerun()
             st.session_state["config_studio_filter_mode"] = st.segmented_control(
                 "Filter Mode",
                 options=["Rules", "Raw Polars"],
@@ -397,10 +420,10 @@ def _render_preprocess_step(sample_df, filter_field_options: list[str]):
             title_col, action_col, example_col = st.columns([0.4, 0.3, 0.3], vertical_alignment="center")
             with title_col:
                 st.write("### Calculated Fields")
-            with action_col:
-                if st.button("Add Row", key="config_studio_add_calculated_row", use_container_width=True):
-                    _append_editor_row("config_studio_calculated_rows", _blank_calculated_row)
-                    st.rerun()
+            # with action_col:
+            #    if st.button("Add Row", key="config_studio_add_calculated_row", use_container_width=True):
+            #        _append_editor_row("config_studio_calculated_rows", _blank_calculated_row)
+            #        st.rerun()
             with example_col:
                 with st.popover("Examples", icon=":material/flare:"):
                     st.code(
@@ -444,7 +467,7 @@ def _render_field_step(working_df):
     selection_col1, selection_col2 = st.columns([1.15, 0.85], gap="small")
     with selection_col1:
         with st.container(border=True):
-            st.write("### Approved Field Catalog")
+            st.write("### Approved Fields Catalog")
             st.caption("Only approved fields will be exposed to the AI stage.")
             if required_fields:
                 st.caption(
@@ -460,6 +483,7 @@ def _render_field_step(working_df):
                         "Choose the optional fields AI may use after defaults, filters, derived time fields, and "
                         "calculated fields are applied. Required IH fields stay locked in."
                     ),
+                    key="selected_optional_fields"
                 )
             else:
                 selected_optional_fields = []
@@ -786,21 +810,24 @@ def main():
             missing_key_message="Please configure LLM API key.",
             require_api_key=False,
         )
-
-    uploaded_file = st.file_uploader(
-        "Choose Interaction History sample",
-        type=["zip", "parquet", "json", "gzip"],
-        accept_multiple_files=False,
-        help="Start with one representative IH sample. The studio will use it to build a preprocessing plan and AI field catalog.",
-    )
-    if not uploaded_file:
-        st.info("Upload an IH sample to start the studio.")
-        return
-
-    file_bytes = uploaded_file.getvalue()
-    file_name = uploaded_file.name
-    sample_df = load_ih_sample(file_name, file_bytes, sample_size=sample_size)
-    _initialize_editor_state(template_config, f"{file_name}:{len(file_bytes)}", sample_df.columns, file_name)
+    if 'file_expanded' not in st.session_state:
+        st.session_state['file_expanded'] = True
+    filecontainer = st.expander("Sample upload", expanded=st.session_state['file_expanded'])
+    with filecontainer:
+        uploaded_file = st.file_uploader(
+            "Choose Interaction History sample",
+            type=["zip", "parquet", "json", "gzip"],
+            accept_multiple_files=False,
+            help="Start with one representative IH sample. The studio will use it to build a preprocessing plan and AI field catalog.",
+        )
+        if not uploaded_file:
+            st.info("Upload an IH sample to start the studio.")
+            return
+        st.session_state['file_expanded'] = False
+        file_bytes = uploaded_file.getvalue()
+        file_name = uploaded_file.name
+        sample_df = load_ih_sample(file_name, file_bytes, sample_size=sample_size)
+        _initialize_editor_state(template_config, f"{file_name}:{len(file_bytes)}", sample_df.columns, file_name)
 
     filter_expression = (
         compile_filter_rules(st.session_state["config_studio_filter_rows"])
@@ -871,19 +898,19 @@ def main():
         _render_sample_step(sample_df, file_name)
     elif selected_step == STEP_OPTIONS[1]:
         _render_time_step(sample_df)
-        with st.container(border=True):
-            st.write("### Derived Field Preview")
-            st.caption("These fields will appear in the working schema before field approval.")
-            preview_fields = [field for field in ["Day", "Month", "Year", "Quarter", "ResponseTime"] if
-                              field in working_df.columns]
-            st.dataframe(
-                working_df.select([st.session_state["config_studio_outcome_time"],
-                                   st.session_state["config_studio_decision_time"]] + preview_fields)
-                .head(25).to_pandas(),
-                width="stretch",
-                hide_index=True,
-                height=320,
-            )
+        st.write("### Derived Field Preview")
+        st.caption("These fields will appear in the working schema before field approval.")
+        preview_fields = [field for field in ["Day", "Month", "Year", "Quarter", "ResponseTime"] if
+                          field in working_df.columns]
+        st.dataframe(
+            working_df.select([st.session_state["config_studio_outcome_time"],
+                               st.session_state["config_studio_decision_time"]] + preview_fields)
+            .head(25).to_pandas(),
+            width="stretch",
+            hide_index=True,
+            height=320,
+            key="config_studio_time_preview",
+        )
     elif selected_step == STEP_OPTIONS[2]:
         filter_field_options = sorted(set(sample_df.columns).union(default_values.keys()))
         _render_preprocess_step(sample_df, filter_field_options)

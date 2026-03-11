@@ -71,13 +71,17 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
             })
         elif dtype.is_numeric():
             col_data = df[col].drop_nulls().drop_nans()
+            min_val = col_data.min() if not col_data.is_empty() else 0
+            max_val = col_data.max() if not col_data.is_empty() else 0
+            med_val = col_data.median() if not col_data.is_empty() else 0
+            mean_val = col_data.mean() if not col_data.is_empty() else 0
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
                 "Unique Count": "N/A",
                 "Most occurring": "N/A",
-                "Values": "Min = " + f'{col_data.min():.4f}' + " Max = " + f'{col_data.max():.4f}' + " Mean = "
-                          + f'{col_data.mean():.4f}' + " Median = " + f'{col_data.median():.4f}'
+                "Values": "Min = " + f'{min_val:.4f}' + " Max = " + f'{max_val:.4f}' + " Mean = "
+                          + f'{mean_val:.4f}' + " Median = " + f'{med_val:.4f}'
             })
         else:
             records.append({
