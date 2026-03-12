@@ -379,7 +379,7 @@ def _render_filter_step(filter_field_options: list[str], filter_rows_frame: pd.D
             st.session_state["config_studio_filter_rows"] = _normalize_rows(edited_filters)
             compiled_filter = compile_filter_rules(st.session_state["config_studio_filter_rows"])
             st.caption("Compiled filter")
-            st.code(compiled_filter or "pl.lit(True)", language="python")
+            st.code(compiled_filter or "pl.lit(True)", language="python", wrap_lines=True, line_numbers=True)
         else:
             st.session_state["config_studio_raw_filter"] = st.text_area(
                 "Raw Polars Filter",
@@ -420,6 +420,9 @@ def _render_calculated_fields_step(calculated_frame: pd.DataFrame):
             },
         )
         st.session_state["config_studio_calculated_rows"] = _normalize_rows(edited_calculated)
+        compiled_calc = build_calculated_fields_config_text(st.session_state["config_studio_calculated_rows"])
+        st.caption("Compiled calculated fields")
+        st.code(compiled_calc, language="python", wrap_lines=True, line_numbers=True)
 
 
 def _render_field_step(working_df):
