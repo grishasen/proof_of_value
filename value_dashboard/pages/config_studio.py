@@ -40,13 +40,15 @@ CONFIG_STUDIO_PRESERVE_KEYS = {
 STEP_OPTIONS = [
     "1. Sample",
     "2. Time Fields",
-    "3. Preprocess",
-    "4. Approve Fields",
-    "5. AI Draft",
-    "6. Metrics",
-    "7. Reports",
-    "8. Chat with Data",
-    "9. Save & Export",
+    "3. Defaults",
+    "4. Filters",
+    "5. Calculated Fields",
+    "6. Approve Fields",
+    "7. AI Draft",
+    "8. Metrics",
+    "9. Reports",
+    "10. Chat with Data",
+    "11. Save & Export",
 ]
 
 
@@ -230,22 +232,62 @@ def _render_metrics_bar(sample_df, working_df, approved_fields: list[str]):
 
 
 def _render_sample_step(sample_df, file_name: str):
-    detected_file_type, detected_file_pattern = detect_ih_file_settings(file_name)
-    file_type = st.session_state.get("config_studio_file_type", detected_file_type)
-    file_pattern = st.session_state.get("config_studio_file_pattern", detected_file_pattern)
-    meta_col1, meta_col2 = st.columns([1.2, 1.8], gap="small")
-    with meta_col1:
-        with st.container(border=True):
-            st.write("### Sample Source")
-            st.caption("The new studio keeps the upload local to the app session and profiles it before any AI call.")
-            st.write(f"File type: {file_type}")
-            st.write(f"Pattern: {file_pattern}")
-            st.write(f"Columns: {len(sample_df.columns)}")
-    with meta_col2:
-        with st.container(border=True):
-            st.write("### Raw Schema")
-            raw_schema = build_schema_preview(sample_df)
-            st.dataframe(raw_schema.to_pandas(), width="stretch", hide_index=True, height=360)
+    with st.container(border=True):
+        title_col, action_col = st.columns([0.8, 0.2])
+        with title_col:
+            st.write("### IH Runtime Settings")
+            st.caption(
+                "These controls define how the runtime reads IH files before defaults, filters, and calculated fields are applied.")
+        with action_col:
+            with st.popover("Runtime Behaviour", icon=":material/flare:"):
+                st.markdown("- Defaults run before filters.")
+                st.markdown("- The IH filter runs before calculated fields.")
+                st.markdown("- Day / Month / Year / Quarter / ResponseTime are derived before field approval.")
+                st.markdown("- Approved fields affect AI, not ingestion.")
+        runtime_col1, runtime_col2, runtime_col3, runtime_col4, runtime_col5, runtime_col6 = st.columns(6)
+        st.session_state["config_studio_file_type"] = runtime_col1.selectbox(
+            "File Type",
+            options=IH_FILE_TYPES,
+            index=IH_FILE_TYPES.index(st.session_state["config_studio_file_type"])
+            if st.session_state.get("config_studio_file_type") in IH_FILE_TYPES else 0,
+            help="Choose the IH runtime reader. Supported values in this app are `parquet` and `pega_ds_export`.",
+            key="config_studio_file_type_w",
+        )
+        st.session_state["config_studio_ih_group_pattern"] = runtime_col2.text_input(
+            "IH Group Pattern",
+            value=st.session_state.get("config_studio_ih_group_pattern", ""),
+            help="Regex used by the runtime to derive IH file groups from file names.",
+            key="config_studio_ih_group_pattern_w",
+        )
+        st.session_state["config_studio_file_pattern"] = runtime_col3.text_input(
+            "File Pattern",
+            value=st.session_state.get("config_studio_file_pattern", ""),
+            help="Glob pattern used by the runtime to find IH files.",
+            key="config_studio_file_pattern_w",
+        )
+        st.session_state["config_studio_hive_partitioning"] = runtime_col4.checkbox(
+            "Hive Partitioning",
+            value=st.session_state.get("config_studio_hive_partitioning", False),
+            help=HIVE_PARTITIONING_HELP,
+            key="config_studio_hive_partitioning_w",
+        )
+        st.session_state["config_studio_streaming"] = runtime_col5.checkbox(
+            "Streaming",
+            value=st.session_state.get("config_studio_streaming", False),
+            help=STREAMING_HELP,
+            key="config_studio_streaming_w",
+        )
+        st.session_state["config_studio_background"] = runtime_col6.checkbox(
+            "Background",
+            value=st.session_state.get("config_studio_background", False),
+            help=BACKGROUND_HELP,
+            key="config_studio_background_w",
+        )
+
+    with st.container(border=True):
+        st.write("### Raw Schema")
+        raw_schema = build_schema_preview(sample_df)
+        st.dataframe(raw_schema.to_pandas(), width="stretch", hide_index=True, height=360)
     with st.expander("Peek at raw sample rows", expanded=False, icon=":material/table_view:"):
         st.dataframe(sample_df.head(100).to_pandas(), width="stretch", height=320)
 
@@ -277,181 +319,107 @@ def _render_time_step(sample_df):
     st.info("These two source columns will be aliased to OutcomeTime and DecisionTime inside the generated IH config.")
 
 
-def _render_preprocess_step(sample_df, filter_field_options: list[str]):
+@st.fragment()
+def _render_preprocess_settings_step(default_frame: pd.DataFrame):
     with st.container(border=True):
-        col1, col2 = st.columns([0.8, 0.2])
-        col1.subheader("IH Runtime Settings",
-                       help="These settings are written into the generated `[ih]` section and reused by the AI draft.")
-        with col2:
-            with st.popover("Runtime Behaviour", icon=":material/flare:"):
-                st.markdown("- Defaults run before filters.")
-                st.markdown("- The IH filter runs before calculated fields.")
-                st.markdown("- Day / Month / Year / Quarter / ResponseTime are derived before field approval.")
-                st.markdown("- Approved fields affect AI, not ingestion.")
-        runtime_col1, runtime_col2, runtime_col3, runtime_col4, runtime_col5, runtime_col6 = st.columns(6)
-        st.session_state["config_studio_file_type"] = runtime_col1.selectbox(
-            "File Type",
-            options=IH_FILE_TYPES,
-            index=IH_FILE_TYPES.index(st.session_state["config_studio_file_type"])
-            if st.session_state.get("config_studio_file_type") in IH_FILE_TYPES else 0,
-            help="Choose the IH runtime reader. Supported values in this app are `parquet` and `pega_ds_export`.",
-            key="config_studio_file_type_w"
+        title_col, _ = st.columns([0.8, 0.2], vertical_alignment="center")
+        with title_col:
+            st.write("### Default Column Values")
+        st.caption("Defaults are applied before filters. They may fill nulls or create missing columns.")
+        edited_defaults = st.data_editor(
+            default_frame,
+            num_rows="dynamic",
+            width="stretch",
+            hide_index=True,
+            key="config_studio_defaults_editor",
+            column_config={
+                "Field": st.column_config.TextColumn("Field", help="Column to fill or create.", width="medium"),
+                "Default Value": st.column_config.TextColumn(
+                    "Default Value", help="Literal value. Examples: N/A, 0.0, true, 1e-10.",
+                    width="medium"
+                ),
+                "Enabled": st.column_config.CheckboxColumn("Enabled", width="small"),
+            },
         )
-        st.session_state["config_studio_ih_group_pattern"] = runtime_col2.text_input(
-            "IH Group Pattern",
-            value=st.session_state.get("config_studio_ih_group_pattern", ""),
-            help="Regex used by the runtime to derive IH file groups from file names.",
-            key="config_studio_ih_group_pattern_w"
+        st.session_state["config_studio_defaults_rows"] = _normalize_rows(edited_defaults)
+
+
+@st.fragment()
+def _render_filter_step(filter_field_options: list[str], filter_rows_frame: pd.DataFrame):
+    with st.container(border=True):
+        st.write("### Filters")
+        st.caption("Define the dataset-level filters before derived and calculated fields are added.")
+        st.session_state["config_studio_filter_mode"] = st.segmented_control(
+            "Filter Mode",
+            options=["Rules", "Raw Polars"],
+            default=st.session_state["config_studio_filter_mode"],
+            selection_mode="single",
+            help="Rules are easier to author; raw mode gives full control over the final ih.extensions.filter expression.",
         )
-        st.session_state["config_studio_file_pattern"] = runtime_col3.text_input(
-            "File Pattern",
-            value=st.session_state.get("config_studio_file_pattern", ""),
-            help="Glob pattern used by the runtime to find IH files.",
-            key="config_studio_file_pattern_w"
-        )
-        with runtime_col4:
-            st.session_state["config_studio_hive_partitioning"] = st.checkbox(
-                "Hive Partitioning",
-                value=st.session_state.get("config_studio_hive_partitioning", False),
-                help=HIVE_PARTITIONING_HELP,
-                key="config_studio_hive_partitioning_w"
-            )
-        with runtime_col5:
-            st.session_state["config_studio_streaming"] = st.checkbox(
-                "Streaming",
-                value=st.session_state.get("config_studio_streaming", False),
-                help=STREAMING_HELP,
-                key="config_studio_streaming_w"
-            )
-        with runtime_col6:
-            st.session_state["config_studio_background"] = st.checkbox(
-                "Background",
-                value=st.session_state.get("config_studio_background", False),
-                help=BACKGROUND_HELP,
-                key="config_studio_background_w"
-            )
-    editor_col1, editor_col2 = st.columns([1.0, 1.0], gap="small")
-    with editor_col1:
-        with st.container(border=True):
-            title_col, action_col = st.columns([0.78, 0.22], vertical_alignment="center")
-            with title_col:
-                st.write("### Default Column Values")
-            # with action_col:
-            #    if st.button("Add Row", key="config_studio_add_default_row", use_container_width=True):
-            #        _append_editor_row("config_studio_defaults_rows", _blank_default_row)
-            #        st.rerun()
-            st.caption("Defaults are applied before filters. They may fill nulls or create missing columns.")
-            default_frame = _editor_frame(
-                st.session_state["config_studio_defaults_rows"],
-                ["Field", "Default Value", "Enabled"],
-                _blank_default_row,
-            )
-            edited_defaults = st.data_editor(
-                default_frame,
+        if st.session_state["config_studio_filter_mode"] == "Rules":
+            edited_filters = st.data_editor(
+                filter_rows_frame,
                 num_rows="dynamic",
                 width="stretch",
                 hide_index=True,
-                key="config_studio_defaults_editor",
+                key="config_studio_filter_editor",
                 column_config={
-                    "Field": st.column_config.TextColumn("Field", help="Column to fill or create."),
-                    "Default Value": st.column_config.TextColumn(
-                        "Default Value", help="Literal value. Examples: N/A, 0.0, true, 1e-10."
+                    "Field": st.column_config.SelectboxColumn(
+                        "Field", options=filter_field_options, required=False, width="medium"
                     ),
-                    "Enabled": st.column_config.CheckboxColumn("Enabled"),
-                },
-
-            )
-            st.session_state["config_studio_defaults_rows"] = _normalize_rows(edited_defaults)
-
-    with editor_col2:
-        with st.container(border=True):
-            title_col, action_col = st.columns([0.7, 0.3], vertical_alignment="center")
-            with title_col:
-                st.write("### IH Filter")
-            # with action_col:
-            #    if st.button("Add Rule", key="config_studio_add_filter_row", use_container_width=True):
-            #        _append_editor_row("config_studio_filter_rows", _blank_filter_row)
-            #        st.rerun()
-            st.session_state["config_studio_filter_mode"] = st.segmented_control(
-                "Filter Mode",
-                options=["Rules", "Raw Polars"],
-                default=st.session_state["config_studio_filter_mode"],
-                selection_mode="single",
-                help="Rules are easier to author; raw mode gives full control over the final ih.extensions.filter expression.",
-            )
-            if st.session_state["config_studio_filter_mode"] == "Rules":
-                filter_rows_frame = _editor_frame(
-                    st.session_state["config_studio_filter_rows"],
-                    ["Field", "Operator", "Value", "Enabled"],
-                    _blank_filter_row,
-                )
-                edited_filters = st.data_editor(
-                    filter_rows_frame,
-                    num_rows="dynamic",
-                    width="stretch",
-                    hide_index=True,
-                    key="config_studio_filter_editor",
-                    column_config={
-                        "Field": st.column_config.SelectboxColumn(
-                            "Field", options=filter_field_options, required=False
-                        ),
-                        "Operator": st.column_config.SelectboxColumn(
-                            "Operator", options=FILTER_OPERATORS, required=False
-                        ),
-                        "Value": st.column_config.TextColumn(
-                            "Value", help="Comma-separated values for in/not in."
-                        ),
-                        "Enabled": st.column_config.CheckboxColumn("Enabled"),
-                    },
-                )
-                st.session_state["config_studio_filter_rows"] = _normalize_rows(edited_filters)
-                compiled_filter = compile_filter_rules(st.session_state["config_studio_filter_rows"])
-                st.caption("Compiled filter")
-                st.code(compiled_filter or "pl.lit(True)", language="python")
-            else:
-                st.session_state["config_studio_raw_filter"] = st.text_area(
-                    "Raw Polars Filter",
-                    value=st.session_state["config_studio_raw_filter"],
-                    height=220,
-                    help="Full Polars predicate expression. This filter runs before calculated fields, like the runtime IH pipeline.",
-                )
-                st.caption("Example: pl.col(\"Outcome\").is_in([\"Pending\", \"Impression\", \"Clicked\"])")
-        with st.container(border=True):
-            title_col, action_col, example_col = st.columns([0.4, 0.3, 0.3], vertical_alignment="center")
-            with title_col:
-                st.write("### Calculated Fields")
-            # with action_col:
-            #    if st.button("Add Row", key="config_studio_add_calculated_row", use_container_width=True):
-            #        _append_editor_row("config_studio_calculated_rows", _blank_calculated_row)
-            #        st.rerun()
-            with example_col:
-                with st.popover("Examples", icon=":material/flare:"):
-                    st.code(
-                        """pl.when(pl.col("CustomerID").str.slice(0, 1) == "C").then(pl.lit("Customers known")).otherwise(pl.lit("Device/Anonymous")).alias("CustomerType")""",
-                        language="python",
-                    )
-                    st.caption("Enter the expression body. The studio will alias it to the field name automatically.")
-            calculated_frame = _editor_frame(
-                st.session_state["config_studio_calculated_rows"],
-                ["Name", "Expression", "Enabled"],
-                _blank_calculated_row,
-            )
-            edited_calculated = st.data_editor(
-                calculated_frame,
-                num_rows="dynamic",
-                width="stretch",
-                hide_index=True,
-                key="config_studio_calculated_editor",
-                column_config={
-                    "Name": st.column_config.TextColumn("Name", help="Name of the generated field."),
-                    "Expression": st.column_config.TextColumn(
-                        "Expression",
-                        help="Polars expression body using pl and np. Do not add .alias(...) unless you want to fully control the expression.",
+                    "Operator": st.column_config.SelectboxColumn(
+                        "Operator", options=FILTER_OPERATORS, required=False, width="small"
                     ),
-                    "Enabled": st.column_config.CheckboxColumn("Enabled"),
+                    "Value": st.column_config.TextColumn(
+                        "Value", help="Comma-separated values for in/not in.", width="large"
+                    ),
+                    "Enabled": st.column_config.CheckboxColumn("Enabled", width="small"),
                 },
             )
-            st.session_state["config_studio_calculated_rows"] = _normalize_rows(edited_calculated)
+            st.session_state["config_studio_filter_rows"] = _normalize_rows(edited_filters)
+            compiled_filter = compile_filter_rules(st.session_state["config_studio_filter_rows"])
+            st.caption("Compiled filter")
+            st.code(compiled_filter or "pl.lit(True)", language="python")
+        else:
+            st.session_state["config_studio_raw_filter"] = st.text_area(
+                "Raw Polars Filter",
+                value=st.session_state["config_studio_raw_filter"],
+                height=220,
+                help="Full Polars predicate expression. This filter runs before calculated fields, like the runtime IH pipeline.",
+            )
+            st.caption("Example: pl.col(\"Outcome\").is_in([\"Pending\", \"Impression\", \"Clicked\"])")
+
+
+@st.fragment()
+def _render_calculated_fields_step(calculated_frame: pd.DataFrame):
+    with st.container(border=True):
+        title_col, _, example_col = st.columns([0.4, 0.3, 0.3], vertical_alignment="center")
+        with title_col:
+            st.write("### Calculated Fields")
+        with example_col:
+            with st.popover("Examples", icon=":material/flare:"):
+                st.code(
+                    """pl.when(pl.col("CustomerID").str.slice(0, 1) == "C").then(pl.lit("Customers known")).otherwise(pl.lit("Device/Anonymous")).alias("CustomerType")""",
+                    language="python",
+                )
+                st.caption("Enter the expression body. The studio will alias it to the field name automatically.")
+        edited_calculated = st.data_editor(
+            calculated_frame,
+            num_rows="dynamic",
+            width="stretch",
+            hide_index=True,
+            key="config_studio_calculated_editor",
+            column_config={
+                "Name": st.column_config.TextColumn("Name", help="Name of the generated field.", width="small"),
+                "Expression": st.column_config.TextColumn(
+                    "Expression",
+                    help="Polars expression body using pl and np. Do not add .alias(...) unless you want to fully control the expression.",
+                    width="large"
+                ),
+                "Enabled": st.column_config.CheckboxColumn("Enabled", width="small"),
+            },
+        )
+        st.session_state["config_studio_calculated_rows"] = _normalize_rows(edited_calculated)
 
 
 def _render_field_step(working_df):
@@ -464,38 +432,35 @@ def _render_field_step(working_df):
     required_fields = sorted([field for field in REQ_IH_COLUMNS if field in available_fields], key=str.casefold)
     optional_fields = [field for field in available_fields if field not in required_fields]
     current_optional_selection = [field for field in current_selection if field in optional_fields]
-    selection_col1, selection_col2 = st.columns([1.15, 0.85], gap="small")
-    with selection_col1:
-        with st.container(border=True):
-            st.write("### Approved Fields Catalog")
-            st.caption("Only approved fields will be exposed to the AI stage.")
-            if required_fields:
-                st.caption(
-                    "Required IH fields are always included: " + ", ".join(required_fields)
-                )
-            if optional_fields:
-                selected_optional_fields = st.pills(
-                    "Optional Fields Available To AI",
-                    options=optional_fields,
-                    default=current_optional_selection,
-                    selection_mode="multi",
-                    help=(
-                        "Choose the optional fields AI may use after defaults, filters, derived time fields, and "
-                        "calculated fields are applied. Required IH fields stay locked in."
-                    ),
-                    key="selected_optional_fields"
-                )
-            else:
-                selected_optional_fields = []
-                st.info("Only required IH fields are available in the current working schema.")
-            selected_fields = sorted(required_fields + selected_optional_fields, key=str.casefold)
-            st.session_state["config_studio_selected_fields"] = selected_fields
-    with selection_col2:
-        with st.container(border=True):
-            st.write("### Working Schema")
-            st.caption("This is the post-processed schema. Derived time fields are already visible here.")
-            schema_preview = build_schema_preview(working_df, selected_fields)
-            st.dataframe(schema_preview.to_pandas(), width="stretch", hide_index=True, height=360)
+    with st.container(border=True):
+        st.write("### Approved Fields Catalog")
+        st.caption("Only approved fields will be exposed to the AI stage.")
+        if required_fields:
+            st.caption(
+                "Required IH fields are always included: " + ", ".join(required_fields)
+            )
+        if optional_fields:
+            selected_optional_fields = st.pills(
+                "Optional Fields Available To AI",
+                options=optional_fields,
+                default=current_optional_selection,
+                selection_mode="multi",
+                help=(
+                    "Choose the optional fields AI may use after defaults, filters, derived time fields, and "
+                    "calculated fields are applied. Required IH fields stay locked in."
+                ),
+                key="selected_optional_fields"
+            )
+        else:
+            selected_optional_fields = []
+            st.info("Only required IH fields are available in the current working schema.")
+        selected_fields = sorted(required_fields + selected_optional_fields, key=str.casefold)
+        st.session_state["config_studio_selected_fields"] = selected_fields
+    with st.container(border=True):
+        st.write("### Working Schema")
+        st.caption("This is the post-processed schema. Derived time fields are already visible here.")
+        schema_preview = build_schema_preview(working_df, selected_fields)
+        st.dataframe(schema_preview.to_pandas(), width="stretch", hide_index=True, height='auto')
     with st.expander("Preview working sample after preprocessing", expanded=False, icon=":material/preview:"):
         preview_fields = st.session_state["config_studio_selected_fields"] or available_fields
         st.dataframe(
@@ -558,7 +523,7 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pd.DataFr
                     _reset_report_builder_state()
                     status.write("AI sections parsed successfully.")
                     status.update(label="Draft ready", state="complete")
-                _set_step(STEP_OPTIONS[5])
+                _set_step(STEP_OPTIONS[7])
                 st.rerun()
             except Exception as exc:
                 st.error(f"AI draft generation failed: {exc}")
@@ -572,7 +537,7 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pd.DataFr
         draft_reports = draft_config.get("reports", {})
         st.success(
             f"Draft ready: {len(draft_metrics)} metrics and {len(draft_reports)} reports. "
-            f"Continue with `6. Metrics`, `7. Reports`, and `8. Chat with Data` before exporting."
+            f"Continue with `8. Metrics`, `9. Reports`, and `10. Chat with Data` before exporting."
         )
 
 
@@ -822,7 +787,12 @@ def main():
         )
         if not uploaded_file:
             st.info("Upload an IH sample to start the studio.")
+            st.session_state['file_expanded'] = True
             return
+        elif st.session_state['file_expanded']:
+            st.session_state['file_expanded'] = False
+            st.rerun()
+
         st.session_state['file_expanded'] = False
         file_bytes = uploaded_file.getvalue()
         file_name = uploaded_file.name
@@ -857,8 +827,8 @@ def main():
     empty_after_preprocessing = not preprocessing_error and working_df.is_empty()
     if empty_after_preprocessing:
         st.warning(
-            "IH preprocessing returned zero rows. Adjust the filter, defaults, or calculated fields in "
-            "`3. Preprocess`, then try again."
+            "IH preprocessing returned zero rows. Adjust the runtime settings, default values, filter, or "
+            "calculated fields in steps `1. Sample`, `3. Defaults`, `4. Filters`, or `5. Calculated Fields`, then try again."
         )
         working_df = sample_df
         working_columns = sample_df.columns
@@ -876,13 +846,16 @@ def main():
 
     pending_step = st.session_state.pop("config_studio_pending_step", None)
     desired_step = pending_step or st.session_state.get("config_studio_step_selector", STEP_OPTIONS[0])
-    if empty_after_preprocessing and desired_step in {STEP_OPTIONS[3], STEP_OPTIONS[4]}:
-        st.info("Field approval and AI draft are disabled until preprocessing returns at least one row.")
-        desired_step = STEP_OPTIONS[2]
+    if empty_after_preprocessing and desired_step in set(STEP_OPTIONS[5:]):
+        st.info(
+            "Field approval, AI draft, and downstream review steps are disabled until preprocessing returns at "
+            "least one row."
+        )
+        desired_step = STEP_OPTIONS[3]
     draft_config = st.session_state.get("config_studio_draft_config")
-    if draft_config is None and desired_step in set(STEP_OPTIONS[5:]):
+    if draft_config is None and desired_step in set(STEP_OPTIONS[7:]):
         st.info("Generate an AI draft before reviewing metrics, reports, chat settings, and final export.")
-        desired_step = STEP_OPTIONS[4]
+        desired_step = STEP_OPTIONS[6]
     st.session_state["config_studio_step_selector"] = desired_step
     st.session_state["config_studio_step"] = desired_step
 
@@ -912,11 +885,30 @@ def main():
             key="config_studio_time_preview",
         )
     elif selected_step == STEP_OPTIONS[2]:
-        filter_field_options = sorted(set(sample_df.columns).union(default_values.keys()))
-        _render_preprocess_step(sample_df, filter_field_options)
+        default_frame = _editor_frame(
+            st.session_state["config_studio_defaults_rows"],
+            ["Field", "Default Value", "Enabled"],
+            _blank_default_row,
+        )
+        _render_preprocess_settings_step(default_frame)
     elif selected_step == STEP_OPTIONS[3]:
-        _render_field_step(working_df)
+        filter_field_options = sorted(set(sample_df.columns).union(default_values.keys()), key=str.casefold)
+        filter_rows_frame = _editor_frame(
+            st.session_state["config_studio_filter_rows"],
+            ["Field", "Operator", "Value", "Enabled"],
+            _blank_filter_row,
+        )
+        _render_filter_step(filter_field_options, filter_rows_frame)
     elif selected_step == STEP_OPTIONS[4]:
+        calculated_frame = _editor_frame(
+            st.session_state["config_studio_calculated_rows"],
+            ["Name", "Expression", "Enabled"],
+            _blank_calculated_row,
+        )
+        _render_calculated_fields_step(calculated_frame)
+    elif selected_step == STEP_OPTIONS[5]:
+        _render_field_step(working_df)
+    elif selected_step == STEP_OPTIONS[6]:
         _render_ai_step(
             template_config=template_config,
             file_name=file_name,
@@ -928,11 +920,11 @@ def main():
             llm=llm,
             preprocessing_error=preprocessing_error,
         )
-    elif selected_step == STEP_OPTIONS[5]:
-        _render_metrics_step()
-    elif selected_step == STEP_OPTIONS[6]:
-        _render_reports_step()
     elif selected_step == STEP_OPTIONS[7]:
+        _render_metrics_step()
+    elif selected_step == STEP_OPTIONS[8]:
+        _render_reports_step()
+    elif selected_step == STEP_OPTIONS[9]:
         _render_chat_step()
     else:
         _render_save_step()
