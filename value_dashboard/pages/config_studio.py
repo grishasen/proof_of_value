@@ -7,8 +7,8 @@ import pandas as pd
 import streamlit as st
 import tomlkit
 
-from value_dashboard.config_generator.ai import build_ai_config_prompt, build_final_config, generate_ai_sections, \
-    save_generated_config
+from value_dashboard.config_generator.ai import build_ai_config_prompt, build_ai_reports_refinement_prompt, \
+    build_final_config, generate_ai_sections, save_generated_config
 from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, build_ih_config, build_schema_preview, \
     build_calculated_fields_config_text, compile_filter_rules, detect_ih_file_settings, load_ih_sample
 from value_dashboard.metrics.constants import DECISION_TIME, OUTCOME_TIME, REQ_IH_COLUMNS
@@ -21,6 +21,7 @@ st.set_page_config(page_title="Config Studio", layout="wide")
 FILTER_OPERATORS = ["==", "!=", ">", ">=", "<", "<=", "contains", "starts with", "in", "not in", "is null",
                     "is not null"]
 IH_FILE_TYPES = ["parquet", "pega_ds_export"]
+AI_SCHEMA_EXAMPLE_COLUMNS = ["Most occurring", "Values"]
 HIVE_PARTITIONING_HELP = (
     "For parquet scans, infer statistics and schema from hive-partitioned paths and use them to prune reads."
 )
@@ -39,16 +40,17 @@ CONFIG_STUDIO_PRESERVE_KEYS = {
 }
 STEP_OPTIONS = [
     "1. Sample",
-    "2. Time Fields",
+    "2. Required Fields",
     "3. Defaults",
     "4. Filters",
-    "5. Calculated Fields",
-    "6. Approve Fields",
+    "5. Calculations",
+    "6. Approve",
     "7. AI Draft",
     "8. Metrics",
-    "9. Reports",
-    "10. Chat with Data",
-    "11. Save & Export",
+    "9. AI Reports",
+    "10. Reports",
+    "11. Chat with Data",
+    "12. Save/Export",
 ]
 
 
@@ -121,6 +123,98 @@ def _default_time_column(columns: list[str], preferred: str) -> str:
     return columns[0] if columns else ""
 
 
+def _default_subject_id_column(columns: list[str]) -> str:
+    if "SubjectID" in columns:
+        return "SubjectID"
+    preferred_names = ["CustomerID", "CustomerId", "SubjectId", "CustomerKey", "Customer"]
+    lower_to_original = {column.casefold(): column for column in columns}
+    for preferred_name in preferred_names:
+        match = lower_to_original.get(preferred_name.casefold())
+        if match:
+            return match
+    for column in columns:
+        column_lower = column.casefold()
+        if "subject" in column_lower and "id" in column_lower:
+            return column
+    for column in columns:
+        column_lower = column.casefold()
+        if "customer" in column_lower and "id" in column_lower:
+            return column
+    for column in columns:
+        if column.casefold().endswith("id"):
+            return column
+    return columns[0] if columns else ""
+
+
+def _build_effective_calculated_rows(
+        source_columns: list[str],
+        default_values: dict[str, object],
+        calculated_rows: list[dict],
+) -> list[dict]:
+    effective_rows = list(calculated_rows)
+    has_subject_id = "SubjectID" in source_columns or "SubjectID" in default_values
+    has_custom_subject_id = any(
+        row.get("Enabled", True) and str(row.get("Name", "")).strip() == "SubjectID"
+        for row in effective_rows
+    )
+    subject_id_source = st.session_state.get("config_studio_subject_id_source", "")
+    if has_subject_id or has_custom_subject_id or not subject_id_source or subject_id_source == "SubjectID":
+        return effective_rows
+    return [
+        {"Name": "SubjectID", "Expression": f'pl.col("{subject_id_source}")', "Enabled": True},
+        *effective_rows,
+    ]
+
+
+def _sync_ai_example_field_selection(selected_fields: list[str]) -> list[str]:
+    """Keep the example-sharing selection aligned with the currently approved field set."""
+    selected_set = set(selected_fields)
+    current_example_set = set(st.session_state.get("config_studio_ai_example_fields") or [])
+    if "config_studio_ai_example_fields" not in st.session_state:
+        synced_fields = sorted(selected_fields, key=str.casefold)
+    else:
+        synced_fields = sorted((current_example_set & selected_set), key=str.casefold)
+    st.session_state["config_studio_ai_example_fields"] = synced_fields
+    return synced_fields
+
+
+def _mask_schema_preview_for_ai(schema_preview, example_fields: list[str]):
+    """Hide sample values from AI for rows where the user has opted out of sharing examples."""
+    preview_df = schema_preview.to_pandas() if hasattr(schema_preview, "to_pandas") else schema_preview.copy()
+    allowed_fields = set(example_fields)
+    if "Column" not in preview_df.columns:
+        return schema_preview
+    hidden_mask = ~preview_df["Column"].isin(allowed_fields)
+    for column_name in AI_SCHEMA_EXAMPLE_COLUMNS:
+        if column_name in preview_df.columns:
+            preview_df.loc[hidden_mask, column_name] = ""
+    return preview_df
+
+
+@st.fragment()
+def _render_ai_schema_preview_table(schema_editor_df) -> pd.DataFrame:
+    """Render the AI schema preview editor and return the masked dataframe sent to AI."""
+    edited_schema_preview = st.data_editor(
+        schema_editor_df,
+        width="stretch",
+        hide_index=True,
+        height=480,
+        key="config_studio_ai_schema_preview_editor",
+        disabled=[column for column in schema_editor_df.columns if column != "Send To AI"],
+        column_config={
+            "Send To AI": st.column_config.CheckboxColumn(
+                "Sample To AI",
+                help="Uncheck a row to hide **Most occurring** and **Values** for this field in the AI prompt.",
+                width="small",
+            ),
+        },
+    )
+    st.session_state["config_studio_ai_example_fields"] = sorted(
+        edited_schema_preview.loc[edited_schema_preview["Send To AI"], "Column"].tolist(),
+        key=str.casefold,
+    )
+
+
 def _apply_ih_runtime_settings(ih_config: dict) -> dict:
     """Overlay the studio IH runtime controls onto the generated ih config."""
     ih_config["file_type"] = st.session_state.get("config_studio_file_type", ih_config.get("file_type", ""))
@@ -188,10 +282,12 @@ def _initialize_editor_state(template_config: dict, file_signature: str, sample_
     st.session_state["config_studio_background"] = bool(template_ih.get("background", False))
     st.session_state["config_studio_outcome_time"] = _default_time_column(sample_columns, OUTCOME_TIME)
     st.session_state["config_studio_decision_time"] = _default_time_column(sample_columns, DECISION_TIME)
+    st.session_state["config_studio_subject_id_source"] = _default_subject_id_column(sample_columns)
     st.session_state["config_studio_step"] = STEP_OPTIONS[0]
     st.session_state["config_studio_step_selector"] = STEP_OPTIONS[0]
     st.session_state["config_studio_pending_step"] = None
     st.session_state["config_studio_ai_sections"] = None
+    st.session_state["config_studio_ai_report_sections"] = None
     st.session_state["config_studio_generated_toml"] = None
     st.session_state["config_studio_draft_config"] = None
     st.session_state["config_studio_selected_fields"] = []
@@ -293,30 +389,56 @@ def _render_sample_step(sample_df, file_name: str):
 
 
 def _render_time_step(sample_df):
-    st.write("### Time Mapping")
+    st.write("### Required Field Mapping")
     st.caption(
-        "These canonical time fields are used to derive Day, Month, Year, Quarter, and ResponseTime before field approval.")
+        "Confirm the required identity and time fields before defaults, filters, and calculated fields are applied."
+    )
     columns = sample_df.columns
-    col1, col2 = st.columns(2)
-    with col1:
-        config_studio_outcome_time = st.selectbox(
-            "Outcome Time Column",
-            options=columns,
-            index=columns.index(st.session_state["config_studio_outcome_time"])
-            if st.session_state["config_studio_outcome_time"] in columns else 0,
-            help="Choose the source timestamp used to derive Day, Month, Year, Quarter, and ResponseTime.",
-            key="config_studio_outcome_time"
+    with st.container(border=True):
+        st.write("#### SubjectID Mapping")
+        if "SubjectID" in columns:
+            st.success("`SubjectID` is already present in the uploaded dataset.")
+            st.session_state["config_studio_subject_id_source"] = "SubjectID"
+        else:
+            st.selectbox(
+                "SubjectID Source Column",
+                options=columns,
+                index=columns.index(st.session_state["config_studio_subject_id_source"])
+                if st.session_state.get("config_studio_subject_id_source") in columns else 0,
+                help=(
+                    "Choose the source column that should be aliased to `SubjectID` for the working schema and the "
+                    "generated IH config."
+                ),
+                key="config_studio_subject_id_source",
+            )
+            st.info(
+                f"`{st.session_state['config_studio_subject_id_source']}` will be aliased to `SubjectID` during "
+                "studio preprocessing and in the generated `[ih.extensions.columns]` config."
+            )
+    with st.container(border=True):
+        st.write("#### Time Fields")
+        time_col1, time_col2 = st.columns(2)
+        with time_col1:
+            st.selectbox(
+                "Outcome Time Column",
+                options=columns,
+                index=columns.index(st.session_state["config_studio_outcome_time"])
+                if st.session_state["config_studio_outcome_time"] in columns else 0,
+                help="Choose the source timestamp used to derive Day, Month, Year, Quarter, and ResponseTime.",
+                key="config_studio_outcome_time"
+            )
+        with time_col2:
+            st.selectbox(
+                "Decision Time Column",
+                options=columns,
+                index=columns.index(st.session_state["config_studio_decision_time"])
+                if st.session_state["config_studio_decision_time"] in columns else 0,
+                help="Choose the source timestamp used as the baseline for ResponseTime.",
+                key="config_studio_decision_time"
+            )
+        st.info(
+            "These source columns will be aliased to `OutcomeTime` and `DecisionTime` inside the working schema."
         )
-    with col2:
-        config_studio_decision_time = st.selectbox(
-            "Decision Time Column",
-            options=columns,
-            index=columns.index(st.session_state["config_studio_decision_time"])
-            if st.session_state["config_studio_decision_time"] in columns else 0,
-            help="Choose the source timestamp used as the baseline for ResponseTime.",
-            key="config_studio_decision_time"
-        )
-    st.info("These two source columns will be aliased to OutcomeTime and DecisionTime inside the generated IH config.")
 
 
 @st.fragment()
@@ -425,6 +547,7 @@ def _render_calculated_fields_step(calculated_frame: pd.DataFrame):
         st.code(compiled_calc, language="python", wrap_lines=True, line_numbers=True)
 
 
+@st.fragment()
 def _render_field_step(working_df):
     available_fields = sorted(working_df.columns, key=str.casefold)
     current_selection = st.session_state.get("config_studio_selected_fields") or list(available_fields)
@@ -432,12 +555,20 @@ def _render_field_step(working_df):
         [field for field in current_selection if field in available_fields],
         key=str.casefold,
     )
+    missing_required_fields = sorted([field for field in REQ_IH_COLUMNS if field not in available_fields],
+                                     key=str.casefold)
     required_fields = sorted([field for field in REQ_IH_COLUMNS if field in available_fields], key=str.casefold)
     optional_fields = [field for field in available_fields if field not in required_fields]
     current_optional_selection = [field for field in current_selection if field in optional_fields]
     with st.container(border=True):
         st.write("### Approved Fields Catalog")
         st.caption("Only approved fields will be exposed to the AI stage.")
+        if missing_required_fields:
+            st.warning(
+                "Required columns missing from the current working dataset: `"
+                + ", ".join(missing_required_fields)
+                + "` . Add defaults, filters, calculated fields, or the SubjectID mapping before continuing."
+            )
         if required_fields:
             st.caption(
                 "Required IH fields are always included: " + ", ".join(required_fields)
@@ -460,24 +591,32 @@ def _render_field_step(working_df):
         selected_fields = sorted(required_fields + selected_optional_fields, key=str.casefold)
         st.session_state["config_studio_selected_fields"] = selected_fields
     with st.container(border=True):
-        st.write("### Working Schema")
+        st.subheader("Approve Data Sharing with AI", help="Review schema and data samples sent to AI.")
         st.caption("This is the post-processed schema. Derived time fields are already visible here.")
         schema_preview = build_schema_preview(working_df, selected_fields)
-        st.dataframe(schema_preview.to_pandas(), width="stretch", hide_index=True, height='auto')
+        schema_preview_df = schema_preview.to_pandas() if hasattr(schema_preview,
+                                                                  "to_pandas") else schema_preview.copy()
+        schema_editor_df = schema_preview_df.copy()
+        selected_ai_example_fields = _sync_ai_example_field_selection(selected_fields)
+        schema_editor_df.insert(
+            0,
+            "Send To AI",
+            schema_editor_df["Column"].isin(set(selected_ai_example_fields)),
+        )
+        _render_ai_schema_preview_table(schema_editor_df)
     with st.expander("Preview working sample after preprocessing", expanded=False, icon=":material/preview:"):
         preview_fields = st.session_state["config_studio_selected_fields"] or available_fields
         st.dataframe(
             working_df.select([field for field in preview_fields if field in working_df.columns]).head(100).to_pandas(),
             width="stretch",
-            height=320,
         )
 
 
 def _render_ai_step(template_config: dict, file_name: str, working_df: pd.DataFrame, schema_preview: pd.DataFrame,
                     default_values: dict, filter_expression: str, calculated_fields_text: str, llm,
                     preprocessing_error: str | None = None):
-    st.write("### AI Draft")
-    st.caption("The AI sees only the approved working schema and the final IH preprocessing config.")
+    st.write("### AI Configuration Draft")
+    st.write("The AI sees only the approved working schema and the final IH preprocessing config.")
     if preprocessing_error:
         st.warning("Resolve preprocessing issues before generating an AI draft.")
         return
@@ -490,16 +629,17 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pd.DataFr
         calculated_fields_text=calculated_fields_text,
     )
     ih_config = _apply_ih_runtime_settings(ih_config)
-
-    prep_col1, prep_col2 = st.columns([1, 1], gap="small")
+    prep_col1, prep_col2 = st.columns([0.5, 0.5])
     with prep_col1:
         with st.container(border=True):
-            st.write("#### IH Config Preview")
+            st.subheader("IH Config", help="Review schema and data samples sent to AI.", divider=True)
             st.code(tomlkit.dumps({"ih": ih_config}), language="toml", height=480)
     with prep_col2:
         with st.container(border=True):
-            st.write("#### Approved Schema Preview")
-            st.dataframe(schema_preview.to_pandas(), width="stretch", hide_index=True, height=480)
+            st.subheader("Approved Schema Preview", help="Review schema and data samples sent to AI.", divider=True)
+            ai_schema_preview = _mask_schema_preview_for_ai(schema_preview,
+                                                            st.session_state["config_studio_ai_example_fields"])
+            st.dataframe(ai_schema_preview, width="stretch", height=480)
 
     if not llm:
         st.info("Configure an API key in the sidebar when you are ready to generate metrics and reports.")
@@ -507,7 +647,7 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pd.DataFr
 
     prompt = build_ai_config_prompt(
         file_name=file_name,
-        approved_schema=schema_preview,
+        approved_schema=ai_schema_preview,
         approved_fields=approved_fields,
         template_config=template_config,
         ih_config=ih_config,
@@ -540,7 +680,7 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pd.DataFr
         draft_reports = draft_config.get("reports", {})
         st.success(
             f"Draft ready: {len(draft_metrics)} metrics and {len(draft_reports)} reports. "
-            f"Continue with `8. Metrics`, `9. Reports`, and `10. Chat with Data` before exporting."
+            f"Continue with `8. Metrics`, `9. AI Reports`, and `10. Reports` before exporting."
         )
 
 
@@ -689,6 +829,72 @@ def _render_metrics_step():
         else:
             updated_metrics[key] = render_value(key, value, "config_studio.metrics")
     cfg["metrics"] = updated_metrics
+    st.info(
+        "When you finish metric edits, continue to `9. AI Reports` to refresh the report set from the updated grouping fields.")
+
+
+def _render_ai_reports_step(file_name: str, working_df: pd.DataFrame, schema_preview: pd.DataFrame, llm):
+    """Regenerate only the reports section after metric edits, keeping the rest of the draft intact."""
+    cfg = st.session_state.get("config_studio_draft_config")
+    if cfg is None:
+        st.info("Generate an AI draft first.")
+        return
+
+    st.write("### AI Report Refresh")
+    st.caption(
+        "Use a second AI pass to rebuild only the `[reports]` section from the current draft metrics and approved schema."
+    )
+    approved_fields = st.session_state.get("config_studio_selected_fields") or list(working_df.columns)
+    prompt = build_ai_reports_refinement_prompt(
+        file_name=file_name,
+        approved_schema=schema_preview,
+        approved_fields=approved_fields,
+        current_config=cfg,
+    )
+
+    summary_col1, summary_col2 = st.columns(2)
+    with summary_col1:
+        with st.container(border=True):
+            st.write("#### Current Metrics")
+            st.metric("Metric Sections", len(cfg.get("metrics", {})))
+            st.code(tomlkit.dumps({"metrics": cfg.get("metrics", {})}), language="toml", height=360)
+    with summary_col2:
+        with st.container(border=True):
+            st.write("#### Current Reports")
+            st.metric("Report Count", len(cfg.get("reports", {})))
+            st.code(tomlkit.dumps({"reports": cfg.get("reports", {})}), language="toml", height=360)
+
+    if not llm:
+        st.info("Configure an API key in the sidebar when you are ready to refresh reports from the edited metrics.")
+        return
+
+    action_col1, action_col2 = st.columns([0.35, 0.65], vertical_alignment="center")
+    with action_col1:
+        if st.button("Refresh Reports From Metrics", type="primary", key="config_studio_refresh_reports"):
+            try:
+                with st.status("Refreshing reports from the current metrics", expanded=True) as status:
+                    status.write("Building a report-only AI prompt from the current draft config...")
+                    sections = generate_ai_sections(llm, prompt)
+                    if "reports" not in sections:
+                        raise ValueError("AI response did not include a [reports] section.")
+                    updated_cfg = deepcopy(cfg)
+                    updated_cfg["reports"] = sections["reports"]
+                    st.session_state["config_studio_ai_report_sections"] = sections
+                    _set_draft_config(updated_cfg)
+                    _reset_report_builder_state()
+                    status.write("Reports section parsed successfully.")
+                    status.update(label="Reports refreshed", state="complete")
+                _set_step(STEP_OPTIONS[9])
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Report refresh failed: {exc}")
+    with action_col2:
+        with st.popover("Show report refresh prompt", icon=":material/psychology:"):
+            st.code(prompt, language="text")
+
+    st.info(
+        "This step replaces only `[reports]`. Your current `[metrics]`, preprocessing settings, and other draft sections stay unchanged."
+    )
 
 
 def _render_reports_step():
@@ -699,7 +905,7 @@ def _render_reports_step():
         return
 
     st.write("### Reports Review")
-    st.caption("Keep the useful reports, delete weak ones, and refine the remaining report definitions.")
+    st.caption("Review the AI-refreshed report set, remove weak reports, and refine the remaining definitions.")
     render_report_builder(cfg)
 
 
@@ -808,7 +1014,12 @@ def main():
         else st.session_state["config_studio_raw_filter"]
     )
     default_values = _build_default_values_map(st.session_state["config_studio_defaults_rows"])
-    calculated_fields_text = build_calculated_fields_config_text(st.session_state["config_studio_calculated_rows"])
+    effective_calculated_rows = _build_effective_calculated_rows(
+        sample_df.columns,
+        default_values,
+        st.session_state["config_studio_calculated_rows"],
+    )
+    calculated_fields_text = build_calculated_fields_config_text(effective_calculated_rows)
     preprocessing_error = None
     try:
         working_df, working_columns, _ = apply_ih_preprocessing(
@@ -819,7 +1030,7 @@ def main():
             decision_time_col=st.session_state["config_studio_decision_time"],
             default_values=default_values,
             filter_expression=filter_expression,
-            calculated_field_rows=st.session_state["config_studio_calculated_rows"],
+            calculated_field_rows=effective_calculated_rows,
         )
     except Exception as exc:
         preprocessing_error = str(exc)
@@ -842,6 +1053,10 @@ def main():
     if not approved_fields:
         approved_fields = list(working_columns)
     schema_preview = build_schema_preview(working_df, approved_fields)
+    ai_schema_preview = _mask_schema_preview_for_ai(
+        schema_preview,
+        _sync_ai_example_field_selection(approved_fields),
+    )
     _render_metrics_bar(sample_df, working_df, approved_fields)
 
     if "config_studio_step_selector" not in st.session_state:
@@ -857,7 +1072,7 @@ def main():
         desired_step = STEP_OPTIONS[3]
     draft_config = st.session_state.get("config_studio_draft_config")
     if draft_config is None and desired_step in set(STEP_OPTIONS[7:]):
-        st.info("Generate an AI draft before reviewing metrics, reports, chat settings, and final export.")
+        st.info("Generate an AI draft before reviewing metrics, refreshing reports, chat settings, and final export.")
         desired_step = STEP_OPTIONS[6]
     st.session_state["config_studio_step_selector"] = desired_step
     st.session_state["config_studio_step"] = desired_step
@@ -926,8 +1141,15 @@ def main():
     elif selected_step == STEP_OPTIONS[7]:
         _render_metrics_step()
     elif selected_step == STEP_OPTIONS[8]:
-        _render_reports_step()
+        _render_ai_reports_step(
+            file_name=file_name,
+            working_df=working_df,
+            schema_preview=ai_schema_preview,
+            llm=llm,
+        )
     elif selected_step == STEP_OPTIONS[9]:
+        _render_reports_step()
+    elif selected_step == STEP_OPTIONS[10]:
         _render_chat_step()
     else:
         _render_save_step()

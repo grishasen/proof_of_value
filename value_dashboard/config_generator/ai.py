@@ -28,7 +28,8 @@ def build_ai_config_prompt(
         ih_config: dict,
 ) -> str:
     """Build the constrained AI prompt for metrics and report generation."""
-    with pl.Config(tbl_cols=len(approved_schema), tbl_rows=len(approved_schema)):
+    with pl.Config(tbl_cols=len(approved_schema), tbl_rows=len(approved_schema),
+                   fmt_str_lengths=1000):
         return f"""
 You generate only valid TOML.
 
@@ -80,6 +81,60 @@ Final self-check:
 1. Every metric group_by field exists in approved fields.
 2. Every report metric exists in [metrics].
 3. Every report field exists in approved fields or is a known metric score.
+4. Output valid TOML only.
+"""
+
+
+def build_ai_reports_refinement_prompt(
+        file_name: str,
+        approved_schema,
+        approved_fields: list[str],
+        current_config: dict,
+) -> str:
+    """Build a constrained prompt that regenerates only the reports section from the current draft config."""
+    with pl.Config(tbl_cols=len(approved_schema), tbl_rows=len(approved_schema)):
+        return f"""
+You generate only valid TOML.
+
+Task:
+Using the approved working schema and the current draft dashboard config,
+refine only the [reports] section so it matches the current metric definitions.
+
+Output contract:
+1. Output valid TOML only.
+2. Do not include markdown, comments, prose, or code fences.
+3. Output only the [reports] section.
+4. Do not output [metrics], [variants], [ih], [holdings], [ux], [copyright], or [chat_with_data].
+5. Never invent fields.
+6. Only use approved fields listed below.
+7. Every report must reference a metric that already exists in the current [metrics] section.
+8. Keep report keys stable when possible, but remove invalid reports and add better ones when the current metrics support them.
+9. Prefer dimensions already available in metrics.global_filters and metrics.<metric>.group_by.
+10. Pick up newly added grouping fields when they support clearer or more useful reports.
+
+File name:
+{file_name}
+
+Approved fields:
+{approved_fields}
+
+Approved schema:
+{approved_schema}
+
+Current draft config:
+{_safe_prompt_config_block(current_config)}
+
+Hard rules:
+1. Keep reports internally consistent with the current [metrics] section.
+2. Remove any report that depends on a missing field or unsupported metric.
+3. Every report field must exist in approved fields or be a known metric score.
+4. Keep a useful spread of business, technical, and operational reports where the current metrics allow it.
+5. If a metric exposes new grouping dimensions, prefer report mappings that make those dimensions visible.
+
+Final self-check:
+1. Every report metric exists in current [metrics].
+2. Every referenced field exists in approved fields or is a valid score for that metric.
+3. Output contains only [reports].
 4. Output valid TOML only.
 """
 

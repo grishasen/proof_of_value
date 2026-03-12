@@ -39,35 +39,35 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
     schema = df.schema
     records = []
     for col, dtype in schema.items():
+        unique_count = df[col].n_unique()
         if col.lower().endswith('id'):
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
-                "Unique Count": "N/A",
+                "Unique Count": unique_count,
                 "Most occurring": "N/A",
                 "Values": ''
             })
         elif dtype == pl.Utf8:
-            unique_count = df[col].n_unique()
-            mode = df[col].mode().to_list()
-            unique = df[col].unique().to_list()
+            col_data = df[col].drop_nulls()
+            mode = col_data.mode().to_list()
+            unique = df[col].unique().shuffle().head(10).to_list()
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
                 "Unique Count": unique_count,
                 "Most occurring": str(mode),
-                "Values": str(unique) if unique_count < 10 else '...'
+                "Values": str(unique)
             })
         elif dtype == NoneType:
-            unique_count = df[col].n_unique()
             mode = df[col].mode().to_list()
-            unique = df[col].unique().to_list()
+            unique = df[col].unique().shuffle().head(10).to_list()
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
                 "Unique Count": unique_count,
                 "Most occurring": str(mode),
-                "Values": str(unique) if unique_count < 10 else '...'
+                "Values": str(unique)
             })
         elif dtype.is_numeric():
             col_data = df[col].drop_nulls().drop_nans()
@@ -78,18 +78,21 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
-                "Unique Count": "N/A",
+                "Unique Count": unique_count,
                 "Most occurring": "N/A",
                 "Values": "Min = " + f'{min_val:.4f}' + " Max = " + f'{max_val:.4f}' + " Mean = "
                           + f'{mean_val:.4f}' + " Median = " + f'{med_val:.4f}'
             })
         else:
+            col_data = df[col].drop_nulls()
+            min_val = col_data.min() if not col_data.is_empty() else ""
+            max_val = col_data.max() if not col_data.is_empty() else ""
             records.append({
                 "Column": col,
                 "Data Type": str(dtype),
-                "Unique Count": "N/A",
+                "Unique Count": unique_count,
                 "Most occurring": "N/A",
-                "Values": "Min = " + f'{df[col].min()}' + " Max = " + f'{df[col].max()}'
+                "Values": "Min = " + f'{min_val}' + " Max = " + f'{max_val}'
             })
 
     return pl.DataFrame(records)
