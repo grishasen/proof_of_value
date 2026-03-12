@@ -29,7 +29,7 @@ def build_ai_config_prompt(
 ) -> str:
     """Build the constrained AI prompt for metrics and report generation."""
     with pl.Config(tbl_cols=len(approved_schema), tbl_rows=len(approved_schema),
-                   fmt_str_lengths=1000):
+                   fmt_str_lengths=255, tbl_width_chars=-1):
         return f"""
 You generate only valid TOML.
 

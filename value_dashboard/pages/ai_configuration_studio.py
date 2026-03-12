@@ -3,7 +3,7 @@ import re
 import tomllib
 from copy import deepcopy
 
-import pandas as pd
+import polars as pl
 import streamlit as st
 import tomlkit
 
@@ -89,22 +89,41 @@ def _blank_calculated_row() -> dict:
     return {"Name": "", "Expression": "", "Enabled": True}
 
 
-def _normalize_rows(frame: pd.DataFrame) -> list[dict]:
-    rows = frame.to_dict("records")
+def _frame_records(frame) -> list[dict]:
+    if hasattr(frame, "to_dicts"):
+        return frame.to_dicts()
+    return frame.to_dict("records")
+
+
+def _is_missing_editor_value(value) -> bool:
+    return value is None or value != value
+
+
+def _normalize_rows(frame) -> list[dict]:
+    rows = _frame_records(frame)
     cleaned = []
     for row in rows:
         cleaned.append({
-            key: ("" if pd.isna(value) else value)
+            key: ("" if _is_missing_editor_value(value) else value)
             for key, value in row.items()
         })
     return cleaned
 
 
-def _editor_frame(rows: list[dict], columns: list[str], blank_row_factory) -> pd.DataFrame:
+def _editor_frame(rows: list[dict], columns: list[str], blank_row_factory) -> pl.DataFrame:
     """Keep editor tables usable even if the user deletes every row."""
-    if rows:
-        return pd.DataFrame(rows, columns=columns)
-    return pd.DataFrame([blank_row_factory()], columns=columns)
+    editor_rows = rows or [blank_row_factory()]
+    return pl.DataFrame({
+        column: [
+            (
+                bool(row.get(column, False))
+                if column == "Enabled"
+                else ("" if _is_missing_editor_value(row.get(column, "")) else str(row.get(column, "")))
+            )
+            for row in editor_rows
+        ]
+        for column in columns
+    })
 
 
 def _append_editor_row(state_key: str, blank_row_factory):
@@ -180,19 +199,25 @@ def _sync_ai_example_field_selection(selected_fields: list[str]) -> list[str]:
 
 def _mask_schema_preview_for_ai(schema_preview, example_fields: list[str]):
     """Hide sample values from AI for rows where the user has opted out of sharing examples."""
-    preview_df = schema_preview.to_pandas() if hasattr(schema_preview, "to_pandas") else schema_preview.copy()
+    preview_df = schema_preview if isinstance(schema_preview, pl.DataFrame) else pl.from_dicts(
+        _frame_records(schema_preview))
     allowed_fields = set(example_fields)
-    if "Column" not in preview_df.columns:
+    if "Column" not in preview_df.columns or not AI_SCHEMA_EXAMPLE_COLUMNS:
         return schema_preview
-    hidden_mask = ~preview_df["Column"].isin(allowed_fields)
-    for column_name in AI_SCHEMA_EXAMPLE_COLUMNS:
-        if column_name in preview_df.columns:
-            preview_df.loc[hidden_mask, column_name] = ""
-    return preview_df
+    available_example_columns = [column_name for column_name in AI_SCHEMA_EXAMPLE_COLUMNS if
+                                 column_name in preview_df.columns]
+    if not available_example_columns:
+        return preview_df
+    keep_examples = pl.col("Column").is_in(sorted(allowed_fields, key=str.casefold)) if allowed_fields else pl.lit(
+        False)
+    return preview_df.with_columns([
+        pl.when(keep_examples).then(pl.col(column_name)).otherwise(pl.lit("")).alias(column_name)
+        for column_name in available_example_columns
+    ])
 
 
 @st.fragment()
-def _render_ai_schema_preview_table(schema_editor_df) -> pd.DataFrame:
+def _render_ai_schema_preview_table(schema_editor_df) -> None:
     """Render the AI schema preview editor and return the masked dataframe sent to AI."""
     edited_schema_preview = st.data_editor(
         schema_editor_df,
@@ -210,7 +235,11 @@ def _render_ai_schema_preview_table(schema_editor_df) -> pd.DataFrame:
         },
     )
     st.session_state["config_studio_ai_example_fields"] = sorted(
-        edited_schema_preview.loc[edited_schema_preview["Send To AI"], "Column"].tolist(),
+        [
+            str(row.get("Column", ""))
+            for row in _frame_records(edited_schema_preview)
+            if row.get("Send To AI")
+        ],
         key=str.casefold,
     )
 
@@ -383,9 +412,9 @@ def _render_sample_step(sample_df, file_name: str):
     with st.container(border=True):
         st.write("### Raw Schema")
         raw_schema = build_schema_preview(sample_df)
-        st.dataframe(raw_schema.to_pandas(), width="stretch", hide_index=True, height=360)
+        st.dataframe(raw_schema, width="stretch", hide_index=True, height=360)
     with st.expander("Peek at raw sample rows", expanded=False, icon=":material/table_view:"):
-        st.dataframe(sample_df.head(100).to_pandas(), width="stretch", height=320)
+        st.dataframe(sample_df.head(100), width="stretch", height=320)
 
 
 def _render_time_step(sample_df):
@@ -442,7 +471,7 @@ def _render_time_step(sample_df):
 
 
 @st.fragment()
-def _render_preprocess_settings_step(default_frame: pd.DataFrame):
+def _render_preprocess_settings_step(default_frame: pl.DataFrame):
     with st.container(border=True):
         title_col, _ = st.columns([0.8, 0.2], vertical_alignment="center")
         with title_col:
@@ -467,7 +496,7 @@ def _render_preprocess_settings_step(default_frame: pd.DataFrame):
 
 
 @st.fragment()
-def _render_filter_step(filter_field_options: list[str], filter_rows_frame: pd.DataFrame):
+def _render_filter_step(filter_field_options: list[str], filter_rows_frame: pl.DataFrame):
     with st.container(border=True):
         st.write("### Filters")
         st.caption("Define the dataset-level filters before derived and calculated fields are added.")
@@ -513,7 +542,7 @@ def _render_filter_step(filter_field_options: list[str], filter_rows_frame: pd.D
 
 
 @st.fragment()
-def _render_calculated_fields_step(calculated_frame: pd.DataFrame):
+def _render_calculated_fields_step(calculated_frame: pl.DataFrame):
     with st.container(border=True):
         title_col, _, example_col = st.columns([0.4, 0.3, 0.3], vertical_alignment="center")
         with title_col:
@@ -594,25 +623,20 @@ def _render_field_step(working_df):
         st.subheader("Approve Data Sharing with AI", help="Review schema and data samples sent to AI.")
         st.caption("This is the post-processed schema. Derived time fields are already visible here.")
         schema_preview = build_schema_preview(working_df, selected_fields)
-        schema_preview_df = schema_preview.to_pandas() if hasattr(schema_preview,
-                                                                  "to_pandas") else schema_preview.copy()
-        schema_editor_df = schema_preview_df.copy()
         selected_ai_example_fields = _sync_ai_example_field_selection(selected_fields)
-        schema_editor_df.insert(
-            0,
-            "Send To AI",
-            schema_editor_df["Column"].isin(set(selected_ai_example_fields)),
-        )
+        schema_editor_df = schema_preview.with_columns(
+            pl.col("Column").is_in(selected_ai_example_fields).alias("Send To AI")
+        ).select(["Send To AI", *schema_preview.columns])
         _render_ai_schema_preview_table(schema_editor_df)
     with st.expander("Preview working sample after preprocessing", expanded=False, icon=":material/preview:"):
         preview_fields = st.session_state["config_studio_selected_fields"] or available_fields
         st.dataframe(
-            working_df.select([field for field in preview_fields if field in working_df.columns]).head(100).to_pandas(),
+            working_df.select([field for field in preview_fields if field in working_df.columns]).head(100),
             width="stretch",
         )
 
 
-def _render_ai_step(template_config: dict, file_name: str, working_df: pd.DataFrame, schema_preview: pd.DataFrame,
+def _render_ai_step(template_config: dict, file_name: str, working_df: pl.DataFrame, schema_preview: pl.DataFrame,
                     default_values: dict, filter_expression: str, calculated_fields_text: str, llm,
                     preprocessing_error: str | None = None):
     st.write("### AI Configuration Draft")
@@ -833,7 +857,7 @@ def _render_metrics_step():
         "When you finish metric edits, continue to `9. AI Reports` to refresh the report set from the updated grouping fields.")
 
 
-def _render_ai_reports_step(file_name: str, working_df: pd.DataFrame, schema_preview: pd.DataFrame, llm):
+def _render_ai_reports_step(file_name: str, working_df: pl.DataFrame, schema_preview: pl.DataFrame, llm):
     """Regenerate only the reports section after metric edits, keeping the rest of the draft intact."""
     cfg = st.session_state.get("config_studio_draft_config")
     if cfg is None:
@@ -1096,7 +1120,7 @@ def main():
         st.dataframe(
             working_df.select([st.session_state["config_studio_outcome_time"],
                                st.session_state["config_studio_decision_time"]] + preview_fields)
-            .head(25).to_pandas(),
+            .head(25),
             width="stretch",
             hide_index=True,
             height=320,

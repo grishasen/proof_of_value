@@ -724,7 +724,7 @@ def calculate_descriptive_scores(
     columns_conf = m_config["columns"]
     scores = m_config["scores"]
     num_columns = [col for col in columns_conf if (col + "_Mean") in data.columns]
-    grp_by = config["group_by"]
+    grp_by = list(set(config["group_by"]))
 
     grouped_mean = (
         data.group_by(grp_by)

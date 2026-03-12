@@ -3,7 +3,7 @@ import os
 import re
 import uuid
 
-import pandas as pd
+import polars as pl
 import streamlit as st
 import tomlkit
 
@@ -53,18 +53,37 @@ def _blank_calculated_row() -> dict:
     return {"Name": "", "Expression": "", "Enabled": True}
 
 
-def _normalize_rows(frame: pd.DataFrame) -> list[dict]:
-    rows = frame.to_dict("records")
+def _frame_records(frame) -> list[dict]:
+    if hasattr(frame, "to_dicts"):
+        return frame.to_dicts()
+    return frame.to_dict("records")
+
+
+def _is_missing_editor_value(value) -> bool:
+    return value is None or value != value
+
+
+def _normalize_rows(frame) -> list[dict]:
+    rows = _frame_records(frame)
     return [
-        {key: ("" if pd.isna(value) else value) for key, value in row.items()}
+        {key: ("" if _is_missing_editor_value(value) else value) for key, value in row.items()}
         for row in rows
     ]
 
 
-def _editor_frame(rows: list[dict], columns: list[str], blank_row_factory) -> pd.DataFrame:
-    if rows:
-        return pd.DataFrame(rows, columns=columns)
-    return pd.DataFrame([blank_row_factory()], columns=columns)
+def _editor_frame(rows: list[dict], columns: list[str], blank_row_factory) -> pl.DataFrame:
+    editor_rows = rows or [blank_row_factory()]
+    return pl.DataFrame({
+        column: [
+            (
+                bool(row.get(column, False))
+                if column == "Enabled"
+                else ("" if _is_missing_editor_value(row.get(column, "")) else str(row.get(column, "")))
+            )
+            for row in editor_rows
+        ]
+        for column in columns
+    })
 
 
 def _split_top_level(text: str, separator: str) -> list[str]:
