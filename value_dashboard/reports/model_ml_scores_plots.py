@@ -70,7 +70,7 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     yaxis_layout_dict = {yaxis_name + "_tickformat": ',.2%' for yaxis_name in yaxis_names}
     fig.update_layout(yaxis_layout_dict)
     height = 640
-    if 'facet_row' in config.keys():
+    if config.get('facet_row', None) is not None:
         height = max(640, 300 * len(ih_analysis[config['facet_row']].unique()))
 
     fig.update_layout(
