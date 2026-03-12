@@ -600,7 +600,7 @@ def _render_save_step(cfg: dict):
     summary_col3.metric("Variants", len(safe_cfg.get("variants", {})))
 
     st.code(toml_text, language="toml", height=520)
-    action_col1, action_col2, _ = st.columns([1, 2, 5])
+    action_col1, action_col2, _ = st.columns([2, 2, 4])
     action_col2.download_button(
         "Download Config",
         data=toml_text,
