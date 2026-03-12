@@ -1,15 +1,9 @@
-import os
 import re
-import uuid
 from datetime import datetime, date
 
 import pandas as pd
 import polars as pl
 import streamlit as st
-import tomlkit
-
-from value_dashboard.report_builder import render_report_builder
-from value_dashboard.utils.config import set_config
 
 
 def serialize_exprs(obj):
@@ -108,9 +102,9 @@ def render_value(key, value, path=""):
     if isinstance(value, bool):
         return st.checkbox(label, value=value)
     elif isinstance(value, int):
-        return st.number_input(label, value=value, step=1)
+        return st.number_input(label, value=value, step=1, width=200)
     elif isinstance(value, float):
-        return st.number_input(label, value=value, format="%.6f")
+        return st.number_input(label, value=value, format="%.6f", width=200)
     elif isinstance(value, list):
         new_val = st.multiselect(
             label=label, options=value, key=label + " (list)", default=value,
@@ -198,84 +192,6 @@ def render_report(report, metrics_options, report_name=None):
 
 
 def render_config_editor(cfg):
-    st.set_page_config(page_title="Config Editor", layout="wide")
-    st.title("🔧 Visual Config File Editor")
+    from value_dashboard.config_ui import render_configuration_studio
 
-    tabs = st.tabs(
-        ["Branding", "UX", "Interaction History", "Holdings", "Metrics", "Variants", "Chat with Data", "Report Builder",
-         "Save & Export"])
-
-    with tabs[0]:
-        st.header("Branding (copyright)")
-        branding = cfg.get("copyright", {})
-        new_branding = render_section(branding, "copyright")
-        cfg["copyright"] = new_branding
-
-    with tabs[1]:
-        st.header("UX")
-        ux = cfg.get("ux", {})
-        new_ux = render_section(ux, "ux")
-        cfg["ux"] = new_ux
-
-    with tabs[2]:
-        st.header("Interaction History (IH)")
-        ih = cfg.get("ih", {})
-        new_ih = render_section(ih, "ih")
-        cfg["ih"] = new_ih
-
-    with tabs[3]:
-        st.header("Holdings")
-        holdings = cfg.get("holdings", {})
-        new_holdings = render_section(holdings, "holdings")
-        cfg["holdings"] = new_holdings
-
-    with tabs[4]:
-        st.header("Metrics (Scores are read-only)")
-        metrics = cfg.get("metrics", {})
-        updated_metrics = {}
-        for k, v in metrics.items():
-            st.subheader(k)
-            if isinstance(v, dict):
-                updated_metrics[k] = render_section(v, f"metrics.{k}")
-            else:
-                updated_metrics[k] = render_value(k, v, "metrics")
-        cfg["metrics"] = updated_metrics
-
-    with tabs[5]:
-        st.header("Variants")
-        variants = cfg.get("variants", {})
-        new_variants = render_section(variants, "variants")
-        cfg["variants"] = new_variants
-
-    with tabs[6]:
-        st.header("Chat With Data")
-        chat = cfg.get("chat_with_data", {})
-        new_chat = render_section(chat, "chat_with_data")
-        cfg["chat_with_data"] = new_chat
-
-    with tabs[7]:
-        st.header("Report Configuration Builder")
-        render_report_builder(cfg)
-
-    with tabs[8]:
-        st.header("Save & Export")
-        cfg = serialize_exprs(cfg)
-        if st.button("Apply New Config", type='primary'):
-            new_config_text = tomlkit.dumps(cfg)
-            try:
-                os.makedirs("temp_configs")
-            except FileExistsError:
-                pass
-            cfg_file_name = "temp_configs/" + "config_" + uuid.uuid4().hex + '.toml'
-            with open(cfg_file_name, "w") as f:
-                f.write(new_config_text)
-
-            set_config(cfg_file_name)
-            st.success("All changes saved!")
-
-        st.download_button(
-            "Download Config",
-            data=tomlkit.dumps(cfg),
-            file_name="config.toml",
-            mime="text/plain"
-        )
+    render_configuration_studio(cfg)

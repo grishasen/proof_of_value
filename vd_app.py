@@ -31,9 +31,9 @@ def get_pages():
         pages.append(create_page("value_dashboard/pages/chat_with_data.py", "Chat with data"))
     if clv_metrics_avail():
         pages.append(create_page("value_dashboard/pages/clv_analysis.py", "CLV Insights"))
-    pages.append(create_page("value_dashboard/pages/toml_editor.py", "Configuration"))
+    pages.append(create_page("value_dashboard/pages/configuration_editor.py", "Configuration Editor"))
     if not is_demo_mode():
-        pages.append(create_page("value_dashboard/pages/config_studio.py", "Config Studio"))
+        pages.append(create_page("value_dashboard/pages/ai_configuration_studio.py", "AI Configuration Studio"))
     return [p for p in pages if p is not None]
 
 
@@ -60,4 +60,3 @@ else:
 pages = get_pages()
 pg = st.navigation(pages, expanded=False)
 pg.run()
-

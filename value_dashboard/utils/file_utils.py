@@ -11,6 +11,10 @@ from pathlib import Path
 
 import polars as pl
 
+from value_dashboard.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def extract_compressed_file(file_path) -> str:
     """
@@ -68,7 +72,7 @@ def read_dataset_export(
         if not files:
             raise Exception("No valid JSON files found.")
         if verbose:
-            print("Reading JSON files:", files)
+            logger.info("Reading JSON files:", files)
         if lazy:
             df = pl.scan_ndjson(files)
         else:
@@ -79,7 +83,7 @@ def read_dataset_export(
         if not files:
             raise Exception("No valid Parquet files found.")
         if verbose:
-            print("Reading Parquet files:", files)
+            logger.info("Reading Parquet files:", files)
         if lazy:
             df = pl.scan_parquet(files, cache=False, missing_columns='insert', extra_columns='ignore')
         else:

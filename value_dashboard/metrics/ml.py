@@ -535,7 +535,6 @@ def model_ml_scores(ih: pl.LazyFrame, config: dict, streaming=False, background=
         else:
             return ml_data
     except Exception as e:
-        print("An exception occurred: ", e)
         traceback.print_exc()
         raise e
 
