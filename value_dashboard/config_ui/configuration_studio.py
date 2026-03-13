@@ -1,23 +1,33 @@
-import ast
 import os
-import re
 import uuid
+from copy import deepcopy
 
-import polars as pl
 import streamlit as st
 import tomlkit
 
-from value_dashboard.config_generator.preprocess import build_calculated_fields_config_text, compile_filter_rules
+from value_dashboard.config_ui.preprocess_builders import render_calculated_fields_builder, \
+    render_defaults_builder, render_filter_builder
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.config import set_config
-from value_dashboard.utils.config_builder import display_dict_as_table, render_section, render_value, serialize_exprs
-
-FILTER_OPERATORS = ["==", "!=", ">", ">=", "<", "<=", "contains", "starts with", "in", "not in", "is null",
-                    "is not null"]
+from value_dashboard.utils.config_builder import render_section, render_value, serialize_exprs
 
 
 def _render_intro():
     st.header("Configuration Editor", divider="red")
+
+
+def _config_signature(cfg: dict) -> str:
+    return tomlkit.dumps(serialize_exprs(deepcopy(cfg)))
+
+
+def _ensure_working_config(cfg: dict) -> dict:
+    working_key = "configuration_editor_working_cfg"
+    source_key = "configuration_editor_source_signature"
+    incoming_signature = _config_signature(cfg)
+    if st.session_state.get(source_key) != incoming_signature or working_key not in st.session_state:
+        st.session_state[source_key] = incoming_signature
+        st.session_state[working_key] = deepcopy(cfg)
+    return st.session_state[working_key]
 
 
 def _build_steps(cfg: dict) -> list[tuple[str, str]]:
@@ -43,273 +53,6 @@ def _build_steps(cfg: dict) -> list[tuple[str, str]]:
         ("save", "Save & Export"),
     ])
     return [(key, f"{idx}. {label}") for idx, (key, label) in enumerate(step_names, start=1)]
-
-
-def _blank_filter_row() -> dict:
-    return {"Field": "", "Operator": "==", "Value": "", "Enabled": True}
-
-
-def _blank_calculated_row() -> dict:
-    return {"Name": "", "Expression": "", "Enabled": True}
-
-
-def _frame_records(frame) -> list[dict]:
-    if hasattr(frame, "to_dicts"):
-        return frame.to_dicts()
-    return frame.to_dict("records")
-
-
-def _is_missing_editor_value(value) -> bool:
-    return value is None or value != value
-
-
-def _normalize_rows(frame) -> list[dict]:
-    rows = _frame_records(frame)
-    return [
-        {key: ("" if _is_missing_editor_value(value) else value) for key, value in row.items()}
-        for row in rows
-    ]
-
-
-def _editor_frame(rows: list[dict], columns: list[str], blank_row_factory) -> pl.DataFrame:
-    editor_rows = rows or [blank_row_factory()]
-    return pl.DataFrame({
-        column: [
-            (
-                bool(row.get(column, False))
-                if column == "Enabled"
-                else ("" if _is_missing_editor_value(row.get(column, "")) else str(row.get(column, "")))
-            )
-            for row in editor_rows
-        ]
-        for column in columns
-    })
-
-
-def _split_top_level(text: str, separator: str) -> list[str]:
-    items = []
-    start = 0
-    depth = 0
-    quote = None
-    escape = False
-    idx = 0
-    while idx < len(text):
-        char = text[idx]
-        if quote:
-            if escape:
-                escape = False
-            elif char == "\\":
-                escape = True
-            elif char == quote:
-                quote = None
-        else:
-            if char in {"'", '"'}:
-                quote = char
-            elif char in "([{":
-                depth += 1
-            elif char in ")]}":
-                depth = max(0, depth - 1)
-            elif depth == 0 and text.startswith(separator, idx):
-                items.append(text[start:idx].strip())
-                idx += len(separator)
-                start = idx
-                continue
-        idx += 1
-    items.append(text[start:].strip())
-    return [item for item in items if item]
-
-
-def _strip_outer_parentheses(text: str) -> str:
-    candidate = text.strip()
-    while candidate.startswith("(") and candidate.endswith(")"):
-        inner = candidate[1:-1].strip()
-        depth = 0
-        quote = None
-        escape = False
-        balanced = True
-        for char in inner:
-            if quote:
-                if escape:
-                    escape = False
-                elif char == "\\":
-                    escape = True
-                elif char == quote:
-                    quote = None
-            else:
-                if char in {"'", '"'}:
-                    quote = char
-                elif char == "(":
-                    depth += 1
-                elif char == ")":
-                    depth -= 1
-                    if depth < 0:
-                        balanced = False
-                        break
-        if not balanced or depth != 0 or quote:
-            break
-        candidate = inner
-    return candidate
-
-
-def _parse_simple_filter_rules(filter_text: str) -> list[dict] | None:
-    raw_text = str(filter_text or "").strip()
-    if not raw_text:
-        return []
-    rows = []
-
-    def _safe_literal_eval(value_text: str):
-        try:
-            return ast.literal_eval(value_text)
-        except (SyntaxError, ValueError):
-            raise ValueError
-
-    for clause in _split_top_level(raw_text, " & "):
-        expression = _strip_outer_parentheses(clause)
-        match = re.fullmatch(r'pl\.col\("([^"]+)"\)\.is_null\(\)', expression)
-        if match:
-            rows.append({"Field": match.group(1), "Operator": "is null", "Value": "", "Enabled": True})
-            continue
-        match = re.fullmatch(r'pl\.col\("([^"]+)"\)\.is_not_null\(\)', expression)
-        if match:
-            rows.append({"Field": match.group(1), "Operator": "is not null", "Value": "", "Enabled": True})
-            continue
-        match = re.fullmatch(r'pl\.col\("([^"]+)"\)\.cast\(pl\.Utf8\)\.str\.contains\((.+)\)', expression)
-        if match:
-            try:
-                parsed_value = _safe_literal_eval(match.group(2))
-            except ValueError:
-                return None
-            rows.append({
-                "Field": match.group(1),
-                "Operator": "contains",
-                "Value": str(parsed_value),
-                "Enabled": True,
-            })
-            continue
-        match = re.fullmatch(r'pl\.col\("([^"]+)"\)\.cast\(pl\.Utf8\)\.str\.starts_with\((.+)\)', expression)
-        if match:
-            try:
-                parsed_value = _safe_literal_eval(match.group(2))
-            except ValueError:
-                return None
-            rows.append({
-                "Field": match.group(1),
-                "Operator": "starts with",
-                "Value": str(parsed_value),
-                "Enabled": True,
-            })
-            continue
-        match = re.fullmatch(r'~pl\.col\("([^"]+)"\)\.is_in\((.+)\)', expression)
-        if match:
-            try:
-                values = _safe_literal_eval(match.group(2))
-            except ValueError:
-                return None
-            rows.append({
-                "Field": match.group(1),
-                "Operator": "not in",
-                "Value": ", ".join(map(str, values)),
-                "Enabled": True,
-            })
-            continue
-        match = re.fullmatch(r'pl\.col\("([^"]+)"\)\.is_in\((.+)\)', expression)
-        if match:
-            try:
-                values = _safe_literal_eval(match.group(2))
-            except ValueError:
-                return None
-            rows.append({
-                "Field": match.group(1),
-                "Operator": "in",
-                "Value": ", ".join(map(str, values)),
-                "Enabled": True,
-            })
-            continue
-        comparison_match = re.fullmatch(r'pl\.col\("([^"]+)"\)\s*(==|!=|>=|<=|>|<)\s*(.+)', expression)
-        if comparison_match:
-            try:
-                parsed_value = _safe_literal_eval(comparison_match.group(3))
-            except ValueError:
-                return None
-            rows.append({
-                "Field": comparison_match.group(1),
-                "Operator": comparison_match.group(2),
-                "Value": str(parsed_value),
-                "Enabled": True,
-            })
-            continue
-        return None
-    return rows
-
-
-def _stringify_columns_value(columns_value) -> str:
-    if columns_value is None:
-        return ""
-    if isinstance(columns_value, str):
-        return columns_value
-    return str(columns_value)
-
-
-def _parse_calculated_rows(columns_value) -> list[dict] | None:
-    raw_text = _stringify_columns_value(columns_value).strip()
-    if not raw_text:
-        return []
-    if not (raw_text.startswith("[") and raw_text.endswith("]")):
-        return None
-    body = raw_text[1:-1].strip()
-    if not body:
-        return []
-    rows = []
-    for expression_text in _split_top_level(body, ","):
-        cleaned = expression_text.strip()
-        alias_match = re.search(r"\.alias\((['\"])(.*?)\1\)\s*$", cleaned)
-        if not alias_match:
-            return None
-        name = alias_match.group(2)
-        if not name or not cleaned:
-            return None
-        rows.append({"Name": name, "Expression": cleaned, "Enabled": True})
-    return rows
-
-
-def _init_filter_editor_state(section_name: str, filter_value: str):
-    source_key = f"configuration_editor_{section_name}_filter_source"
-    mode_key = f"configuration_editor_{section_name}_filter_mode"
-    rows_key = f"configuration_editor_{section_name}_filter_rows"
-    raw_key = f"configuration_editor_{section_name}_raw_filter"
-    source_value = str(filter_value or "")
-    if st.session_state.get(source_key) == source_value:
-        return
-    parsed_rows = _parse_simple_filter_rules(source_value)
-    if parsed_rows is None and source_value.strip():
-        st.session_state[mode_key] = "Raw Polars"
-        st.session_state[rows_key] = [_blank_filter_row()]
-        st.session_state[raw_key] = source_value
-    else:
-        st.session_state[mode_key] = "Rules"
-        st.session_state[rows_key] = parsed_rows or [_blank_filter_row()]
-        st.session_state[raw_key] = source_value
-    st.session_state[source_key] = source_value
-
-
-def _init_calculated_editor_state(section_name: str, columns_value):
-    source_key = f"configuration_editor_{section_name}_columns_source"
-    mode_key = f"configuration_editor_{section_name}_columns_mode"
-    rows_key = f"configuration_editor_{section_name}_calculated_rows"
-    raw_key = f"configuration_editor_{section_name}_raw_columns"
-    source_value = _stringify_columns_value(columns_value)
-    if st.session_state.get(source_key) == source_value:
-        return
-    parsed_rows = _parse_calculated_rows(columns_value)
-    if parsed_rows is None and source_value.strip():
-        st.session_state[mode_key] = "Raw Expressions"
-        st.session_state[rows_key] = [_blank_calculated_row()]
-        st.session_state[raw_key] = source_value
-    else:
-        st.session_state[mode_key] = "Table"
-        st.session_state[rows_key] = parsed_rows or [_blank_calculated_row()]
-        st.session_state[raw_key] = source_value
-    st.session_state[source_key] = source_value
 
 
 def _render_simple_section_step(title: str, caption: str, section: dict, path: str) -> dict:
@@ -361,6 +104,7 @@ def _ensure_extensions(cfg: dict, section_name: str) -> dict:
     return section
 
 
+@st.fragment()
 def _render_data_runtime_step(cfg: dict):
     st.write("### Data Runtime")
     st.caption(
@@ -394,13 +138,23 @@ def _render_data_runtime_step(cfg: dict):
 def _render_defaults_step(cfg: dict, section_name: str, title: str):
     section = _ensure_extensions(cfg, section_name)
     extensions = dict(section.get("extensions", {}))
-    with st.container(border=True):
-        st.write(f"### {title} Defaults")
-        st.caption("Defaults are applied to missing or null values before downstream processing.")
-        default_values = extensions.get("default_values", {})
-        if isinstance(default_values, dict):
-            extensions["default_values"] = display_dict_as_table(default_values, read_only=False)
-        else:
+    default_values = extensions.get("default_values", {})
+    if isinstance(default_values, dict):
+        rows_key = f"configuration_editor_{section_name}_default_rows"
+        render_defaults_builder(
+            title=f"{title} Defaults",
+            caption="Defaults are applied before filters. They may fill nulls or create missing columns.",
+            default_values=default_values,
+            rows_key=rows_key,
+            source_key=f"configuration_editor_{section_name}_defaults_source",
+            editor_key=f"{section_name}.extensions.default_values_editor",
+            allow_custom_fields=True,
+            extensions=extensions,
+        )
+    else:
+        with st.container(border=True):
+            st.write(f"### {title} Defaults")
+            st.caption("Defaults are applied before filters. They may fill nulls or create missing columns.")
             extensions["default_values"] = render_value("default_values", default_values, f"{section_name}.extensions")
     section["extensions"] = extensions
     cfg[section_name] = section
@@ -409,57 +163,23 @@ def _render_defaults_step(cfg: dict, section_name: str, title: str):
 def _render_filter_step(cfg: dict, section_name: str, title: str):
     section = _ensure_extensions(cfg, section_name)
     extensions = dict(section.get("extensions", {}))
-    _init_filter_editor_state(section_name, extensions.get("filter", ""))
-    with st.container(border=True):
-        st.write(f"### {title} Filtering")
-        st.caption("Use the table builder for simple filters or switch to raw mode for manual Polars expressions.")
-        mode_key = f"configuration_editor_{section_name}_filter_mode"
-        rows_key = f"configuration_editor_{section_name}_filter_rows"
-        raw_key = f"configuration_editor_{section_name}_raw_filter"
-        st.session_state[mode_key] = st.segmented_control(
-            "Filter Mode",
-            options=["Rules", "Raw Polars"],
-            selection_mode="single",
-            default=st.session_state[mode_key],
-            key=f"{mode_key}_selector",
-            help="Rules mode matches the builder in AI Configuration Studio. Raw mode preserves fully custom expressions.",
-        )
-        if st.session_state[mode_key] == "Rules":
-            filter_rows_frame = _editor_frame(
-                st.session_state[rows_key],
-                ["Field", "Operator", "Value", "Enabled"],
-                _blank_filter_row,
-            )
-            edited_filters = st.data_editor(
-                filter_rows_frame,
-                num_rows="dynamic",
-                width="stretch",
-                hide_index=True,
-                key=f"{section_name}.extensions.filter_editor",
-                column_config={
-                    "Field": st.column_config.TextColumn("Field", width="medium"),
-                    "Operator": st.column_config.SelectboxColumn("Operator", options=FILTER_OPERATORS, width="small"),
-                    "Value": st.column_config.TextColumn(
-                        "Value",
-                        help="Use comma-separated values for `in` and `not in`.",
-                        width="large",
-                    ),
-                    "Enabled": st.column_config.CheckboxColumn("Enabled", width="small"),
-                },
-            )
-            st.session_state[rows_key] = _normalize_rows(edited_filters)
-            extensions["filter"] = compile_filter_rules(st.session_state[rows_key])
-            st.caption("Compiled filter")
-            st.code(extensions["filter"] or "pl.lit(True)", language="python", wrap_lines=True, line_numbers=True)
-        else:
-            st.session_state[raw_key] = st.text_area(
-                "Raw Polars Filter",
-                value=st.session_state[raw_key],
-                key=f"{raw_key}_editor",
-                height=220,
-                help="This expression is written back to the TOML config as-is.",
-            )
-            extensions["filter"] = st.session_state[raw_key]
+    mode_key = f"configuration_editor_{section_name}_filter_mode"
+    rows_key = f"configuration_editor_{section_name}_filter_rows"
+    raw_key = f"configuration_editor_{section_name}_raw_filter"
+    render_filter_builder(
+        title=f"{title} Filtering",
+        caption="Define the dataset-level filters before derived and calculated fields are added.",
+        filter_value=str(extensions.get("filter", "")),
+        field_options=None,
+        mode_key=mode_key,
+        rows_key=rows_key,
+        raw_key=raw_key,
+        source_key=f"configuration_editor_{section_name}_filter_source",
+        editor_key=f"{section_name}.extensions.filter_editor",
+        raw_editor_key=f"{raw_key}_editor",
+        allow_custom_fields=True,
+        extensions=extensions,
+    )
     section["extensions"] = extensions
     cfg[section_name] = section
 
@@ -467,63 +187,28 @@ def _render_filter_step(cfg: dict, section_name: str, title: str):
 def _render_columns_step(cfg: dict, section_name: str, title: str):
     section = _ensure_extensions(cfg, section_name)
     extensions = dict(section.get("extensions", {}))
-    _init_calculated_editor_state(section_name, extensions.get("columns", ""))
-    with st.container(border=True):
-        st.write(f"### {title} Calculated Fields")
-        st.caption("Use the table builder for named calculated fields or switch to raw mode for manual expressions.")
-        mode_key = f"configuration_editor_{section_name}_columns_mode"
-        rows_key = f"configuration_editor_{section_name}_calculated_rows"
-        raw_key = f"configuration_editor_{section_name}_raw_columns"
-        st.session_state[mode_key] = st.segmented_control(
-            "Calculated Fields Mode",
-            options=["Table", "Raw Expressions"],
-            selection_mode="single",
-            default=st.session_state[mode_key],
-            key=f"{mode_key}_selector",
-            help="Table mode matches the builder in AI Configuration Studio. Raw mode preserves manual expressions.",
-        )
-        if st.session_state[mode_key] == "Table":
-            calculated_frame = _editor_frame(
-                st.session_state[rows_key],
-                ["Name", "Expression", "Enabled"],
-                _blank_calculated_row,
-            )
-            edited_calculated = st.data_editor(
-                calculated_frame,
-                num_rows="dynamic",
-                width="stretch",
-                hide_index=True,
-                key=f"{section_name}.extensions.columns_editor",
-                column_config={
-                    "Name": st.column_config.TextColumn("Name", width="small"),
-                    "Expression": st.column_config.TextColumn(
-                        "Expression",
-                        help=(
-                            "Enter the Polars expression body, or keep a full expression with `.alias(...)` when you "
-                            "want to preserve an existing custom expression."
-                        ),
-                        width="large",
-                    ),
-                    "Enabled": st.column_config.CheckboxColumn("Enabled", width="small"),
-                },
-            )
-            st.session_state[rows_key] = _normalize_rows(edited_calculated)
-            extensions["columns"] = build_calculated_fields_config_text(st.session_state[rows_key])
-            st.caption("Compiled calculated fields")
-            st.code(extensions["columns"] or "[]", language="python", wrap_lines=True, line_numbers=True)
-        else:
-            st.session_state[raw_key] = st.text_area(
-                "Raw Calculated Fields",
-                value=st.session_state[raw_key],
-                key=f"{raw_key}_editor",
-                height=240,
-                help="This value is written back to the TOML config as-is.",
-            )
-            extensions["columns"] = st.session_state[raw_key]
+    mode_key = f"configuration_editor_{section_name}_columns_mode"
+    rows_key = f"configuration_editor_{section_name}_calculated_rows"
+    raw_key = f"configuration_editor_{section_name}_raw_columns"
+    render_calculated_fields_builder(
+        title=f"{title} Calculated Fields",
+        caption="Create named calculated fields that run after defaults and filters.",
+        columns_value=extensions.get("columns", ""),
+        mode_key=mode_key,
+        rows_key=rows_key,
+        raw_key=raw_key,
+        source_key=f"configuration_editor_{section_name}_columns_source",
+        editor_key=f"{section_name}.extensions.columns_editor",
+        raw_editor_key=f"{raw_key}_editor",
+        allow_custom_fields=True,
+        allow_raw_mode=True,
+        extensions=extensions,
+    )
     section["extensions"] = extensions
     cfg[section_name] = section
 
 
+@st.fragment()
 def _render_ux_step(cfg: dict):
     ux = cfg.get("ux", {})
     updated = {}
@@ -551,35 +236,79 @@ def _render_ux_step(cfg: dict):
     cfg["ux"] = updated
 
 
+@st.fragment()
 def _render_metrics_step(cfg: dict):
-    metrics = cfg.get("metrics", {})
-    updated_metrics = {}
-    st.write("### Metrics")
+    st.write("### Metrics Review")
     st.caption("Review metric-level grouping, filters, and field references. Scores remain read-only.")
 
-    if "global_filters" in metrics:
-        with st.container(border=True):
-            st.subheader("global_filters")
-            st.caption("Choose which fields should be exposed as top-level metric filters.")
-            updated_metrics["global_filters"] = render_value("global_filters", metrics.get("global_filters", []),
-                                                             "metrics")
+    metrics = cfg.get("metrics", {})
+    updated_metrics = {}
+    current_global_filters = [field for field in metrics.get("global_filters", [])]
+    with st.container(border=True):
+        st.subheader("global_filters")
+        st.caption("Choose the fields that should appear as top-level metric filters.")
+        updated_metrics["global_filters"] = st.multiselect(
+            "Global Filters",
+            options=current_global_filters,
+            default=current_global_filters,
+            key="metrics.global_filters",
+            help="Choose the fields that should appear as top-level metric filters.",
+            accept_new_options=True,
+        )
 
     for key, value in metrics.items():
         if key == "global_filters":
             continue
-        with st.container(border=True):
-            st.subheader(key)
-            if isinstance(value, dict):
-                updated_metrics[key] = render_section(value, f"metrics.{key}")
-            else:
-                updated_metrics[key] = render_value(key, value, "metrics")
-
-    if "clv" not in metrics:
-        st.info("This config does not contain a `metrics.clv` section, so CLV-specific metric settings are skipped.")
-
+        st.subheader(key)
+        if isinstance(value, dict):
+            with st.container(border=True):
+                updated_metric = {}
+                for metric_key, metric_value in value.items():
+                    widget_path = f"config_studio.metrics.{key}"
+                    if metric_key == "scores":
+                        st.markdown(f"**{metric_key}**: _not editable_")
+                        st.json(metric_value)
+                        updated_metric[metric_key] = metric_value
+                    elif metric_key == "group_by":
+                        current_group_by = [field for field in metric_value]
+                        updated_metric[metric_key] = st.multiselect(
+                            f"{key}.group_by",
+                            options=current_group_by,
+                            default=current_group_by,
+                            key=f"{widget_path}.group_by",
+                            help="Only available fields should be used in metric group_by.",
+                            accept_new_options=True
+                        )
+                    elif metric_key == "columns" and isinstance(metric_value, list):
+                        current_columns = [field for field in metric_value]
+                        updated_metric[metric_key] = st.multiselect(
+                            f"{key}.columns",
+                            options=current_columns,
+                            default=current_columns,
+                            key=f"{widget_path}.columns",
+                            help="Choose approved descriptive or metric fields only.",
+                        )
+                    elif metric_key == "filter":
+                        filter_key = f"{widget_path}.filter"
+                        draft_filter = st.text_area(
+                            f"{key}.filter",
+                            value=str(metric_value),
+                            key=f"{filter_key}_draft",
+                            help=(
+                                "Use a Polars expression. Any pl.col(...) references must use approved fields only."
+                            ),
+                            height=160,
+                        )
+                        updated_metric[metric_key] = draft_filter
+                    else:
+                        updated_metric[metric_key] = render_value(metric_key, metric_value, widget_path)
+                updated_metrics[key] = updated_metric
+        else:
+            updated_metrics[key] = render_value(key, value, "config_editor.metrics")
     cfg["metrics"] = updated_metrics
 
 
+@st.fragment()
 def _render_chat_step(cfg: dict):
     st.write("### Chat with Data")
     st.caption("Manage assistant settings, the agent prompt, and metric descriptions.")
@@ -633,11 +362,14 @@ def _render_save_step(cfg: dict):
         with open(cfg_file_name, "w") as handle:
             handle.write(toml_text)
         set_config(cfg_file_name)
+        st.session_state["configuration_editor_working_cfg"] = deepcopy(cfg)
+        st.session_state["configuration_editor_source_signature"] = toml_text
         st.success("Configuration activated for the current app session.")
 
 
 def render_configuration_studio(cfg: dict):
     _render_intro()
+    cfg = _ensure_working_config(cfg)
 
     steps = _build_steps(cfg)
     step_labels = [label for _, label in steps]
@@ -695,3 +427,5 @@ def render_configuration_studio(cfg: dict):
         _render_reports_step(cfg)
     else:
         _render_save_step(cfg)
+
+    st.session_state["configuration_editor_working_cfg"] = cfg

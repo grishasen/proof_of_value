@@ -22,6 +22,8 @@ pd.options.styler.format.precision = 4
 dataset_max_rows = 1000
 pd.set_option("styler.render.max_elements", dataset_max_rows * 100)
 
+st.set_page_config(page_title="📊 Reports", layout="wide")
+
 dims = st_dimensions()
 st.session_state['dashboard_dims'] = dims
 

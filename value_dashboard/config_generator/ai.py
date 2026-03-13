@@ -10,6 +10,7 @@ from jinja2 import Environment
 from pandasai.core.prompts import BasePrompt
 
 from value_dashboard.utils.config import set_config
+from value_dashboard.utils.timer import timed
 
 
 def _safe_prompt_config_block(config: dict) -> str:
@@ -52,6 +53,8 @@ Output contract:
 9. Keep only reports that can be mapped safely.
 10. You may add useful reports when the approved schema clearly supports them.
 11. Every referenced field must exist in the approved field list.
+12. For Gauge charts use only low cardinality business dimensions (max 4 unique values) and only 1 and 2 "group by" fields for gauge charts.
+13. Copy experiments metric reports as is from template if experiments metric is relevant. Only change "group by" fields if "group by" paramter is available.
 
 File name:
 {file_name}
@@ -90,9 +93,11 @@ def build_ai_reports_refinement_prompt(
         approved_schema,
         approved_fields: list[str],
         current_config: dict,
+        template_config: dict,
 ) -> str:
     """Build a constrained prompt that regenerates only the reports section from the current draft config."""
-    with pl.Config(tbl_cols=len(approved_schema), tbl_rows=len(approved_schema)):
+    with pl.Config(tbl_cols=len(approved_schema), tbl_rows=len(approved_schema),
+                   fmt_str_lengths=255, tbl_width_chars=-1):
         return f"""
 You generate only valid TOML.
 
@@ -111,6 +116,9 @@ Output contract:
 8. Keep report keys stable when possible, but remove invalid reports and add better ones when the current metrics support them.
 9. Prefer dimensions already available in metrics.global_filters and metrics.<metric>.group_by.
 10. Pick up newly added grouping fields when they support clearer or more useful reports.
+11. Create at least one Line/Bar chart for every metric. 
+12. For Gauge charts use only low cardinality business dimensions (max 4 unique values) and only 1 and 2 "group by" fields for gauge charts.
+13. Copy experiments metric reports as is from template if experiments metric is relevant. Only change "group by" fields if "group by" paramter is available.
 
 File name:
 {file_name}
@@ -123,6 +131,9 @@ Approved schema:
 
 Current draft config:
 {_safe_prompt_config_block(current_config)}
+
+Template baseline:
+{_safe_prompt_config_block(template_config)}
 
 Hard rules:
 1. Keep reports internally consistent with the current [metrics] section.
@@ -138,7 +149,7 @@ Final self-check:
 4. Output valid TOML only.
 """
 
-
+@timed
 def generate_ai_sections(llm, prompt: str) -> dict:
     """Call the LLM and parse the returned TOML sections."""
     env = Environment()
@@ -161,7 +172,7 @@ def build_final_config(template_config: dict, ih_config: dict, generated_section
         final_config["variants"] = generated_sections["variants"]
     return final_config
 
-
+@timed
 def save_generated_config(config: dict) -> tuple[str, str]:
     """Persist a generated config to a temp file and activate it in the app."""
     os.makedirs("temp_configs", exist_ok=True)

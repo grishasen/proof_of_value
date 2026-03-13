@@ -16,7 +16,7 @@ from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.config_builder import render_section, render_value, serialize_exprs
 from value_dashboard.utils.llm_utils import render_litellm_sidebar
 
-st.set_page_config(page_title="AI Configuration Studio", layout="wide")
+st.set_page_config(page_title="✨AI Configuration Studio", layout="wide")
 
 FILTER_OPERATORS = ["==", "!=", ">", ">=", "<", "<=", "contains", "starts with", "in", "not in", "is null",
                     "is not null"]
@@ -334,6 +334,22 @@ def _build_default_values_map(default_rows: list[dict]) -> dict:
     return result
 
 
+def _get_missing_required_default_fields(sample_columns: list[str], default_rows: list[dict]) -> list[str]:
+    """Identify required IH fields that are absent from the raw dataset and not yet covered by defaults."""
+    default_values = _build_default_values_map(default_rows)
+    subject_id_source = str(st.session_state.get("config_studio_subject_id_source", "")).strip()
+    missing_fields = []
+    for field_name in REQ_IH_COLUMNS:
+        if field_name in sample_columns:
+            continue
+        if field_name == "SubjectID" and subject_id_source:
+            continue
+        if field_name in default_values:
+            continue
+        missing_fields.append(field_name)
+    return missing_fields
+
+
 def _extract_filter_fields(filter_expression: str) -> list[str]:
     """Extract field names referenced via pl.col("...") in a Polars filter expression."""
     if not filter_expression:
@@ -343,7 +359,7 @@ def _extract_filter_fields(filter_expression: str) -> list[str]:
 
 
 def _render_intro():
-    st.header("AI Configuration Studio", divider='red')
+    st.header("✨AI Configuration Studio", divider='red')
     st.info(
         "Build preprocessing first, approve the working field catalog, then let AI draft metrics and reports from the cleaned schema. Derived time fields are surfaced early so the field-approval step reflects the real reporting surface, not just the raw upload.")
 
@@ -417,7 +433,7 @@ def _render_sample_step(sample_df, file_name: str):
         st.dataframe(sample_df.head(100), width="stretch", height=320)
 
 
-def _render_time_step(sample_df):
+def _render_required_fields_step(sample_df):
     st.write("### Required Field Mapping")
     st.caption(
         "Confirm the required identity and time fields before defaults, filters, and calculated fields are applied."
@@ -471,11 +487,19 @@ def _render_time_step(sample_df):
 
 
 @st.fragment()
-def _render_preprocess_settings_step(default_frame: pl.DataFrame):
+def _render_preprocess_settings_step(default_frame: pl.DataFrame, sample_columns: list[str]):
     with st.container(border=True):
         title_col, _ = st.columns([0.8, 0.2], vertical_alignment="center")
         with title_col:
             st.write("### Default Column Values")
+        current_default_rows = st.session_state.get("config_studio_defaults_rows") or _normalize_rows(default_frame)
+        missing_required_fields = _get_missing_required_default_fields(sample_columns, current_default_rows)
+        if missing_required_fields:
+            st.warning(
+                "Required fields missing from the uploaded dataset should be provided with defaults here: `"
+                + ", ".join(missing_required_fields)
+                + "`."
+            )
         st.caption("Defaults are applied before filters. They may fill nulls or create missing columns.")
         edited_defaults = st.data_editor(
             default_frame,
@@ -719,16 +743,6 @@ def _render_metrics_step():
     st.caption(
         "Adjust metric-level grouping, filters, and response mappings before report review. Only these fields may be used for metrics.global_filters, metric group_by, and metric filters.")
     approved_fields = sorted(st.session_state.get("config_studio_selected_fields") or [], key=str.casefold)
-    # if approved_fields:
-    #    with st.container(border=True):
-    #        st.pills(
-    #            "",
-    #            options=approved_fields,
-    #            default=approved_fields,
-    #            selection_mode="multi",
-    #            disabled=True,
-    #            label_visibility="collapsed",
-    #        )
 
     metrics = cfg.get("metrics", {})
     updated_metrics = {}
@@ -857,7 +871,7 @@ def _render_metrics_step():
         "When you finish metric edits, continue to `9. AI Reports` to refresh the report set from the updated grouping fields.")
 
 
-def _render_ai_reports_step(file_name: str, working_df: pl.DataFrame, schema_preview: pl.DataFrame, llm):
+def _render_ai_reports_step(file_name: str, working_df: pl.DataFrame, schema_preview: pl.DataFrame, llm, template_config:dict):
     """Regenerate only the reports section after metric edits, keeping the rest of the draft intact."""
     cfg = st.session_state.get("config_studio_draft_config")
     if cfg is None:
@@ -874,6 +888,7 @@ def _render_ai_reports_step(file_name: str, working_df: pl.DataFrame, schema_pre
         approved_schema=schema_preview,
         approved_fields=approved_fields,
         current_config=cfg,
+        template_config=template_config
     )
 
     summary_col1, summary_col2 = st.columns(2)
@@ -1112,7 +1127,7 @@ def main():
     if selected_step == STEP_OPTIONS[0]:
         _render_sample_step(sample_df, file_name)
     elif selected_step == STEP_OPTIONS[1]:
-        _render_time_step(sample_df)
+        _render_required_fields_step(sample_df)
         st.write("### Derived Field Preview")
         st.caption("These fields will appear in the working schema before field approval.")
         preview_fields = [field for field in ["Day", "Month", "Year", "Quarter", "ResponseTime"] if
@@ -1132,7 +1147,7 @@ def main():
             ["Field", "Default Value", "Enabled"],
             _blank_default_row,
         )
-        _render_preprocess_settings_step(default_frame)
+        _render_preprocess_settings_step(default_frame, list(sample_df.columns))
     elif selected_step == STEP_OPTIONS[3]:
         filter_field_options = sorted(set(sample_df.columns).union(default_values.keys()), key=str.casefold)
         filter_rows_frame = _editor_frame(
@@ -1170,6 +1185,7 @@ def main():
             working_df=working_df,
             schema_preview=ai_schema_preview,
             llm=llm,
+            template_config=template_config,
         )
     elif selected_step == STEP_OPTIONS[9]:
         _render_reports_step()

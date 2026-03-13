@@ -15,6 +15,7 @@ from value_dashboard.utils.plotly_utils import init_plotly_theme
 
 logger = get_logger(__name__)
 init_plotly_theme()
+st.set_page_config(page_title="📦 Data Import", layout="wide")
 st.title("Importing the data")
 
 

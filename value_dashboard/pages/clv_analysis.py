@@ -14,6 +14,7 @@ from value_dashboard.utils.config import get_config
 from value_dashboard.utils.py_utils import strtobool
 from value_dashboard.utils.st_utils import highlight_and_format, format_dates
 
+st.set_page_config(page_title="📊CLV Analysis", layout="wide")
 
 def download_clv_dataset(df):
     st.download_button(

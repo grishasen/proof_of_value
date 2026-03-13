@@ -1,21 +1,19 @@
-import concurrent.futures
 import gzip
 import os
-import queue
 import shutil
 import tarfile
 import tempfile
-import time
 import zipfile
 from pathlib import Path
 
 import polars as pl
 
 from value_dashboard.utils.logger import get_logger
+from value_dashboard.utils.timer import timed
 
 logger = get_logger(__name__)
 
-
+@timed
 def extract_compressed_file(file_path) -> str:
     """
     Extracts .gz, .gzip, .tar.gz, or .tgz files.
@@ -42,7 +40,7 @@ def extract_compressed_file(file_path) -> str:
     else:
         raise Exception(f"File cannot be extracted: {file_path}")
 
-
+@timed
 def read_dataset_export(
         file_names,
         src_folder=".",
@@ -115,49 +113,6 @@ def read_dataset_export(
         raise Exception(f"Unsupported file extension: {ext}")
 
     return df
-
-
-class PooledFileReader:
-    def __init__(self, num_slots, file_type):
-        self.queue = queue.Queue(maxsize=num_slots)
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=num_slots)
-        self.file_paths = []
-        self.shutdown_flag = False
-        self.file_type = file_type
-
-    def read_file(self, file_path):
-        if self.file_type == 'parquet':
-            ih = pl.read_parquet(file_path)
-        elif self.file_type == 'pega_ds_export':
-            ih = read_dataset_export(file_path)
-        else:
-            raise Exception("File type not supported")
-        return ih
-
-    def worker(self, file_path):
-        try:
-            file_content = self.read_file(file_path)
-            self.queue.put(file_content, block=True)  # This will block if the queue is full
-        except Exception as e:
-            self.queue.put(f"Error reading file {file_path}: {e}")
-
-    def submit_files(self, file_paths):
-        self.file_paths.extend(file_paths)
-
-    def process_files(self):
-        while not self.shutdown_flag or self.file_paths:
-            if self.file_paths and not self.queue.full():
-                file_path = self.file_paths.pop(0)
-                self.executor.submit(self.worker, file_path)
-            else:
-                time.sleep(0.1)  # Sleep for 100 ms
-
-    def get_result(self):
-        return self.queue.get(block=True)  # This will block if the queue is empty
-
-    def shutdown(self):
-        self.shutdown_flag = True
-        self.executor.shutdown(wait=True)
 
 
 def detect_delimiter(filename: str, n=2):

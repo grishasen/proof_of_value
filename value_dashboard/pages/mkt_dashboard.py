@@ -11,6 +11,8 @@ from value_dashboard.reports.experiment_plots import experiment_z_score_bar_plot
 from value_dashboard.reports.model_ml_scores_plots import ml_scores_card, ml_scores_pers_card
 from value_dashboard.utils.config import get_config
 
+st.set_page_config(page_title="📈 Dashboard", layout="wide")
+
 if "data_loaded" not in st.session_state:
     st.warning("Please configure your files in the `data import` tab.")
     st.stop()

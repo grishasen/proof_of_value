@@ -1,10 +1,9 @@
 import argparse
 import os
-from traceback import print_stack
 
 import streamlit as st
 
-from value_dashboard.utils.config import clv_metrics_avail, ih_metrics_avail, chat_with_data, is_demo_mode
+from value_dashboard.utils.config import clv_metrics_avail, ih_metrics_avail, chat_with_data
 from value_dashboard.utils.logger import configure_logging
 from value_dashboard.utils.st_utils import get_page_configs
 
@@ -13,27 +12,31 @@ st.set_option("client.toolbarMode", 'minimal')
 st.set_page_config(**get_page_configs())
 
 
-def create_page(relative_path, name):
+def create_page(relative_path, name, icon=None, default=False):
     current_dir = os.path.dirname(__file__)
-    return st.Page(os.path.join(current_dir, relative_path), title=name)
+    return st.Page(os.path.join(current_dir, relative_path), title=name, icon=icon, default=default)
 
 
 def get_pages():
     pages = [
-        create_page("value_dashboard/pages/home.py", "Home"),
-        create_page("value_dashboard/pages/data_import.py", "Data Import"),
+        create_page("value_dashboard/pages/home.py", "Home", default=True, icon=":material/home:"),
+        create_page("value_dashboard/pages/data_import.py", "Data Import", icon=":material/database_upload:"),
     ]
     if ih_metrics_avail():
-        pages.append(create_page("value_dashboard/pages/mkt_dashboard.py", "Dashboard"))
+        pages.append(
+            create_page("value_dashboard/pages/mkt_dashboard.py", "Dashboard", icon=":material/dashboard_2:"), )
     if ih_metrics_avail():
-        pages.append(create_page("value_dashboard/pages/ih_analysis.py", "Reports and Analysis"))
+        pages.append(
+            create_page("value_dashboard/pages/ih_analysis.py", "Reports and Analysis", icon=":material/area_chart:"), )
     if ih_metrics_avail() and chat_with_data():
-        pages.append(create_page("value_dashboard/pages/chat_with_data.py", "Chat with data"))
+        pages.append(create_page("value_dashboard/pages/chat_with_data.py", "Chat with data", icon=":material/chat:"), )
     if clv_metrics_avail():
-        pages.append(create_page("value_dashboard/pages/clv_analysis.py", "CLV Insights"))
-    pages.append(create_page("value_dashboard/pages/configuration_editor.py", "Configuration Editor"))
-    if not is_demo_mode():
-        pages.append(create_page("value_dashboard/pages/ai_configuration_studio.py", "AI Configuration Studio"))
+        pages.append(
+            create_page("value_dashboard/pages/clv_analysis.py", "CLV Insights", icon=":material/finance_mode:"), )
+    pages.append(
+        create_page("value_dashboard/pages/configuration_editor.py", "Configuration Editor", icon=":material/build:"), )
+    pages.append(create_page("value_dashboard/pages/ai_configuration_studio.py", "AI Configuration Studio",
+                             icon=":material/network_intelligence:"), )
     return [p for p in pages if p is not None]
 
 

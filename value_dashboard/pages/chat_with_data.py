@@ -21,6 +21,7 @@ pio.defaults.default_scale = 4
 pio.defaults.default_height = 480
 pio.defaults.default_width = 1280
 
+st.set_page_config(page_title="✨Chat With Data", layout="wide")
 
 def get_agent(data) -> Agent:
     agent = Agent(

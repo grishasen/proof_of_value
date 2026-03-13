@@ -443,7 +443,7 @@ def _render_visual_editor(cfg: dict, state: ReportBuilderState, original_name: s
         f"### Generated TOML for {get_metric_display_name(state.metric)} {get_recipe_display_name(state.chart_key)}")
     st.code(build_toml_preview(copy.deepcopy(state)), language="toml")
 
-
+@st.fragment()
 def render_report_builder(cfg: dict):
     """Render the report library and editor while keeping the current TOML structure intact."""
     layout_col1, layout_col2 = st.columns([0.9, 2.1], gap="large")

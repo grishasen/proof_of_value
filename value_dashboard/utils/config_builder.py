@@ -167,31 +167,3 @@ def render_section(section: dict, path=""):
         else:
             updated[k] = render_value(k, v, path)
     return updated
-
-
-def render_report(report, metrics_options, report_name=None):
-    st.write(f"Report: {report_name or '<New>'}")
-    metric = st.selectbox("Metric", metrics_options,
-                          index=metrics_options.index(report.get("metric", metrics_options[0])) if report.get(
-                              "metric") else 0)
-    rtype = st.text_input("Type", value=report.get("type", ""))
-    desc = st.text_area("Description", value=report.get("description", ""))
-    group_by = report.get("group_by", [])
-    group_by_val = st.text_area("Group By (one per line)",
-                                value="\n".join(group_by) if isinstance(group_by, list) else group_by)
-    new_report = dict(report)
-    new_report["metric"] = metric
-    new_report["type"] = rtype
-    new_report["description"] = desc
-    new_report["group_by"] = parse_list(group_by_val)
-    for k, v in report.items():
-        if k in ["metric", "type", "description", "group_by"]:
-            continue
-        new_report[k] = render_value(k, v, path=f"reports.{report_name or '<new>'}")
-    return new_report
-
-
-def render_config_editor(cfg):
-    from value_dashboard.config_ui import render_configuration_studio
-
-    render_configuration_studio(cfg)

@@ -369,10 +369,17 @@ def read_file_group(files: typing.List,
     if 'default_values' in config["ih"]["extensions"].keys():
         default_values = config["ih"]["extensions"]["default_values"]
         for new_col in default_values.keys():
+            is_float = False
+            value_str = default_values.get(new_col)
+            try:
+                value_float = float(value_str)
+                is_float = True
+            except ValueError:
+                pass
             if new_col not in capitalized:
-                with_cols_list.append(pl.lit(default_values.get(new_col)).alias(new_col))
+                with_cols_list.append(pl.lit(value_float if is_float else value_str).alias(new_col))
             else:
-                with_cols_list.append(pl.col(new_col).fill_null(default_values.get(new_col)))
+                with_cols_list.append(pl.col(new_col).fill_null(value_float if is_float else value_str))
     if with_cols_list:
         ih = ih.with_columns(with_cols_list)
 

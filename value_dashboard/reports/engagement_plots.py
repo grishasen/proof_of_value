@@ -412,8 +412,8 @@ def engagement_ctr_gauge_plot(data: Union[pl.DataFrame, pd.DataFrame],
         rows = ih_analysis[grp_by[0]].unique().shape[0]
         cols = ih_analysis[grp_by[1]].unique().shape[0]
     else:
-        cols = math.isqrt(ih_analysis[grp_by[0]].unique().shape[0])
-        rows = cols + 1
+        cols = math.isqrt(ih_analysis[grp_by[0]].unique().shape[0]) + 1
+        rows = cols
 
     reference = config.get('reference', {})
     ih_analysis['Name'] = ih_analysis[grp_by].apply(lambda r: ' '.join(r.values.astype(str)), axis=1)

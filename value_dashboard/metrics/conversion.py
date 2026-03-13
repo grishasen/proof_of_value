@@ -4,7 +4,7 @@ import polars as pl
 
 from value_dashboard.metrics.constants import INTERACTION_ID, RANK, OUTCOME, CUSTOMER_ID, \
     CONVERSION_EVENT_ID, ACTION_ID
-from value_dashboard.metrics.constants import REVENUE_PROP_NAME
+from value_dashboard.metrics.constants import REVENUE
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.py_utils import stable_dedup
 from value_dashboard.utils.timer import timed
@@ -104,7 +104,7 @@ def conversion(ih: pl.LazyFrame, config: dict, streaming=False, background=False
             .group_by(mand_props_grp_by)
             .agg([
                 pl.len().alias('Count'),
-                pl.sum(REVENUE_PROP_NAME),
+                pl.sum(REVENUE),
                 pl.sum('Touchpoints'),
                 pl.sum("Outcome_Binary").alias("Positives")
             ])
