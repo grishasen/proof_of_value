@@ -287,6 +287,7 @@ def _render_metrics_step(cfg: dict):
                             default=current_columns,
                             key=f"{widget_path}.columns",
                             help="Choose approved descriptive or metric fields only.",
+                            accept_new_options=True
                         )
                     elif metric_key == "filter":
                         filter_key = f"{widget_path}.filter"
