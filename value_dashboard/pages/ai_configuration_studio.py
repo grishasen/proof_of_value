@@ -18,6 +18,20 @@ from value_dashboard.utils.llm_utils import render_litellm_sidebar
 
 st.set_page_config(page_title="✨AI Configuration Studio", layout="wide")
 
+st.markdown(
+    """
+<style>
+    .stMainBlockContainer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+</style>
+    """,
+    unsafe_allow_html=True
+)
+
 FILTER_OPERATORS = ["==", "!=", ">", ">=", "<", "<=", "contains", "starts with", "in", "not in", "is null",
                     "is not null"]
 IH_FILE_TYPES = ["parquet", "pega_ds_export"]
@@ -289,6 +303,26 @@ def _set_draft_config(config: dict):
     """Store the mutable generated config that will be reviewed in later steps."""
     st.session_state["config_studio_draft_config"] = deepcopy(config)
     st.session_state["config_studio_generated_toml"] = tomlkit.dumps(serialize_exprs(deepcopy(config)))
+
+
+def _delete_metric_from_draft(metric_name: str):
+    """Remove one metric from the draft config and drop any reports that depend on it."""
+    cfg = st.session_state.get("config_studio_draft_config")
+    if cfg is None:
+        return
+    updated_cfg = deepcopy(cfg)
+    updated_metrics = dict(updated_cfg.get("metrics", {}))
+    updated_reports = dict(updated_cfg.get("reports", {}))
+    updated_metrics.pop(metric_name, None)
+    updated_reports = {
+        report_name: report_cfg
+        for report_name, report_cfg in updated_reports.items()
+        if not isinstance(report_cfg, dict) or report_cfg.get("metric") != metric_name
+    }
+    updated_cfg["metrics"] = updated_metrics
+    updated_cfg["reports"] = updated_reports
+    _set_draft_config(updated_cfg)
+    _reset_report_builder_state()
 
 
 def _initialize_editor_state(template_config: dict, file_signature: str, sample_columns: list[str], file_name: str):
@@ -777,9 +811,21 @@ def _render_metrics_step():
     for key, value in metrics.items():
         if key == "global_filters":
             continue
-        st.subheader(key)
         if isinstance(value, dict):
             with st.container(border=True):
+                title_col, action_col = st.columns([0.8, 0.2], vertical_alignment="center")
+                with title_col:
+                    st.subheader(key)
+                with action_col:
+                    if st.button(
+                            "Delete Metric",
+                            key=f"config_studio_delete_metric_{key}",
+                            icon=":material/delete:",
+                            help="Remove this metric and delete all reports that reference it.",
+                            width="stretch",
+                    ):
+                        _delete_metric_from_draft(key)
+                        st.rerun()
                 updated_metric = {}
                 for metric_key, metric_value in value.items():
                     widget_path = f"config_studio.metrics.{key}"
@@ -865,13 +911,27 @@ def _render_metrics_step():
                         updated_metric[metric_key] = render_value(metric_key, metric_value, widget_path)
                 updated_metrics[key] = updated_metric
         else:
+            title_col, action_col = st.columns([0.8, 0.2], vertical_alignment="center")
+            with title_col:
+                st.subheader(key)
+            with action_col:
+                if st.button(
+                        "Delete Metric",
+                        key=f"config_studio_delete_metric_{key}",
+                        icon=":material/delete:",
+                        help="Remove this metric and delete all reports that reference it.",
+                        width="stretch",
+                ):
+                    _delete_metric_from_draft(key)
+                    st.rerun()
             updated_metrics[key] = render_value(key, value, "config_studio.metrics")
     cfg["metrics"] = updated_metrics
     st.info(
         "When you finish metric edits, continue to `9. AI Reports` to refresh the report set from the updated grouping fields.")
 
 
-def _render_ai_reports_step(file_name: str, working_df: pl.DataFrame, schema_preview: pl.DataFrame, llm, template_config:dict):
+def _render_ai_reports_step(file_name: str, working_df: pl.DataFrame, schema_preview: pl.DataFrame, llm,
+                            template_config: dict):
     """Regenerate only the reports section after metric edits, keeping the rest of the draft intact."""
     cfg = st.session_state.get("config_studio_draft_config")
     if cfg is None:

@@ -13,6 +13,7 @@ from value_dashboard.utils.timer import timed
 
 logger = get_logger(__name__)
 
+
 @timed
 def extract_compressed_file(file_path) -> str:
     """
@@ -39,6 +40,7 @@ def extract_compressed_file(file_path) -> str:
         return output_path
     else:
         raise Exception(f"File cannot be extracted: {file_path}")
+
 
 @timed
 def read_dataset_export(

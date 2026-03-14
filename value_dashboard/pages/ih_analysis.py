@@ -23,29 +23,24 @@ dataset_max_rows = 1000
 pd.set_option("styler.render.max_elements", dataset_max_rows * 100)
 
 st.set_page_config(page_title="📊 Reports", layout="wide")
-
-dims = st_dimensions()
-st.session_state['dashboard_dims'] = dims
-
+st.markdown(
+    """
+<style>
+    .stMainBlockContainer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 0rem;
+        padding-bottom: 1rem;
+    }
+</style>
+    """,
+    unsafe_allow_html=True
+)
+st.header("""📊 Integrated Performance Dashboard: Business & Technical Metrics""")
 if "data_loaded" not in st.session_state:
     st.warning("Please configure your files in the `data import` tab.")
     st.stop()
-
-if strtobool(get_config()["ux"]["refresh_dashboard"]):
-    count = st_autorefresh(interval=get_config()["ux"]["refresh_interval"], key="dashboard-counter")
-
 tabs = ["🗃 Data Overview"]
-st.markdown("""
-        <style>
-               .block-container {
-                    padding-top: 0rem;
-                    padding-bottom: 2rem;
-                    padding-left: 1rem;
-                    padding-right: 2rem;
-                }
-        </style>
-        """, unsafe_allow_html=True)
-f"""## 📊 Integrated Performance Dashboard: Business & Technical Metrics"""
 figures = get_figures()
 reports_name_map = OrderedDict()
 reports = get_config()["reports"]
@@ -63,6 +58,10 @@ for string in reports_list:
         result[match].append(cleaned_string)
 result_dict = dict(result)
 with st.sidebar:
+    if strtobool(get_config()["ux"]["refresh_dashboard"]):
+        count = st_autorefresh(interval=get_config()["ux"]["refresh_interval"], key="dashboard-counter")
+    dims = st_dimensions()
+    st.session_state['dashboard_dims'] = dims
     if 'dashboard_last_access_time' not in st.session_state:
         st.session_state['dashboard_last_access_time'] = time.time()
     if 'selected_report' not in st.session_state:

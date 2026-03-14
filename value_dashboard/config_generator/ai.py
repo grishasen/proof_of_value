@@ -149,6 +149,7 @@ Final self-check:
 4. Output valid TOML only.
 """
 
+
 @timed
 def generate_ai_sections(llm, prompt: str) -> dict:
     """Call the LLM and parse the returned TOML sections."""
@@ -171,6 +172,7 @@ def build_final_config(template_config: dict, ih_config: dict, generated_section
     if "variants" in generated_sections:
         final_config["variants"] = generated_sections["variants"]
     return final_config
+
 
 @timed
 def save_generated_config(config: dict) -> tuple[str, str]:

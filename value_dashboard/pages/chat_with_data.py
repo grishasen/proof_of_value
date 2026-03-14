@@ -22,6 +22,20 @@ pio.defaults.default_height = 480
 pio.defaults.default_width = 1280
 
 st.set_page_config(page_title="✨Chat With Data", layout="wide")
+st.markdown(
+    """
+<style>
+    .stMainBlockContainer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+</style>
+    """,
+    unsafe_allow_html=True
+)
+
 
 def get_agent(data) -> Agent:
     agent = Agent(

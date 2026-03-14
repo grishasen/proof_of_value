@@ -8,6 +8,19 @@ from value_dashboard.report_builder import render_report_inventory
 from value_dashboard.utils.config import get_config
 
 st.set_page_config(page_title="🔧 Configuration Editor", layout="wide")
+st.markdown(
+    """
+<style>
+    .stMainBlockContainer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+</style>
+    """,
+    unsafe_allow_html=True
+)
 
 
 def clear_config_cache():

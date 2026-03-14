@@ -6,7 +6,6 @@ from PIL import Image
 from value_dashboard.utils.config import get_config
 
 st.set_page_config(page_title="🧮 Value Dashboard", layout="wide")
-
 cols = st.columns([0.1, 0.9])
 image = Image.open(os.path.join(os.path.dirname(__file__), '../img/logo2.png'))
 cols[0].image(image, width="stretch")

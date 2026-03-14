@@ -88,7 +88,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             xplot_col = plot_menu['color']
             xplot_y_bool = plot_menu['log_y']
 
-    grp_by = [config['x']]
+    grp_by = [x_axis]
     if not (facet_column == '---'):
         if not facet_column in grp_by:
             grp_by.append(facet_column)

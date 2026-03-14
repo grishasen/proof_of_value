@@ -12,6 +12,19 @@ from value_dashboard.reports.model_ml_scores_plots import ml_scores_card, ml_sco
 from value_dashboard.utils.config import get_config
 
 st.set_page_config(page_title="📈 Dashboard", layout="wide")
+st.markdown(
+    """
+<style>
+    .stMainBlockContainer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+</style>
+    """,
+    unsafe_allow_html=True
+)
 
 if "data_loaded" not in st.session_state:
     st.warning("Please configure your files in the `data import` tab.")
