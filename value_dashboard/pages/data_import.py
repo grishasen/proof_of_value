@@ -7,6 +7,7 @@ import zipfile
 
 import streamlit as st
 
+from value_dashboard.utils.common_constants import HOLDINGS_FOLDER_SESSION_KEY, IH_FOLDER_SESSION_KEY
 from value_dashboard.pipeline.holdings import load_holdings_data
 from value_dashboard.pipeline.ih import load_data
 from value_dashboard.utils.config import ih_metrics_avail, clv_metrics_avail, is_demo_mode
@@ -65,7 +66,7 @@ def import_data():
                     if not os.path.isdir(folder_path):
                         st.error("Folder not found.")
                         st.stop()
-                    st.session_state['ihfolder'] = folder_path
+                    st.session_state[IH_FOLDER_SESSION_KEY] = folder_path
                     st.session_state['drop_cache'] = reload_all
                     data_loaded = load_data()
                     if not data_loaded:
@@ -86,7 +87,7 @@ def import_data():
                     folder_path = os.path.abspath(temp_dir.name)
                     if not folder_path.endswith(os.sep):
                         folder_path = folder_path + os.sep
-                    st.session_state['ihfolder'] = folder_path
+                    st.session_state[IH_FOLDER_SESSION_KEY] = folder_path
                     st.session_state['drop_cache'] = True
                     for uploaded_file in uploaded_files:
                         file_path = os.path.join(temp_dir.name, uploaded_file.name)
@@ -117,7 +118,7 @@ def import_data():
                 folder_path = os.path.abspath(temp_dir.name)
                 if not folder_path.endswith(os.sep):
                     folder_path = folder_path + os.sep
-                st.session_state['ihfolder'] = folder_path
+                st.session_state[IH_FOLDER_SESSION_KEY] = folder_path
                 file_path = os.path.join(temp_dir.name, 'collected_metrics_data.json')
                 with open(file_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
@@ -154,7 +155,7 @@ def import_holdings_data():
             st.info("Application is in DEMO mode. Wait for data load.")
             load_holdings_data.clear()
             st.toast('Starting data processing...', icon="🗃")
-            st.session_state['holdingsfolder'] = 'data/PegaCDH-Data-ProductHolding_HoldingsDDS_20241010T145658_GMT'
+            st.session_state[HOLDINGS_FOLDER_SESSION_KEY] = 'data/PegaCDH-Data-ProductHolding_HoldingsDDS_20241010T145658_GMT'
             data_loaded = load_holdings_data()
             st.session_state['holdings_data_loaded'] = True
     else:
@@ -171,7 +172,7 @@ def import_holdings_data():
                 if not os.path.isdir(folder_path):
                     st.error("Folder not found.")
                     st.stop()
-                st.session_state['holdingsfolder'] = folder_path
+                st.session_state[HOLDINGS_FOLDER_SESSION_KEY] = folder_path
                 data_loaded = load_holdings_data()
                 if not data_loaded:
                     st.error("Data could not be loaded. Please check the input.")
@@ -189,7 +190,7 @@ def import_holdings_data():
                 folder_path = os.path.abspath(temp_dir.name)
                 if not folder_path.endswith(os.sep):
                     folder_path = folder_path + os.sep
-                st.session_state['holdingsfolder'] = folder_path
+                st.session_state[HOLDINGS_FOLDER_SESSION_KEY] = folder_path
                 for uploaded_file in uploaded_files:
                     file_path = os.path.join(temp_dir.name, uploaded_file.name)
                     with open(file_path, "wb") as f:

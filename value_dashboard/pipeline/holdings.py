@@ -12,6 +12,7 @@ import polars as pl
 import streamlit as st
 from polars import LazyFrame, DataFrame
 
+from value_dashboard.utils.common_constants import HOLDINGS_FOLDER_SESSION_KEY
 from value_dashboard.pipeline.datatools import collect_clv_metrics_data
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.file_utils import read_dataset_export, detect_delimiter
@@ -20,7 +21,7 @@ from value_dashboard.utils.py_utils import capitalize
 from value_dashboard.utils.py_utils import strtobool
 from value_dashboard.utils.timer import timed
 
-HOLDINGS_FOLDER = "holdingsfolder"
+HOLDINGS_FOLDER = HOLDINGS_FOLDER_SESSION_KEY
 logger = get_logger(__name__)
 data_cache_hours = 24
 if 'data_cache_hours' in get_config()['ux'].keys():

@@ -6,6 +6,7 @@ import numpy as np
 import polars as pl
 from polars.datatypes._parse import NoneType
 
+from value_dashboard.utils.common_constants import SCHEMA_PREVIEW_COLUMN, SCHEMA_PREVIEW_MOST_OCCURRING, SCHEMA_PREVIEW_VALUES
 from value_dashboard.utils.logger import get_logger
 
 T_DIGEST_COMPRESSION = 500
@@ -34,32 +35,32 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
         unique_count = df[col].n_unique()
         if col.lower().endswith('id'):
             records.append({
-                "Column": col,
+                SCHEMA_PREVIEW_COLUMN: col,
                 "Data Type": str(dtype),
                 "Unique Count": unique_count,
-                "Most occurring": "N/A",
-                "Values": ''
+                SCHEMA_PREVIEW_MOST_OCCURRING: "N/A",
+                SCHEMA_PREVIEW_VALUES: '',
             })
         elif dtype == pl.Utf8:
             col_data = df[col].drop_nulls()
             mode = col_data.mode().to_list()
             unique = df[col].unique().shuffle().head(10).to_list()
             records.append({
-                "Column": col,
+                SCHEMA_PREVIEW_COLUMN: col,
                 "Data Type": str(dtype),
                 "Unique Count": unique_count,
-                "Most occurring": str(mode),
-                "Values": str(unique)
+                SCHEMA_PREVIEW_MOST_OCCURRING: str(mode),
+                SCHEMA_PREVIEW_VALUES: str(unique),
             })
         elif dtype == NoneType:
             mode = df[col].mode().to_list()
             unique = df[col].unique().shuffle().head(10).to_list()
             records.append({
-                "Column": col,
+                SCHEMA_PREVIEW_COLUMN: col,
                 "Data Type": str(dtype),
                 "Unique Count": unique_count,
-                "Most occurring": str(mode),
-                "Values": str(unique)
+                SCHEMA_PREVIEW_MOST_OCCURRING: str(mode),
+                SCHEMA_PREVIEW_VALUES: str(unique),
             })
         elif dtype.is_numeric():
             col_data = df[col].drop_nulls().drop_nans()
@@ -68,23 +69,23 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
             med_val = col_data.median() if not col_data.is_empty() else 0
             mean_val = col_data.mean() if not col_data.is_empty() else 0
             records.append({
-                "Column": col,
+                SCHEMA_PREVIEW_COLUMN: col,
                 "Data Type": str(dtype),
                 "Unique Count": unique_count,
-                "Most occurring": "N/A",
-                "Values": "Min = " + f'{min_val:.4f}' + " Max = " + f'{max_val:.4f}' + " Mean = "
-                          + f'{mean_val:.4f}' + " Median = " + f'{med_val:.4f}'
+                SCHEMA_PREVIEW_MOST_OCCURRING: "N/A",
+                SCHEMA_PREVIEW_VALUES: "Min = " + f'{min_val:.4f}' + " Max = " + f'{max_val:.4f}' + " Mean = "
+                + f'{mean_val:.4f}' + " Median = " + f'{med_val:.4f}',
             })
         else:
             col_data = df[col].drop_nulls()
             min_val = col_data.min() if not col_data.is_empty() else ""
             max_val = col_data.max() if not col_data.is_empty() else ""
             records.append({
-                "Column": col,
+                SCHEMA_PREVIEW_COLUMN: col,
                 "Data Type": str(dtype),
                 "Unique Count": unique_count,
-                "Most occurring": "N/A",
-                "Values": "Min = " + f'{min_val}' + " Max = " + f'{max_val}'
+                SCHEMA_PREVIEW_MOST_OCCURRING: "N/A",
+                SCHEMA_PREVIEW_VALUES: "Min = " + f'{min_val}' + " Max = " + f'{max_val}',
             })
 
     return pl.DataFrame(records)

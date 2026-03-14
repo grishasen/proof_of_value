@@ -7,6 +7,8 @@ import polars as pl
 import streamlit as st
 import tomlkit
 
+from value_dashboard.utils.common_constants import AI_SCHEMA_EXAMPLE_COLUMNS, FILTER_OPERATORS, IH_FILE_TYPES, \
+    SCHEMA_PREVIEW_COLUMN
 from value_dashboard.config_generator.ai import build_ai_config_prompt, build_ai_reports_refinement_prompt, \
     build_final_config, generate_ai_sections, save_generated_config
 from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, build_ih_config, build_schema_preview, \
@@ -32,10 +34,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-FILTER_OPERATORS = ["==", "!=", ">", ">=", "<", "<=", "contains", "starts with", "in", "not in", "is null",
-                    "is not null"]
-IH_FILE_TYPES = ["parquet", "pega_ds_export"]
-AI_SCHEMA_EXAMPLE_COLUMNS = ["Most occurring", "Values"]
 HIVE_PARTITIONING_HELP = (
     "For parquet scans, infer statistics and schema from hive-partitioned paths and use them to prune reads."
 )
@@ -216,14 +214,16 @@ def _mask_schema_preview_for_ai(schema_preview, example_fields: list[str]):
     preview_df = schema_preview if isinstance(schema_preview, pl.DataFrame) else pl.from_dicts(
         _frame_records(schema_preview))
     allowed_fields = set(example_fields)
-    if "Column" not in preview_df.columns or not AI_SCHEMA_EXAMPLE_COLUMNS:
+    if SCHEMA_PREVIEW_COLUMN not in preview_df.columns or not AI_SCHEMA_EXAMPLE_COLUMNS:
         return schema_preview
     available_example_columns = [column_name for column_name in AI_SCHEMA_EXAMPLE_COLUMNS if
                                  column_name in preview_df.columns]
     if not available_example_columns:
         return preview_df
-    keep_examples = pl.col("Column").is_in(sorted(allowed_fields, key=str.casefold)) if allowed_fields else pl.lit(
-        False)
+    keep_examples = (
+        pl.col(SCHEMA_PREVIEW_COLUMN).is_in(sorted(allowed_fields, key=str.casefold))
+        if allowed_fields else pl.lit(False)
+    )
     return preview_df.with_columns([
         pl.when(keep_examples).then(pl.col(column_name)).otherwise(pl.lit("")).alias(column_name)
         for column_name in available_example_columns

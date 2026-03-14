@@ -16,6 +16,7 @@ import psutil
 import streamlit as st
 from polars import LazyFrame
 
+from value_dashboard.utils.common_constants import IH_FOLDER_SESSION_KEY
 from value_dashboard.datalake.df_db_proxy import PolarsDuckDBProxy
 from value_dashboard.metrics.constants import INTERACTION_ID, RANK, OUTCOME, DROP_IH_COLUMNS, OUTCOME_TIME, \
     DECISION_TIME, ISSUE, GROUP, NAME, ACTION_ID
@@ -33,7 +34,7 @@ from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.py_utils import strtobool, capitalize
 from value_dashboard.utils.timer import timed
 
-IHFOLDER = "ihfolder"
+IHFOLDER = IH_FOLDER_SESSION_KEY
 logger = get_logger(__name__)
 data_cache_hours = 24
 if 'data_cache_hours' in get_config()['ux'].keys():

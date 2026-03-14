@@ -5,6 +5,8 @@ import pandas as pd
 import polars as pl
 import streamlit as st
 
+from value_dashboard.utils.common_constants import CONFIG_FILE_TYPES
+
 
 def serialize_exprs(obj):
     if isinstance(obj, dict):
@@ -79,11 +81,10 @@ def render_value(key, value, path=""):
     """Render an appropriate Streamlit widget for the value, and return updated value."""
     label = f"{path}.{key}" if path else key
     if key == "file_type":
-        file_types = ("parquet", "pega_ds_export", "gzip")
         return st.selectbox(
             label,
-            file_types,
-            index=file_types.index(value)
+            CONFIG_FILE_TYPES,
+            index=CONFIG_FILE_TYPES.index(value)
         )
     if is_date_field(key, value):
         dt_val = None

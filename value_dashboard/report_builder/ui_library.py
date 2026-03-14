@@ -30,7 +30,7 @@ def _format_report_label(summary: dict) -> str:
     """Show report identity, metric and editor mode in one compact library label."""
     mode = "visual" if summary["mode"] == "visual" else "raw"
     metric_label = get_metric_display_name(summary["metric"], include_symbol=False)
-    return f"{summary['name']} · {metric_label} / {summary['type_display']} · {mode}"
+    return f"{metric_label} / {summary['type_display']} · {summary['name']}"
 
 
 @st.dialog("Report Parameters", width="large")
@@ -139,6 +139,8 @@ def render_report_library(cfg: dict) -> str:
     if type_filter != "All":
         filtered = [summary for summary in filtered if summary["type"] == type_filter]
 
+    filtered = sorted(filtered, key=lambda x: x['metric'])
+
     filtered_names = [summary["name"] for summary in filtered]
     label_map = {summary["name"]: _format_report_label(summary) for summary in filtered}
 
@@ -179,9 +181,11 @@ def render_report_library(cfg: dict) -> str:
         selected_report = current_selection
         st.caption("No reports match the current filters.")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns([0.33, 0.42, 0.3])
     with col1:
-        if st.button("New", key="rb_new_report", help="Start a new draft report using the default metric."):
+        if st.button("New", key="rb_new_report",
+                     help="Start a new draft report using the default metric.",
+                     icon=":material/add_2:"):
             metric_name = get_default_metric(cfg)
             report_name = build_new_report_name(reports)
             _set_new_draft(cfg, build_blank_report(metric_name), report_name)
@@ -191,6 +195,7 @@ def render_report_library(cfg: dict) -> str:
                 key="rb_duplicate_report",
                 disabled=current_selection not in reports,
                 help="Create a draft copy of the selected report with a new generated name.",
+                icon=":material/content_copy:"
         ):
             source_report = copy.deepcopy(reports[current_selection])
             draft_name = build_new_report_name(reports, current_selection)
@@ -201,6 +206,7 @@ def render_report_library(cfg: dict) -> str:
                 key="rb_delete_report",
                 disabled=current_selection not in reports,
                 help="Remove the selected saved report from the current config draft.",
+                icon=":material/close:"
         ):
             del reports[current_selection]
             cfg["reports"] = reports
