@@ -217,7 +217,7 @@ def calculate_experiment_scores(
         sort_list.append(config["facet_column"])
 
     m_config = get_config()["metrics"][config["metric"]]
-    grp_by = config["group_by"]
+    grp_by = config["group_by"] + sort_list
     grp_by = list(set(grp_by))
     if grp_by:
         exp_data = (

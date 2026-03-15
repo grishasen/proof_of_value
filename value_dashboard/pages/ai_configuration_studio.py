@@ -15,7 +15,8 @@ from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, 
     build_calculated_fields_config_text, compile_filter_rules, detect_ih_file_settings, load_ih_sample
 from value_dashboard.metrics.constants import DECISION_TIME, OUTCOME_TIME, REQ_IH_COLUMNS
 from value_dashboard.report_builder import render_report_builder
-from value_dashboard.utils.config_builder import render_section, render_value, serialize_exprs
+from value_dashboard.utils.config_builder import ensure_metric_group_by, find_metrics_without_group_by, \
+    render_section, render_value, serialize_exprs
 from value_dashboard.utils.llm_utils import render_litellm_sidebar
 
 st.set_page_config(page_title="✨AI Configuration Studio", layout="wide")
@@ -841,13 +842,23 @@ def _render_metrics_step():
                                 f"{key}: removed unsupported group_by fields: "
                                 + ", ".join(sorted(dropped_group_by, key=str.casefold))
                             )
-                        updated_metric[metric_key] = st.multiselect(
+                        selected_group_by = st.multiselect(
                             f"{key}.group_by",
                             options=approved_fields,
                             default=current_group_by,
                             key=f"{widget_path}.group_by",
                             help="Only approved fields can be used in metric group_by.",
                         )
+                        ensured_group_by, group_by_message = ensure_metric_group_by(
+                            metric_name=key,
+                            selected_group_by=selected_group_by,
+                            current_group_by=current_group_by,
+                            global_filters=updated_metrics.get("global_filters", []),
+                            available_fields=approved_fields,
+                        )
+                        if group_by_message:
+                            st.warning(group_by_message)
+                        updated_metric[metric_key] = ensured_group_by
                     elif metric_key == "columns" and isinstance(metric_value, list):
                         current_columns = [field for field in metric_value if field in approved_fields]
                         dropped_columns = [field for field in metric_value if field not in approved_fields]
@@ -1044,6 +1055,13 @@ def _render_save_step():
     summary_col2.metric("Reports", len(safe_cfg.get("reports", {})))
     summary_col3.metric("Chat Settings", len(safe_cfg.get("chat_with_data", {})))
 
+    invalid_metrics = find_metrics_without_group_by(safe_cfg)
+    if invalid_metrics:
+        st.error(
+            "Each metric must keep at least one field in group_by before export. "
+            "Please update: " + ", ".join(sorted(invalid_metrics, key=str.casefold))
+        )
+
     st.code(toml_text, language="toml", height=520)
     action_col1, action_col2, others = st.columns([1, 2, 5])
     action_col2.download_button(
@@ -1053,8 +1071,14 @@ def _render_save_step():
         mime="text/plain",
         type="secondary",
         help="Download the fully reviewed TOML config.",
+        disabled=bool(invalid_metrics),
     )
-    if action_col1.button("Apply Draft In App", type="primary", key="config_studio_activate_config"):
+    if action_col1.button(
+            "Apply Draft In App",
+            type="primary",
+            key="config_studio_activate_config",
+            disabled=bool(invalid_metrics),
+    ):
         _, saved_toml = save_generated_config(safe_cfg)
         st.session_state["config_studio_generated_toml"] = saved_toml
         st.success("Reviewed draft config activated for the current app session.")

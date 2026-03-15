@@ -5,6 +5,7 @@ import re
 import time
 import typing
 from collections import defaultdict
+from copy import deepcopy
 from datetime import timedelta
 
 import numpy as np
@@ -12,8 +13,8 @@ import polars as pl
 import streamlit as st
 from polars import LazyFrame, DataFrame
 
-from value_dashboard.utils.common_constants import HOLDINGS_FOLDER_SESSION_KEY
 from value_dashboard.pipeline.datatools import collect_clv_metrics_data
+from value_dashboard.utils.common_constants import HOLDINGS_FOLDER_SESSION_KEY
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.file_utils import read_dataset_export, detect_delimiter
 from value_dashboard.utils.logger import get_logger
@@ -209,7 +210,7 @@ def load_holdings_data() -> typing.Dict[str, pl.DataFrame]:
         st.error(f"Folder {folder} not available anymore. Please update data import parameters.")
         st.stop()
     file_groups = defaultdict(set)
-    config = get_config()
+    config = deepcopy(get_config())
     filetype = config["holdings"]["file_type"]
     logger.debug("File type: " + filetype)
     streaming = False
@@ -236,55 +237,60 @@ def load_holdings_data() -> typing.Dict[str, pl.DataFrame]:
                         params["filter"] = eval(filter_exp_cmp)
 
     loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
 
-    files = [file for file in glob.iglob(folder + config["holdings"]["file_pattern"], recursive=True)]
-    if not files:
-        files = [file for file in glob.iglob(folder + '**/*.json', recursive=True)]
-        filetype = 'pega_ds_export'
+    try:
+        asyncio.set_event_loop(loop)
 
-    for file in files:
-        try:
-            filedate = re.findall(config["holdings"]["file_group_pattern"], os.path.abspath(file))[0]
-            if hive_partitioning:
-                file_groups[filedate].add(os.path.dirname(file))
-            else:
-                file_groups[filedate].add(os.path.abspath(file))
-        except Exception as e:
-            file_groups[os.path.basename(file)].add(os.path.abspath(file))
+        files = [file for file in glob.iglob(folder + config["holdings"]["file_pattern"], recursive=True)]
+        if not files:
+            files = [file for file in glob.iglob(folder + '**/*.json', recursive=True)]
+            filetype = 'pega_ds_export'
 
-    file_groups = dict(sorted(file_groups.items(), reverse=True))
-    size = len(file_groups.items())
-    mdata = {}
-    progress_bar = st.progress(0)
-    container = st.empty()
-    i = 0
-    for key, files in file_groups.items():
-        logger.debug(f"Processing product holdings group: {key}")
-        start = time.time()
-        i = i + 1
-        progress_bar.progress(i / size, text=f"Processing  product holdings: {key}")
-        holdings_group = read_holdings_file_group(files, filetype, streaming, config, hive_partitioning)
+        for file in files:
+            try:
+                filedate = re.findall(config["holdings"]["file_group_pattern"], os.path.abspath(file))[0]
+                if hive_partitioning:
+                    file_groups[filedate].add(os.path.dirname(file))
+                else:
+                    file_groups[filedate].add(os.path.abspath(file))
+            except Exception:
+                file_groups[os.path.basename(file)].add(os.path.abspath(file))
 
-        if holdings_group is None:
-            continue
+        file_groups = dict(sorted(file_groups.items(), reverse=True))
+        size = len(file_groups.items())
+        mdata = {}
+        progress_bar = st.progress(0)
+        container = st.empty()
+        i = 0
+        for key, files in file_groups.items():
+            logger.debug(f"Processing product holdings group: {key}")
+            start = time.time()
+            i = i + 1
+            progress_bar.progress(i / size, text=f"Processing  product holdings: {key}")
+            holdings_group = read_holdings_file_group(files, filetype, streaming, config, hive_partitioning)
 
-        collect_clv_metrics_data(loop, holdings_group, mdata, streaming, background, config)
-        end = time.time()
-        logger.debug(f"Product holdings time taken: {(end - start) * 10 ** 3:.03f}ms")
-        load_mid = time.time()
-        hours, remainder = divmod(load_mid - load_start, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        container.metric("Time", f"{hours:.0f}h:{minutes:.0f}m:{seconds:.02f}s", label_visibility="collapsed")
+            if holdings_group is None:
+                continue
 
-    progress_bar.empty()
-    container.empty()
-    collected_metrics_data = {}
+            collect_clv_metrics_data(loop, holdings_group, mdata, streaming, background, config)
+            end = time.time()
+            logger.debug(f"Product holdings time taken: {(end - start) * 10 ** 3:.03f}ms")
+            load_mid = time.time()
+            hours, remainder = divmod(load_mid - load_start, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            container.metric("Time", f"{hours:.0f}h:{minutes:.0f}m:{seconds:.02f}s", label_visibility="collapsed")
 
-    for metric in mdata:
-        totals_frame = mdata[metric]
-        totals_frame.shrink_to_fit(in_place=True)
-        collected_metrics_data[metric] = totals_frame
+        progress_bar.empty()
+        container.empty()
+        collected_metrics_data = {}
+
+        for metric in mdata:
+            totals_frame = mdata[metric]
+            totals_frame.shrink_to_fit(in_place=True)
+            collected_metrics_data[metric] = totals_frame
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
 
     load_end = time.time()
     hours, remainder = divmod(load_end - load_start, 3600)

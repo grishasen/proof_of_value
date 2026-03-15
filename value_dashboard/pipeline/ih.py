@@ -7,6 +7,7 @@ import re
 import time
 import typing
 from collections import defaultdict
+from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
 
@@ -16,7 +17,6 @@ import psutil
 import streamlit as st
 from polars import LazyFrame
 
-from value_dashboard.utils.common_constants import IH_FOLDER_SESSION_KEY
 from value_dashboard.datalake.df_db_proxy import PolarsDuckDBProxy
 from value_dashboard.metrics.constants import INTERACTION_ID, RANK, OUTCOME, DROP_IH_COLUMNS, OUTCOME_TIME, \
     DECISION_TIME, ISSUE, GROUP, NAME, ACTION_ID
@@ -27,6 +27,7 @@ from value_dashboard.metrics.experiment import experiment
 from value_dashboard.metrics.ml import model_ml_scores
 from value_dashboard.pipeline.datatools import collect_ih_metrics_data
 from value_dashboard.pipeline.datatools import compact_data
+from value_dashboard.utils.common_constants import IH_FOLDER_SESSION_KEY
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.db_utils import save_file_meta, get_file_meta, drop_all_tables
 from value_dashboard.utils.file_utils import read_dataset_export
@@ -138,7 +139,7 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
         st.error(f"Folder {folder} not available anymore. Please update data import parameters.")
         st.stop()
     file_groups = defaultdict(set)
-    config = get_config()
+    config = deepcopy(get_config())
     filetype = config["ih"]["file_type"]
     logger.debug("File type: " + filetype)
     streaming = False
@@ -193,82 +194,87 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
             metric_coroutines_map[metric] = experiment
 
     loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
     process = psutil.Process(os.getpid())
 
-    # List all files in the folder matching the pattern
-    files = [file for file in glob.iglob(folder + config["ih"]["file_pattern"], recursive=True)]
-    if not files:
-        files = [file for file in glob.iglob(folder + '**/*.json', recursive=True)]
-        filetype = 'pega_ds_export'
+    try:
+        asyncio.set_event_loop(loop)
 
-    for file in files:
-        if (processed_files["filename"] == file).any():
-            logger.info("Skipping file : " + file)
-            continue
-        try:
-            filedate = re.findall(config["ih"]["ih_group_pattern"], os.path.abspath(file))[0]
-            if hive_partitioning:
-                file_groups[filedate].add(Path(file).parent)
-            else:
-                file_groups[filedate].add(Path(file))
-        except Exception as e:
-            file_groups[os.path.basename(file)].add(Path(file))
+        # List all files in the folder matching the pattern
+        files = [file for file in glob.iglob(folder + config["ih"]["file_pattern"], recursive=True)]
+        if not files:
+            files = [file for file in glob.iglob(folder + '**/*.json', recursive=True)]
+            filetype = 'pega_ds_export'
 
-    file_groups = dict(sorted(file_groups.items(), reverse=True))
-    size = len(file_groups.items())
+        for file in files:
+            if (processed_files["filename"] == file).any():
+                logger.info("Skipping file : " + file)
+                continue
+            try:
+                filedate = re.findall(config["ih"]["ih_group_pattern"], os.path.abspath(file))[0]
+                if hive_partitioning:
+                    file_groups[filedate].add(Path(file).parent)
+                else:
+                    file_groups[filedate].add(Path(file))
+            except Exception:
+                file_groups[os.path.basename(file)].add(Path(file))
 
-    mdata = {}
-    for metric in metrics:
-        if db_proxy.is_dataframe_exist(metric):
-            mdata[metric] = db_proxy.get_dataframe(metric)
+        file_groups = dict(sorted(file_groups.items(), reverse=True))
+        size = len(file_groups.items())
 
-    progress_bar = st.progress(0)
-    container = st.empty()
-    i = 0
-    for key, files_in_grp in file_groups.items():
-        logger.debug(f"Processing group: {key}")
-        start = time.time()
-        i = i + 1
-        progress_bar.progress(i / size, text=f"Processing: {key}")
-        ih_group = read_file_group(
-            list(files_in_grp),
-            filetype,
-            streaming,
-            config,
-            hive_partitioning,
-            add_columns_expr,
-            ih_filter_expr
-        )
-        if ih_group is None:
-            continue
-        collect_ih_metrics_data(loop, ih_group, mdata, streaming, background, config, metric_coroutines_map)
-        del ih_group
+        mdata = {}
+        for metric in metrics:
+            if db_proxy.is_dataframe_exist(metric):
+                mdata[metric] = db_proxy.get_dataframe(metric)
 
-        if (i > 31) & (i % 31 == 1):
-            ram_mb = process.memory_info().rss / (1024 * 1024)
-            logger.debug(f"RSS = {ram_mb:.2f} MB")
-            logger.debug(f"SWAP = {psutil.swap_memory().used / (1024 * 1024):.2f} MB")
-        end = time.time()
-        logger.debug(f"Time taken: {(end - start) * 10 ** 3:.03f}ms")
-        load_mid = time.time()
-        hours, remainder = divmod(load_mid - load_start, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        container.metric("Time", f"{hours:.0f}h:{minutes:.0f}m:{seconds:.02f}s", label_visibility="collapsed")
+        progress_bar = st.progress(0)
+        container = st.empty()
+        i = 0
+        for key, files_in_grp in file_groups.items():
+            logger.debug(f"Processing group: {key}")
+            start = time.time()
+            i = i + 1
+            progress_bar.progress(i / size, text=f"Processing: {key}")
+            ih_group = read_file_group(
+                list(files_in_grp),
+                filetype,
+                streaming,
+                config,
+                hive_partitioning,
+                add_columns_expr,
+                ih_filter_expr
+            )
+            if ih_group is None:
+                continue
+            collect_ih_metrics_data(loop, ih_group, mdata, streaming, background, config, metric_coroutines_map)
+            del ih_group
 
-    progress_bar.empty()
-    container.empty()
-    collected_metrics_data = {}
+            if (i > 31) & (i % 31 == 1):
+                ram_mb = process.memory_info().rss / (1024 * 1024)
+                logger.debug(f"RSS = {ram_mb:.2f} MB")
+                logger.debug(f"SWAP = {psutil.swap_memory().used / (1024 * 1024):.2f} MB")
+            end = time.time()
+            logger.debug(f"Time taken: {(end - start) * 10 ** 3:.03f}ms")
+            load_mid = time.time()
+            hours, remainder = divmod(load_mid - load_start, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            container.metric("Time", f"{hours:.0f}h:{minutes:.0f}m:{seconds:.02f}s", label_visibility="collapsed")
 
-    for metric in mdata:
-        totals_frame = compact_data(mdata[metric], config['metrics'][metric], metric)
-        totals_frame.shrink_to_fit(in_place=True)
-        collected_metrics_data[metric] = totals_frame
-        db_proxy.drop_dataframe(metric)
-        db_proxy.store_dataframe(totals_frame, metric)
+        progress_bar.empty()
+        container.empty()
+        collected_metrics_data = {}
 
-    for file in files:
-        save_file_meta(db_proxy, file)
+        for metric in mdata:
+            totals_frame = compact_data(mdata[metric], config['metrics'][metric], metric)
+            totals_frame.shrink_to_fit(in_place=True)
+            collected_metrics_data[metric] = totals_frame
+            db_proxy.drop_dataframe(metric)
+            db_proxy.store_dataframe(totals_frame, metric)
+
+        for file in files:
+            save_file_meta(db_proxy, file)
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
 
     load_end = time.time()
     hours, remainder = divmod(load_end - load_start, 3600)

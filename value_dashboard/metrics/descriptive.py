@@ -12,6 +12,11 @@ from value_dashboard.utils.timer import timed
 NUM_DTYPES = tuple(pl.INTEGER_DTYPES) + tuple(pl.FLOAT_DTYPES)
 
 
+def _existing_columns(schema: dict[str, pl.DataType], wanted: list[str]) -> list[str]:
+    """Keep configured columns that still exist in the current schema."""
+    return [c for c in wanted if c in schema]
+
+
 def _numeric_intersection(schema: dict[str, pl.DataType], wanted: list[str]) -> list[str]:
     """
     Intersect a list of desired column names with numeric columns present in a schema.
@@ -111,6 +116,7 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
     use_t_digest = strtobool(config['use_t_digest']) if 'use_t_digest' in config.keys() else True
 
     schema = ih.collect_schema()
+    columns = _existing_columns(schema, columns)
     num_columns = _numeric_intersection(schema, columns)
 
     if "filter" in config:
@@ -118,33 +124,42 @@ def descriptive(ih: pl.LazyFrame, config: dict, streaming=False, background=Fals
         if not isinstance(filter_exp_cmp, str):
             ih = ih.filter(config["filter"])
 
-    common_aggs = [
-        pl.col(columns).count().name.suffix('_Count'),
-        pl.col(num_columns).sum().name.suffix('_Sum'),
-        pl.col(num_columns).mean().name.suffix('_Mean'),
-        pl.col(num_columns).var().name.suffix('_Var'),
-        pl.col(num_columns).min().name.suffix('_Min'),
-        pl.col(num_columns).max().name.suffix('_Max')
-    ]
+    common_aggs = []
+    if columns:
+        common_aggs.append(pl.col(columns).count().name.suffix('_Count'))
+    if num_columns:
+        common_aggs.extend([
+            pl.col(num_columns).sum().name.suffix('_Sum'),
+            pl.col(num_columns).mean().name.suffix('_Mean'),
+            pl.col(num_columns).var().name.suffix('_Var'),
+            pl.col(num_columns).min().name.suffix('_Min'),
+            pl.col(num_columns).max().name.suffix('_Max')
+        ])
     if use_t_digest:
-        tdigest_struct = pl.map_groups(
-            exprs=num_columns,
-            function=lambda df: {f"{value}_tdigest": build_digest([df[index]]) for index, value in
-                                 enumerate(num_columns)},
-            return_dtype=pl.Struct([pl.Field(f"{c}_tdigest", pl.Binary) for c in num_columns]),
-            returns_scalar=True,
-        ).alias("TDigests")
-        agg_exprs = common_aggs + [tdigest_struct]
-        ih_analysis = ih.group_by(mand_props_grp_by).agg(agg_exprs).unnest("TDigests")
+        agg_exprs = list(common_aggs)
+        if num_columns:
+            tdigest_struct = pl.map_groups(
+                exprs=num_columns,
+                function=lambda df: {f"{value}_tdigest": build_digest([df[index]]) for index, value in
+                                     enumerate(num_columns)},
+                return_dtype=pl.Struct([pl.Field(f"{c}_tdigest", pl.Binary) for c in num_columns]),
+                returns_scalar=True,
+            ).alias("TDigests")
+            agg_exprs.append(tdigest_struct)
+            ih_analysis = ih.group_by(mand_props_grp_by).agg(agg_exprs).unnest("TDigests")
+        else:
+            ih_analysis = ih.group_by(mand_props_grp_by).agg(agg_exprs)
     else:
-        extra_aggs = [
-            pl.col(num_columns).median().name.suffix('_Median'),
-            pl.col(num_columns).skew().name.suffix('_Skew'),
-            pl.col(num_columns).quantile(0.25).name.suffix('_p25'),
-            pl.col(num_columns).quantile(0.75).name.suffix('_p75'),
-            pl.col(num_columns).quantile(0.90).name.suffix('_p90'),
-            pl.col(num_columns).quantile(0.95).name.suffix('_p95')
-        ]
+        extra_aggs = []
+        if num_columns:
+            extra_aggs.extend([
+                pl.col(num_columns).median().name.suffix('_Median'),
+                pl.col(num_columns).skew().name.suffix('_Skew'),
+                pl.col(num_columns).quantile(0.25).name.suffix('_p25'),
+                pl.col(num_columns).quantile(0.75).name.suffix('_p75'),
+                pl.col(num_columns).quantile(0.90).name.suffix('_p90'),
+                pl.col(num_columns).quantile(0.95).name.suffix('_p95')
+            ])
         agg_exprs = common_aggs + extra_aggs
         ih_analysis = ih.group_by(mand_props_grp_by).agg(agg_exprs)
 

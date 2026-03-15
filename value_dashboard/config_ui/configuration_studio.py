@@ -9,7 +9,8 @@ from value_dashboard.config_ui.preprocess_builders import render_calculated_fiel
     render_defaults_builder, render_filter_builder
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.config import set_config
-from value_dashboard.utils.config_builder import render_section, render_value, serialize_exprs
+from value_dashboard.utils.config_builder import ensure_metric_group_by, find_metrics_without_group_by, \
+    render_section, render_value, serialize_exprs
 
 
 def _render_intro():
@@ -271,7 +272,7 @@ def _render_metrics_step(cfg: dict):
                         updated_metric[metric_key] = metric_value
                     elif metric_key == "group_by":
                         current_group_by = [field for field in metric_value]
-                        updated_metric[metric_key] = st.multiselect(
+                        selected_group_by = st.multiselect(
                             f"{key}.group_by",
                             options=current_group_by,
                             default=current_group_by,
@@ -279,6 +280,16 @@ def _render_metrics_step(cfg: dict):
                             help="Only available fields should be used in metric group_by.",
                             accept_new_options=True
                         )
+                        ensured_group_by, group_by_message = ensure_metric_group_by(
+                            metric_name=key,
+                            selected_group_by=selected_group_by,
+                            current_group_by=current_group_by,
+                            global_filters=updated_metrics.get("global_filters", []),
+                            available_fields=current_group_by,
+                        )
+                        if group_by_message:
+                            st.warning(group_by_message)
+                        updated_metric[metric_key] = ensured_group_by
                     elif metric_key == "columns" and isinstance(metric_value, list):
                         current_columns = [field for field in metric_value]
                         updated_metric[metric_key] = st.multiselect(
@@ -339,6 +350,7 @@ def _render_reports_step(cfg: dict):
 def _render_save_step(cfg: dict):
     safe_cfg = serialize_exprs(cfg)
     toml_text = tomlkit.dumps(safe_cfg)
+    invalid_metrics = find_metrics_without_group_by(safe_cfg)
 
     st.write("### Save & Export")
     st.caption("Review the final TOML and either download it or activate it in the running app.")
@@ -348,6 +360,12 @@ def _render_save_step(cfg: dict):
     summary_col2.metric("Reports", len(safe_cfg.get("reports", {})))
     summary_col3.metric("Variants", len(safe_cfg.get("variants", {})))
 
+    if invalid_metrics:
+        st.error(
+            "Each metric must keep at least one field in group_by before export. "
+            "Please update: " + ", ".join(sorted(invalid_metrics, key=str.casefold))
+        )
+
     st.code(toml_text, language="toml", height=520)
     action_col1, action_col2, _ = st.columns([2, 2, 4])
     action_col2.download_button(
@@ -356,8 +374,14 @@ def _render_save_step(cfg: dict):
         file_name="config.toml",
         mime="text/plain",
         type="secondary",
+        disabled=bool(invalid_metrics),
     )
-    if action_col1.button("Apply Config In App", type="primary", key="configuration_studio_apply"):
+    if action_col1.button(
+            "Apply Config In App",
+            type="primary",
+            key="configuration_studio_apply",
+            disabled=bool(invalid_metrics),
+    ):
         os.makedirs("temp_configs", exist_ok=True)
         cfg_file_name = os.path.join("temp_configs", f"config_{uuid.uuid4().hex}.toml")
         with open(cfg_file_name, "w") as handle:

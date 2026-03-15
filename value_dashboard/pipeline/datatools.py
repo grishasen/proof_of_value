@@ -1,6 +1,7 @@
 import asyncio
 import typing
 from collections import OrderedDict
+from copy import deepcopy
 
 import polars as pl
 
@@ -61,9 +62,10 @@ def collect_ih_metrics_data(loop, ih: pl.DataFrame | pl.LazyFrame,
 
     # Prepare coroutines for each metric
     for metric in metric_coroutines_map.keys():
-        params = metrics[metric]
-        add_grp_by = list(set(global_filters) - set(params['group_by']))
-        params['group_by'] += add_grp_by
+        params = deepcopy(metrics[metric])
+        current_group_by = list(params.get("group_by", []))
+        add_grp_by = [field for field in global_filters if field not in current_group_by]
+        params["group_by"] = current_group_by + add_grp_by
         coroutines.append(
             data_collection_async(
                 ih, params, metric, streaming, background, metric_coroutines_map.get(metric)
@@ -97,7 +99,7 @@ def collect_clv_metrics_data(loop, holdings: pl.DataFrame | pl.LazyFrame,
 
     # Only collect metrics that start with "clv"
     for metric in metrics:
-        params = metrics[metric]
+        params = deepcopy(metrics[metric])
         if metric.startswith("clv"):
             coroutines.append(data_collection_async(holdings, params, metric, streaming, background, clv))
 

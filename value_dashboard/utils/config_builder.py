@@ -77,6 +77,63 @@ def parse_list(val):
         return []
 
 
+def _unique_non_empty(values):
+    result = []
+    for value in values or []:
+        if value in (None, ""):
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        if value not in result:
+            result.append(value)
+    return result
+
+
+def ensure_metric_group_by(metric_name, selected_group_by, current_group_by=None, global_filters=None, available_fields=None):
+    """Ensure metric group_by keeps at least one field and provide a UI-safe fallback."""
+    cleaned_selection = _unique_non_empty(selected_group_by)
+    if cleaned_selection:
+        return cleaned_selection, None
+
+    previous_selection = _unique_non_empty(current_group_by)
+    if previous_selection:
+        return previous_selection, (
+            f"{metric_name}.group_by must contain at least one field. Keeping the previous selection."
+        )
+
+    cleaned_global_filters = _unique_non_empty(global_filters)
+    if cleaned_global_filters:
+        fallback = [cleaned_global_filters[0]]
+        return fallback, (
+            f"{metric_name}.group_by must contain at least one field. "
+            f"Using `{cleaned_global_filters[0]}` from global_filters."
+        )
+
+    cleaned_available_fields = _unique_non_empty(available_fields)
+    if cleaned_available_fields:
+        fallback = [cleaned_available_fields[0]]
+        return fallback, (
+            f"{metric_name}.group_by must contain at least one field. "
+            f"Using `{cleaned_available_fields[0]}` as a fallback."
+        )
+
+    return [], f"{metric_name}.group_by must contain at least one field."
+
+
+def find_metrics_without_group_by(cfg):
+    """Return metric section names that still have an empty or missing group_by list."""
+    metrics = cfg.get("metrics", {})
+    invalid_metrics = []
+    for metric_name, metric_config in metrics.items():
+        if metric_name == "global_filters" or not isinstance(metric_config, dict):
+            continue
+        if "group_by" not in metric_config:
+            continue
+        if not _unique_non_empty(metric_config.get("group_by", [])):
+            invalid_metrics.append(metric_name)
+    return invalid_metrics
+
+
 def render_value(key, value, path=""):
     """Render an appropriate Streamlit widget for the value, and return updated value."""
     label = f"{path}.{key}" if path else key
@@ -160,9 +217,6 @@ def render_section(section: dict, path=""):
         elif isinstance(v, dict):
             st.markdown(f"{'######'} **{k}**:")
             updated[k] = render_section(v, f"{path}.{k}")
-        elif isinstance(v, dict) and k == 'default_values':
-            st.markdown(f"{'######'} **{k}**:")
-            updated[k] = display_dict_as_table(v, read_only=False)
         elif (k == "filter" or k == "columns") and "extensions" in path:
             updated[k] = st.text_area(k, value=str(v), key=f"{path}.{k}")
         else:
