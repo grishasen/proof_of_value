@@ -7,16 +7,16 @@ import polars as pl
 import streamlit as st
 import tomlkit
 
-from value_dashboard.utils.common_constants import AI_SCHEMA_EXAMPLE_COLUMNS, FILTER_OPERATORS, IH_FILE_TYPES, \
-    SCHEMA_PREVIEW_COLUMN
 from value_dashboard.config_generator.ai import build_ai_config_prompt, build_ai_reports_refinement_prompt, \
     build_final_config, generate_ai_sections, save_generated_config
+from value_dashboard.config_generator.config_builder import ensure_metric_group_by, find_metrics_without_group_by, \
+    render_section, render_value, serialize_exprs
 from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, build_ih_config, build_schema_preview, \
     build_calculated_fields_config_text, compile_filter_rules, detect_ih_file_settings, load_ih_sample
 from value_dashboard.metrics.constants import DECISION_TIME, OUTCOME_TIME, REQ_IH_COLUMNS
 from value_dashboard.report_builder import render_report_builder
-from value_dashboard.utils.config_builder import ensure_metric_group_by, find_metrics_without_group_by, \
-    render_section, render_value, serialize_exprs
+from value_dashboard.utils.common_constants import AI_SCHEMA_EXAMPLE_COLUMNS, FILTER_OPERATORS, IH_FILE_TYPES, \
+    SCHEMA_PREVIEW_COLUMN
 from value_dashboard.utils.llm_utils import render_litellm_sidebar
 
 st.set_page_config(page_title="✨AI Configuration Studio", layout="wide")
@@ -1032,11 +1032,11 @@ def _render_chat_step():
     st.caption("Tune the assistant-facing settings and metric descriptions before final export.")
     ux = cfg.get("ux", {})
     if "chat_with_data" in ux:
-        ux["chat_with_data"] = render_value("chat_with_data", ux.get("chat_with_data", False), "config_studio.ux")
+        ux["chat_with_data"] = render_value("chat_with_data", ux.get("chat_with_data", False), "ux")
         cfg["ux"] = ux
 
     chat = cfg.get("chat_with_data", {})
-    cfg["chat_with_data"] = render_section(chat, "config_studio.chat_with_data")
+    cfg["chat_with_data"] = render_section(chat, "chat_with_data")
 
 
 def _render_app_settings_step():
@@ -1054,19 +1054,19 @@ def _render_app_settings_step():
     with st.container(border=True):
         st.write("### UX")
         st.caption("These are the general application UX settings. Chat enablement stays in the previous step.")
-        cfg["ux"] = render_section(ux, "config_studio.ux_settings")
+        cfg["ux"] = render_section(ux, "ux")
         if chat_with_data_enabled is not None:
             cfg["ux"]["chat_with_data"] = chat_with_data_enabled
 
     with st.container(border=True):
         st.write("### Branding")
         st.caption("Review the application name, version, and copyright details.")
-        cfg["copyright"] = render_section(cfg.get("copyright", {}), "config_studio.copyright")
+        cfg["copyright"] = render_section(cfg.get("copyright", {}), "copyright")
 
     with st.container(border=True):
         st.write("### Variants")
         st.caption("Review the selected variant metadata and any other runtime variant settings.")
-        cfg["variants"] = render_section(cfg.get("variants", {}), "config_studio.variants")
+        cfg["variants"] = render_section(cfg.get("variants", {}), "variants")
 
 
 def _render_save_step():

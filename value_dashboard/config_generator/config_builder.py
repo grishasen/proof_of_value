@@ -136,12 +136,14 @@ def find_metrics_without_group_by(cfg):
 
 def render_value(key, value, path=""):
     """Render an appropriate Streamlit widget for the value, and return updated value."""
-    label = f"{path}.{key}" if path else key
+    ui_key = f"{path}.{key}" if path else key
+    label = key
     if key == "file_type":
         return st.selectbox(
             label,
             CONFIG_FILE_TYPES,
-            index=CONFIG_FILE_TYPES.index(value)
+            index=CONFIG_FILE_TYPES.index(value),
+            key=ui_key,
         )
     if is_date_field(key, value):
         dt_val = None
@@ -152,20 +154,20 @@ def render_value(key, value, path=""):
             if parsed:
                 dt_val = parsed
         if isinstance(dt_val, datetime):
-            new_dt = st.datetime_input(label, value=dt_val)
+            new_dt = st.datetime_input(label, value=dt_val, key=ui_key)
             return date_to_str(new_dt)
         else:
-            new_dt = st.date_input(label, value=dt_val or date.today())
+            new_dt = st.date_input(label, value=dt_val or date.today(), key=ui_key)
             return date_to_str(new_dt)
     if isinstance(value, bool):
-        return st.checkbox(label, value=value)
+        return st.checkbox(label, value=value, key=ui_key)
     elif isinstance(value, int):
-        return st.number_input(label, value=value, step=1, width=200)
+        return st.number_input(label, value=value, step=1, width=200, key=ui_key)
     elif isinstance(value, float):
-        return st.number_input(label, value=value, format="%.6f", width=200)
+        return st.number_input(label, value=value, format="%.6f", width=200, key=ui_key)
     elif isinstance(value, list):
         new_val = st.multiselect(
-            label=label, options=value, key=label + " (list)", default=value,
+            label=label, options=value, key=ui_key + " (list)", default=value,
             accept_new_options=True
         )
         return parse_list(new_val)
@@ -173,13 +175,13 @@ def render_value(key, value, path=""):
         return render_section(value, path=label)
     elif isinstance(value, str):
         if value.lower() in ("true", "false"):
-            return st.checkbox(label, value=value.lower() == "true")
+            return st.checkbox(label, value=value.lower() == "true", key=ui_key)
         if len(str(value)) < 80:
-            return st.text_input(label, value)
+            return st.text_input(label, value, key=ui_key)
         else:
-            return st.text_area(label, value, height=204)
+            return st.text_area(label, value, height=204, key=ui_key)
     elif isinstance(value, pl.expr.expr.Expr):
-        return st.text_input(label, str(value))
+        return st.text_input(label, str(value), key=ui_key)
     else:
         st.warning(f"Unknown type for {label}: {type(value)}")
         return value

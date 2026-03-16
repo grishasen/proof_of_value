@@ -7,9 +7,9 @@ import zipfile
 
 import streamlit as st
 
-from value_dashboard.utils.common_constants import HOLDINGS_FOLDER_SESSION_KEY, IH_FOLDER_SESSION_KEY
 from value_dashboard.pipeline.holdings import load_holdings_data
 from value_dashboard.pipeline.ih import load_data
+from value_dashboard.utils.common_constants import HOLDINGS_FOLDER_SESSION_KEY, IH_FOLDER_SESSION_KEY
 from value_dashboard.utils.config import ih_metrics_avail, clv_metrics_avail, is_demo_mode
 from value_dashboard.utils.logger import get_logger
 from value_dashboard.utils.plotly_utils import init_plotly_theme
@@ -155,7 +155,8 @@ def import_holdings_data():
             st.info("Application is in DEMO mode. Wait for data load.")
             load_holdings_data.clear()
             st.toast('Starting data processing...', icon="🗃")
-            st.session_state[HOLDINGS_FOLDER_SESSION_KEY] = 'data/PegaCDH-Data-ProductHolding_HoldingsDDS_20241010T145658_GMT'
+            st.session_state[
+                HOLDINGS_FOLDER_SESSION_KEY] = 'data/PegaCDH-Data-ProductHolding_HoldingsDDS_20241010T145658_GMT'
             data_loaded = load_holdings_data()
             st.session_state['holdings_data_loaded'] = True
     else:

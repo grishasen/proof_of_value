@@ -5,11 +5,11 @@ from copy import deepcopy
 import streamlit as st
 import tomlkit
 
-from value_dashboard.config_ui.preprocess_builders import render_calculated_fields_builder, \
+from value_dashboard.config_generator.preprocess_builders import render_calculated_fields_builder, \
     render_defaults_builder, render_filter_builder
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.config import set_config
-from value_dashboard.utils.config_builder import ensure_metric_group_by, find_metrics_without_group_by, \
+from value_dashboard.config_generator.config_builder import ensure_metric_group_by, find_metrics_without_group_by, \
     render_section, render_value, serialize_exprs
 
 
