@@ -63,7 +63,8 @@ STEP_OPTIONS = [
     "9. AI Reports",
     "10. Reports",
     "11. Chat with Data",
-    "12. Save/Export",
+    "12. App Settings",
+    "13. Save/Export",
 ]
 
 
@@ -763,7 +764,8 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pl.DataFr
         draft_reports = draft_config.get("reports", {})
         st.success(
             f"Draft ready: {len(draft_metrics)} metrics and {len(draft_reports)} reports. "
-            f"Continue with `8. Metrics`, `9. AI Reports`, and `10. Reports` before exporting."
+            f"Continue with `8. Metrics`, `9. AI Reports`, `10. Reports`, `11. Chat with Data`, "
+            f"and `12. App Settings` before exporting."
         )
 
 
@@ -1037,6 +1039,36 @@ def _render_chat_step():
     cfg["chat_with_data"] = render_section(chat, "config_studio.chat_with_data")
 
 
+def _render_app_settings_step():
+    """Review the remaining non-AI config sections before the final export."""
+    cfg = st.session_state.get("config_studio_draft_config")
+    if cfg is None:
+        st.info("Generate an AI draft first.")
+        return
+
+    st.write("### App Settings")
+    st.caption("Review the remaining UX, branding, and variants settings before final export.")
+
+    ux = deepcopy(cfg.get("ux", {}))
+    chat_with_data_enabled = ux.pop("chat_with_data", None)
+    with st.container(border=True):
+        st.write("### UX")
+        st.caption("These are the general application UX settings. Chat enablement stays in the previous step.")
+        cfg["ux"] = render_section(ux, "config_studio.ux_settings")
+        if chat_with_data_enabled is not None:
+            cfg["ux"]["chat_with_data"] = chat_with_data_enabled
+
+    with st.container(border=True):
+        st.write("### Branding")
+        st.caption("Review the application name, version, and copyright details.")
+        cfg["copyright"] = render_section(cfg.get("copyright", {}), "config_studio.copyright")
+
+    with st.container(border=True):
+        st.write("### Variants")
+        st.caption("Review the selected variant metadata and any other runtime variant settings.")
+        cfg["variants"] = render_section(cfg.get("variants", {}), "config_studio.variants")
+
+
 def _render_save_step():
     """Show the final config and enable apply/download only after all review steps."""
     cfg = st.session_state.get("config_studio_draft_config")
@@ -1195,7 +1227,10 @@ def main():
         desired_step = STEP_OPTIONS[3]
     draft_config = st.session_state.get("config_studio_draft_config")
     if draft_config is None and desired_step in set(STEP_OPTIONS[7:]):
-        st.info("Generate an AI draft before reviewing metrics, refreshing reports, chat settings, and final export.")
+        st.info(
+            "Generate an AI draft before reviewing metrics, refreshing reports, chat settings, app settings, "
+            "and final export."
+        )
         desired_step = STEP_OPTIONS[6]
     st.session_state["config_studio_step_selector"] = desired_step
     st.session_state["config_studio_step"] = desired_step
@@ -1275,6 +1310,8 @@ def main():
         _render_reports_step()
     elif selected_step == STEP_OPTIONS[10]:
         _render_chat_step()
+    elif selected_step == STEP_OPTIONS[11]:
+        _render_app_settings_step()
     else:
         _render_save_step()
 
