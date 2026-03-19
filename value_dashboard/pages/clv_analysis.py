@@ -73,8 +73,6 @@ for string in reports_list:
         result[match].append(cleaned_string)
 result_dict = dict(result)
 with st.sidebar:
-    dims = st_dimensions()
-    st.session_state['dashboard_dims'] = dims
     if 'clv_dashboard_last_access_time' not in st.session_state:
         st.session_state['clv_dashboard_last_access_time'] = time.time()
     if 'clv_selected_report' not in st.session_state:
@@ -103,6 +101,10 @@ with st.sidebar:
     st.session_state['dashboard_last_access_time'] = time.time()
     st.session_state['selected_report'] = selected_report
 
+dims = st.session_state['dashboard_dims']
+if not dims:
+    dims = st_dimensions()
+    st.session_state['dashboard_dims'] = dims
 df = reports_data[reports_name_map[selected_report]][0].to_pandas()
 
 params = reports_data[reports_name_map[selected_report]][1]

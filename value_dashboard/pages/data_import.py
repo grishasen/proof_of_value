@@ -6,6 +6,7 @@ import typing
 import zipfile
 
 import streamlit as st
+from streamlit_dimensions import st_dimensions
 
 from value_dashboard.pipeline.holdings import load_holdings_data
 from value_dashboard.pipeline.ih import load_data
@@ -36,6 +37,10 @@ def download_collected_metrics(name, data_loaded):
 
 @st.fragment
 def import_data():
+    dims = st.session_state['dashboard_dims']
+    if not dims:
+        dims = st_dimensions()
+        st.session_state['dashboard_dims'] = dims
     if is_demo_mode():
         with st.spinner("Wait for it...", show_time=True):
             st.info("Application is in DEMO mode. Wait for data load.")

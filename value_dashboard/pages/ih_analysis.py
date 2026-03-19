@@ -60,8 +60,6 @@ result_dict = dict(result)
 with st.sidebar:
     if strtobool(get_config()["ux"]["refresh_dashboard"]):
         count = st_autorefresh(interval=get_config()["ux"]["refresh_interval"], key="dashboard-counter")
-    dims = st_dimensions()
-    st.session_state['dashboard_dims'] = dims
     if 'dashboard_last_access_time' not in st.session_state:
         st.session_state['dashboard_last_access_time'] = time.time()
     if 'selected_report' not in st.session_state:
@@ -97,6 +95,11 @@ dynamic_filters = DynamicFilters(df.to_pandas(),
 with st.sidebar:
     st.write("Filter data globally 👇")
     dynamic_filters.display_filters()
+
+dims = st.session_state['dashboard_dims']
+if not dims:
+    dims = st_dimensions()
+    st.session_state['dashboard_dims'] = dims
 
 globally_filtered_data = dynamic_filters.filter_df()
 filtered_rep_data = figures[reports_name_map[selected_report]](globally_filtered_data, params)

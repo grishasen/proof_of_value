@@ -1,8 +1,8 @@
 import os
 
 import streamlit as st
-from value_dashboard.config_generator import render_configuration_studio
 
+from value_dashboard.config_generator import render_configuration_studio
 from value_dashboard.pipeline import holdings
 from value_dashboard.report_builder import render_report_inventory
 from value_dashboard.utils.config import get_config

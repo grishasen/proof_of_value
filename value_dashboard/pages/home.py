@@ -2,6 +2,7 @@ import os
 
 import streamlit as st
 from PIL import Image
+from streamlit_dimensions import st_dimensions
 
 from value_dashboard.utils.config import get_config
 
@@ -10,6 +11,8 @@ cols = st.columns([0.1, 0.9])
 image = Image.open(os.path.join(os.path.dirname(__file__), '../img/logo2.png'))
 cols[0].image(image, width="stretch")
 cols[1].title(get_config()['copyright']['name'])
+dims = st_dimensions()
+st.session_state['dashboard_dims'] = dims
 
 f"""
 Welcome to the early alpha version of the CDH value reporting application.
