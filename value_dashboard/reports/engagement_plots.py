@@ -690,7 +690,7 @@ def engagement_ctr_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame],
     cols = st.columns(num_cols, vertical_alignment='center')
     for index, row in data_copy.iterrows():
         if len(grp_by) > 1:
-            kpi_name = row.iloc[0] + "  \n" + row.iloc[1]
+            kpi_name = row.iloc[0] + " - " + row.iloc[1]
         else:
             kpi_name = row.iloc[0]
         cols[index % num_cols].metric(label=kpi_name, value='{:.2%}'.format(row["CTR"]),

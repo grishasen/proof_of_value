@@ -372,7 +372,7 @@ def conversion_rate_cards_subplot(ih_analysis: Union[pl.DataFrame, pd.DataFrame]
     cols = st.columns(num_cols)
     for index, row in data_copy.iterrows():
         if len(grp_by) > 1:
-            kpi_name = row.iloc[0] + "  \n" + row.iloc[1]
+            kpi_name = row.iloc[0] + " - " + row.iloc[1]
         else:
             kpi_name = row.iloc[0]
         cols[index % max_num_cols].metric(label=kpi_name, value='{:.2%}'.format(row["ConversionRate"]),
