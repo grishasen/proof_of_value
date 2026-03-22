@@ -101,7 +101,7 @@ with st.sidebar:
     st.session_state['dashboard_last_access_time'] = time.time()
     st.session_state['selected_report'] = selected_report
 
-dims = st.session_state['dashboard_dims']
+dims = st.session_state.get('dashboard_dims', {})
 if not dims:
     dims = st_dimensions()
     st.session_state['dashboard_dims'] = dims

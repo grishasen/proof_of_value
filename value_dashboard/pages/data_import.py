@@ -37,7 +37,7 @@ def download_collected_metrics(name, data_loaded):
 
 @st.fragment
 def import_data():
-    dims = st.session_state['dashboard_dims']
+    dims = st.session_state.get('dashboard_dims', {})
     if not dims:
         dims = st_dimensions()
         st.session_state['dashboard_dims'] = dims

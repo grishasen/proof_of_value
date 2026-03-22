@@ -96,7 +96,7 @@ with st.sidebar:
     st.write("Filter data globally 👇")
     dynamic_filters.display_filters()
 
-dims = st.session_state['dashboard_dims']
+dims = st.session_state.get('dashboard_dims', {})
 if not dims:
     dims = st_dimensions()
     st.session_state['dashboard_dims'] = dims
