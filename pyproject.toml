@@ -1,6 +1,6 @@
 [project]
 name = "cdhdashboard"
-version = "1.0.2"
+version = "1.0.4"
 description = "The CDH Value Dashboard Application is an open-source prototype designed to provide customizable metrics and insights for linking marketing actions to business outcomes, such as customer lifetime value (CLV) and conversion rates."
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
