@@ -31,118 +31,83 @@ Go to [Wiki page](https://github.com/grishasen/proof_of_value/wiki) for addition
     - View the visualized data and apply various filters to interactively explore and analyze the data.
     - Use "Chat with data" with own OpenAI key.
 
-## Installation (from source)
+## Installation
 
-To run the CDH Value Dashboard Application locally from source, follow these steps:
+The project uses [uv](https://docs.astral.sh/uv/) as the main dependency manager.
 
 ### Prerequisites
 
 - Python 3.11
-- Required Python libraries (can be installed via `requirements.txt`)
+- `uv`
 
-### Steps
+Install `uv`:
 
-1. **Clone the Repository**:
-    ```bash
-    git clone https://github.com/grishasen/proof_of_value.git
-    cd proof_of_value
-    ```
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
-2. **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
-3. **Edit config file**:
+### Install From Source
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/grishasen/proof_of_value.git
+   cd proof_of_value
+   ```
+
+2. **Create the project environment and install base dependencies**:
+   ```bash
+   uv sync
+   ```
+
+3. **Install optional AI dependencies**:
+   ```bash
+   uv sync --extra ai
+   ```
+   This installs `pandasai`, `pandasai-litellm`, and `litellm`.
+
+4. **Edit the config file if needed**:
    ```bash
    vi value_dashboard/config/config.toml
    ```
 
-4. **Run the Application**:
+5. **Run the application**:
    ```bash
-   streamlit run vd_app.py
+   uv run cdhdashboard run
    ```
-   or
+   or with an explicit config file:
    ```bash
-   streamlit run vd_app.py -- --config=<config_file_path.toml>
+   uv run cdhdashboard run -- --config=<config_file_path.toml>
    ```
-## Installation (python package)
 
-Install the package with PIP:
-```bash
-  pip install cdhdashboard
-```
+### Install As a Python Package
 
-To verify that the package has been installed successfully, you can test your package by running. For example:
+Base package:
 
 ```bash
-  cdhdashboard run  -- --config <config_file_path.toml>
+uv pip install cdhdashboard
 ```
 
-## Using Poetry to Build and Install Wheel
-
-Poetry is a robust dependency management and packaging tool for Python that simplifies the process of managing packages
-and building distributions. It handles all aspects of a project, including dependency resolution, virtual environment
-management, and packaging.
-
-### Prerequisites
-
-Ensure the following:
-
-Poetry is installed on your system. You can install Poetry using the following command:
+Package with AI extras:
 
 ```bash
-  curl -sSL https://install.python-poetry.org | python3 -
+uv pip install "cdhdashboard[ai]"
 ```
 
-Your Python project is set up with a valid pyproject.toml file.
-
-### Build a Wheel File
-
-The wheel format is a built package that can be installed directly using pip, which makes it easier to distribute and
-install Python projects.
-
-To build the wheel file:
-
-Ensure you are in your project directory.
-Run the following Poetry command:
+To verify the installation:
 
 ```bash
-  cd proof_of_value
-  poetry build
+cdhdashboard run -- --config <config_file_path.toml>
 ```
 
-This will create two files in the dist/ directory:
+### Build Distributions
 
-A .tar.gz file, which is the source distribution.
-A .whl file, which is the built wheel distribution.
-
-### Install the Wheel File via Shell
-
-After successfully building the wheel file, you can install it in any Python environment using pip. The installation can
-be done either within a Poetry-managed virtual environment or a separate environment.
-To install the wheel file locally, use pip with the following command:
+Build the source distribution and wheel:
 
 ```bash
-  pip install dist/cdhdashboard-0.0.1-py3-none-any.whl
+uv build
 ```
 
-Installing the Wheel Globally or in Another Project
-If you want to install the package globally or in another Python environment, simply copy the wheel file to that
-environment and run the same pip installation command:
-
-```bash
-  pip install /path/to/cdhdashboard-0.0.1-py3-none-any.whl
-```
-
-### Verify the Installation
-
-To verify that the package has been installed successfully, you can test your package by running. For example:
-
-```bash
-  cdhdashboard run  --server.maxUploadSize 2048 -- --config <config_file_path.toml>
-```
-
-If application starts as expected, your wheel installation was successful.
+This creates the package archives in `dist/`.
 
 ## File Structure
 
@@ -491,4 +456,3 @@ Contributions are welcome! Please fork the repository and submit pull requests f
 ## License
 
 This project is licensed under the MIT License.
-
