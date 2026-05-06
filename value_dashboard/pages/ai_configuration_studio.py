@@ -64,14 +64,14 @@ STEP_OPTIONS = [
     "3. Defaults",
     "4. Filters",
     "5. Calculations",
-    "6. Approve",
-    "7. AI Draft",
+    "6. Approve Fields",
+    "7. AI Draft Review",
     "8. Metrics",
-    "9. AI Reports",
-    "10. Reports",
+    "9. AI Report Refresh",
+    "10. Report Review",
     "11. Chat with Data",
     "12. App Settings",
-    "13. Save/Export",
+    "13. Save & Export",
 ]
 
 
@@ -307,7 +307,7 @@ def _render_pending_ai_draft_review(template_config: dict, ih_config: dict) -> N
     report_options = generated_report_names(pending_sections)
 
     with st.container(border=True):
-        st.write("### Review AI Draft Diff")
+        st.write("### Review AI Draft Changes")
         st.caption(
             "Select the generated metrics and reports that should become the editable draft. "
             "Reports tied to rejected metrics are excluded automatically."
@@ -328,9 +328,9 @@ def _render_pending_ai_draft_review(template_config: dict, ih_config: dict) -> N
         )
         summary_cols[3].metric("References", len(referenced_fields))
 
-        _render_diff_group("Metric Diff", diff["metrics"])
-        _render_diff_group("Report Diff", diff["reports"])
-        _render_diff_group("Variant Diff", diff["variants"])
+        _render_diff_group("Metric Changes", diff["metrics"])
+        _render_diff_group("Report Changes", diff["reports"])
+        _render_diff_group("Variant Changes", diff["variants"])
         with st.expander("Referenced Fields And Scores", expanded=False):
             st.markdown(_format_name_list(referenced_fields))
 
@@ -456,7 +456,7 @@ def _render_pending_ai_repair_review(
     referenced_fields = collect_referenced_fields(repaired_config)
 
     with st.container(border=True):
-        st.write("### Review AI Repair Diff")
+        st.write("### Review AI Repair Changes")
         st.caption("Inspect the proposed metric, report, and variant changes before updating the draft.")
         if not base_matches:
             st.warning(
@@ -478,9 +478,9 @@ def _render_pending_ai_repair_review(
         )
         summary_cols[3].metric("References", len(referenced_fields))
 
-        _render_diff_group("Metric Repair Diff", diff["metrics"])
-        _render_diff_group("Report Repair Diff", diff["reports"])
-        _render_diff_group("Variant Repair Diff", diff["variants"])
+        _render_diff_group("Metric Repair Changes", diff["metrics"])
+        _render_diff_group("Report Repair Changes", diff["reports"])
+        _render_diff_group("Variant Repair Changes", diff["variants"])
         with st.expander("Referenced Fields And Scores", expanded=False):
             st.markdown(_format_name_list(referenced_fields))
         with st.expander("Repair TOML Preview", expanded=False):
@@ -618,7 +618,7 @@ def _render_ai_schema_preview_table(schema_editor_df) -> None:
         disabled=[column for column in schema_editor_df.columns if column != "Send To AI"],
         column_config={
             "Send To AI": st.column_config.CheckboxColumn(
-                "Sample To AI",
+                "Share Sample Values",
                 help="Uncheck a row to hide **Most occurring** and **Values** for this field in the AI prompt.",
                 width="small",
             ),
@@ -784,7 +784,7 @@ def _extract_filter_fields(filter_expression: str) -> list[str]:
 def _render_intro():
     st.header("✨AI Configuration Studio", divider='red')
     st.info(
-        "Build preprocessing first, approve the working field catalog, then let AI draft metrics and reports from the cleaned schema. Derived time fields are surfaced early so the field-approval step reflects the real reporting surface, not just the raw upload.")
+        "Build preprocessing first, approve the working field catalog, then let AI draft metrics and reports from the cleaned schema. Derived time fields are surfaced early so the field approval step reflects the real reporting surface, not just the raw upload.")
 
 
 def _render_metrics_bar(sample_df, working_df, approved_fields: list[str]):
@@ -1176,8 +1176,8 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pl.DataFr
         draft_reports = draft_config.get("reports", {})
         st.success(
             f"Draft ready: {len(draft_metrics)} metrics and {len(draft_reports)} reports. "
-            f"Continue with `8. Metrics`, `9. AI Reports`, `10. Reports`, `11. Chat with Data`, "
-            f"and `12. App Settings` before exporting."
+            f"Continue with `8. Metrics`, `9. AI Report Refresh`, `10. Report Review`, "
+            f"`11. Chat with Data`, and `12. App Settings` before exporting."
         )
 
 
@@ -1352,7 +1352,7 @@ def _render_metrics_step():
             updated_metrics[key] = render_value(key, value, "config_studio.metrics")
     cfg["metrics"] = updated_metrics
     st.info(
-        "When you finish metric edits, continue to `9. AI Reports` to refresh the report set from the updated grouping fields.")
+        "When you finish metric edits, continue to `9. AI Report Refresh` to refresh the report set from the updated grouping fields.")
 
 
 def _render_ai_reports_step(file_name: str, working_df: pl.DataFrame, schema_preview: pl.DataFrame, llm,
@@ -1442,7 +1442,7 @@ def _render_reports_step(
         st.info("Generate an AI draft first.")
         return
 
-    st.write("### Reports Review")
+    st.write("### Report Review")
     st.caption("Review the AI-refreshed report set, remove weak reports, and refine the remaining definitions.")
     approved_fields = st.session_state.get("config_studio_selected_fields") or []
     safe_cfg = serialize_exprs(deepcopy(cfg))

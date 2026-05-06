@@ -13,7 +13,9 @@ Go to [Wiki page](https://github.com/grishasen/proof_of_value/wiki) for addition
 
 - **Data Import**: Upload and load data files (ZIP or Parquet) for analysis.
 - **Interactive Dashboard**: Visualize data and apply filters to explore and analyze the data interactively.
-- **Configuration**: Customize the application settings through a TOML file.
+- **Configuration Editor**: Review, validate, edit, apply, and download TOML configuration from the app.
+- **AI Configuration Studio**: Generate a config draft from an Interaction History sample, review AI changes, validate
+  reports, and repair AI-owned sections before export.
 
 ## How To Use
 
@@ -30,6 +32,20 @@ Go to [Wiki page](https://github.com/grishasen/proof_of_value/wiki) for addition
     - Navigate to the "Dashboard" page.
     - View the visualized data and apply various filters to interactively explore and analyze the data.
     - Use "Chat with data" with own OpenAI key.
+
+3. **Configuration Editor**:
+    - Navigate to the "Configuration Editor" page to edit the active TOML config.
+    - Use the Config Health and Review Progress panels before applying or downloading changes.
+    - Use the Reports step to review report validation status and edit reports in visual or raw mode.
+
+4. **AI Configuration Studio**:
+    - Install optional AI dependencies with `uv sync --extra ai`.
+    - Upload an Interaction History sample and confirm required time fields, defaults, filters, and calculated fields.
+    - Approve the fields and sample values that may be sent to AI. The privacy summary shows exactly what is included
+      in the prompt.
+    - Generate an AI draft, review the metric/report/variant changes, then accept only the metrics and reports to keep.
+    - Refresh reports after metric edits, review report validation, and use AI Repair for blocking metric/report issues.
+    - Save or apply only after validation passes.
 
 ## Installation
 
@@ -116,9 +132,11 @@ This creates the package archives in `dist/`.
 - **value_dashboard/pages/data_import.py**: Handles data import functionality.
 - **value_dashboard/pages/ih_analysis.py**: Contains the dashboard for IH data visualization and interaction.
 - **value_dashboard/pages/clv_analysis.py**: Contains the dashboard for Product Holdings data and CLV-related metrics.
-- **value_dashboard/pages/chat_with_data.py**: Chat with your data (enagagement, conversion, experiment).
-- **value_dashboard/pages/toml_editor.py**: Configuration page for customizing application settings.
-- **value_dashboard/pages/config_gen.py**: Generate config from data sample using Gen AI LLM
+- **value_dashboard/pages/chat_with_data.py**: Chat with your data (engagement, conversion, experiment).
+- **value_dashboard/pages/configuration_editor.py**: Visual configuration editor for the active TOML config.
+- **value_dashboard/pages/ai_configuration_studio.py**: AI-assisted config generator with field approval, privacy
+  controls, draft diff review, validation, report refresh, and repair workflow.
+- **value_dashboard/config_generator/**: Shared config editor, preprocessing, validation, diff, and AI generator helpers.
 - **value_dashboard/metrics/**: Calculation of various metrics supported by the application.
 - **value_dashboard/pipeline/**: Data loading and processing steps.
 - **value_dashboard/reports/**: Plots and data visualization functions.
@@ -264,6 +282,25 @@ The application configuration is managed through a TOML file, which includes the
 2. **IH (Data Extraction)**: Configuration for data extraction processes.
 3. **Metrics (Provided Functionality)**: Definitions of various metrics that the dashboard supports.
 4. **Reports (Configurable Reports)**: Definitions of reports that can be generated based on the metrics.
+
+---
+
+### Config Authoring and Validation
+
+The app includes two authoring experiences for TOML configuration:
+
+- **Configuration Editor** works without optional AI dependencies. It edits the current config, shows Config Health,
+  Review Progress, and report-level validation summaries, and blocks Apply/Download when validation errors remain.
+- **AI Configuration Studio** is optional and requires the `ai` extra. It builds preprocessing from an uploaded sample,
+  lets users choose approved fields and sample-value sharing, and shows an AI Privacy Summary before generation.
+
+AI-generated config is never applied directly. The Studio holds generated sections as a pending draft, shows a reviewable
+diff for metrics, reports, and variants, and lets users keep or reject generated metrics and reports. Report refresh and
+AI Repair follow the same review-first pattern: the AI proposal is parsed, validated, shown as a diff, and only applied
+after explicit approval. Final export stays disabled while blocking validation errors remain.
+
+Validation checks include required Interaction History fields, runtime field availability, metric field references,
+metric and report `group_by` compatibility, visual report-builder rules, and report references to metrics and scores.
 
 ---
 

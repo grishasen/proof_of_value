@@ -31,7 +31,7 @@ def clear_config_cache():
 with st.sidebar:
     st.button("Clear config cache 🗑️", on_click=lambda: clear_config_cache())
 
-tabs = ["🧰 Configuration Editor", "📝 Readme", "📊 Reports"]
+tabs = ["🧰 Configuration Editor", "📝 README", "📊 Reports"]
 conf, readme, reports = st.tabs(tabs)
 
 with conf:
