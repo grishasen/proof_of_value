@@ -9,8 +9,9 @@ from value_dashboard.config_generator.preprocess_builders import render_calculat
     render_defaults_builder, render_filter_builder
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.config import set_config
-from value_dashboard.config_generator.config_builder import ensure_metric_group_by, find_metrics_without_group_by, \
-    render_section, render_value, serialize_exprs
+from value_dashboard.config_generator.config_builder import ensure_metric_group_by, render_section, render_value, \
+    serialize_exprs
+from value_dashboard.config_generator.validation import has_blocking_issues, validate_config
 
 
 def _render_intro():
@@ -347,10 +348,36 @@ def _render_reports_step(cfg: dict):
         render_report_builder(cfg)
 
 
+def _render_validation_issues(issues) -> None:
+    if not issues:
+        st.success("No validation issues found.")
+        return
+
+    issue_counts = {"error": 0, "warning": 0, "info": 0}
+    for issue in issues:
+        issue_counts[issue.severity] = issue_counts.get(issue.severity, 0) + 1
+
+    summary_cols = st.columns(3)
+    summary_cols[0].metric("Errors", issue_counts["error"])
+    summary_cols[1].metric("Warnings", issue_counts["warning"])
+    summary_cols[2].metric("Info", issue_counts["info"])
+
+    with st.expander("Validation Details", expanded=bool(issue_counts["error"])):
+        for issue in issues:
+            prefix = issue.severity.upper()
+            step_hint = f" ({issue.step_hint})" if issue.step_hint else ""
+            message = f"**{prefix}** `{issue.path}`{step_hint}: {issue.message}"
+            if issue.severity == "error":
+                st.error(message)
+            elif issue.severity == "warning":
+                st.warning(message)
+            else:
+                st.info(message)
+
+
 def _render_save_step(cfg: dict):
     safe_cfg = serialize_exprs(cfg)
     toml_text = tomlkit.dumps(safe_cfg)
-    invalid_metrics = find_metrics_without_group_by(safe_cfg)
 
     st.write("### Save & Export")
     st.caption("Review the final TOML and either download it or activate it in the running app.")
@@ -360,10 +387,13 @@ def _render_save_step(cfg: dict):
     summary_col2.metric("Reports", len(safe_cfg.get("reports", {})))
     summary_col3.metric("Variants", len(safe_cfg.get("variants", {})))
 
-    if invalid_metrics:
+    validation_issues = validate_config(safe_cfg)
+    has_blocking_validation_issues = has_blocking_issues(validation_issues)
+    _render_validation_issues(validation_issues)
+
+    if has_blocking_validation_issues:
         st.error(
-            "Each metric must keep at least one field in group_by before export. "
-            "Please update: " + ", ".join(sorted(invalid_metrics, key=str.casefold))
+            "Resolve validation errors before downloading or applying this config."
         )
 
     st.code(toml_text, language="toml", height=520)
@@ -374,13 +404,13 @@ def _render_save_step(cfg: dict):
         file_name="config.toml",
         mime="text/plain",
         type="secondary",
-        disabled=bool(invalid_metrics),
+        disabled=has_blocking_validation_issues,
     )
     if action_col1.button(
             "Apply Config In App",
             type="primary",
             key="configuration_studio_apply",
-            disabled=bool(invalid_metrics),
+            disabled=has_blocking_validation_issues,
     ):
         os.makedirs("temp_configs", exist_ok=True)
         cfg_file_name = os.path.join("temp_configs", f"config_{uuid.uuid4().hex}.toml")
