@@ -9,10 +9,11 @@ import tomlkit
 
 from value_dashboard.config_generator.ai import build_ai_config_prompt, build_ai_reports_refinement_prompt, \
     build_final_config, generate_ai_sections, save_generated_config
-from value_dashboard.config_generator.config_builder import ensure_metric_group_by, find_metrics_without_group_by, \
-    render_section, render_value, serialize_exprs
+from value_dashboard.config_generator.config_builder import ensure_metric_group_by, render_section, render_value, \
+    serialize_exprs
 from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, build_ih_config, build_schema_preview, \
     build_calculated_fields_config_text, compile_filter_rules, detect_ih_file_settings, load_ih_sample
+from value_dashboard.config_generator.validation import has_blocking_issues, validate_config
 from value_dashboard.metrics.constants import DECISION_TIME, OUTCOME_TIME, REQ_IH_COLUMNS
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.common_constants import AI_SCHEMA_EXAMPLE_COLUMNS, FILTER_OPERATORS, IH_FILE_TYPES, \
@@ -1069,7 +1070,34 @@ def _render_app_settings_step():
         cfg["variants"] = render_section(cfg.get("variants", {}), "variants")
 
 
-def _render_save_step():
+def _render_validation_issues(issues) -> None:
+    if not issues:
+        st.success("No validation issues found.")
+        return
+
+    issue_counts = {"error": 0, "warning": 0, "info": 0}
+    for issue in issues:
+        issue_counts[issue.severity] = issue_counts.get(issue.severity, 0) + 1
+
+    summary_cols = st.columns(3)
+    summary_cols[0].metric("Errors", issue_counts["error"])
+    summary_cols[1].metric("Warnings", issue_counts["warning"])
+    summary_cols[2].metric("Info", issue_counts["info"])
+
+    with st.expander("Validation Details", expanded=bool(issue_counts["error"])):
+        for issue in issues:
+            prefix = issue.severity.upper()
+            step_hint = f" ({issue.step_hint})" if issue.step_hint else ""
+            message = f"**{prefix}** `{issue.path}`{step_hint}: {issue.message}"
+            if issue.severity == "error":
+                st.error(message)
+            elif issue.severity == "warning":
+                st.warning(message)
+            else:
+                st.info(message)
+
+
+def _render_save_step(approved_fields: list[str], runtime_fields: list[str]):
     """Show the final config and enable apply/download only after all review steps."""
     cfg = st.session_state.get("config_studio_draft_config")
     if cfg is None:
@@ -1087,11 +1115,17 @@ def _render_save_step():
     summary_col2.metric("Reports", len(safe_cfg.get("reports", {})))
     summary_col3.metric("Chat Settings", len(safe_cfg.get("chat_with_data", {})))
 
-    invalid_metrics = find_metrics_without_group_by(safe_cfg)
-    if invalid_metrics:
+    validation_issues = validate_config(
+        safe_cfg,
+        approved_fields=approved_fields,
+        runtime_fields=runtime_fields,
+    )
+    has_blocking_validation_issues = has_blocking_issues(validation_issues)
+    _render_validation_issues(validation_issues)
+
+    if has_blocking_validation_issues:
         st.error(
-            "Each metric must keep at least one field in group_by before export. "
-            "Please update: " + ", ".join(sorted(invalid_metrics, key=str.casefold))
+            "Resolve validation errors before downloading or applying this draft."
         )
 
     st.code(toml_text, language="toml", height=520)
@@ -1103,13 +1137,13 @@ def _render_save_step():
         mime="text/plain",
         type="secondary",
         help="Download the fully reviewed TOML config.",
-        disabled=bool(invalid_metrics),
+        disabled=has_blocking_validation_issues,
     )
     if action_col1.button(
             "Apply Draft In App",
             type="primary",
             key="config_studio_activate_config",
-            disabled=bool(invalid_metrics),
+            disabled=has_blocking_validation_issues,
     ):
         _, saved_toml = save_generated_config(safe_cfg)
         st.session_state["config_studio_generated_toml"] = saved_toml
@@ -1313,7 +1347,10 @@ def main():
     elif selected_step == STEP_OPTIONS[11]:
         _render_app_settings_step()
     else:
-        _render_save_step()
+        _render_save_step(
+            approved_fields=approved_fields,
+            runtime_fields=list(sample_df.columns),
+        )
 
 
 main()
