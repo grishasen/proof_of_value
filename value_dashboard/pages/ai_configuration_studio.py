@@ -11,6 +11,8 @@ from value_dashboard.config_generator.ai import build_ai_config_prompt, build_ai
     build_final_config, generate_ai_sections, save_generated_config
 from value_dashboard.config_generator.config_builder import ensure_metric_group_by, render_section, render_value, \
     serialize_exprs
+from value_dashboard.config_generator.diff import build_ai_config_diff, collect_referenced_fields, \
+    filter_generated_sections, generated_metric_names, generated_report_names, reports_for_metrics
 from value_dashboard.config_generator.field_classification import FIELD_TAGS_COLUMN, add_field_classification
 from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, build_ih_config, build_schema_preview, \
     build_calculated_fields_config_text, compile_filter_rules, detect_ih_file_settings, load_ih_sample
@@ -277,6 +279,134 @@ def _render_ai_privacy_summary(
             st.caption(f"Prompt length: {prompt_chars:,} characters.")
 
 
+def _format_name_list(names: list[str]) -> str:
+    if not names:
+        return "_None_"
+    return ", ".join(f"`{name}`" for name in names)
+
+
+def _render_diff_group(title: str, diff_group: dict[str, list[str]]) -> None:
+    with st.expander(title, expanded=False):
+        st.markdown("**Added:** " + _format_name_list(diff_group.get("added", [])))
+        st.markdown("**Changed:** " + _format_name_list(diff_group.get("changed", [])))
+        st.markdown("**Removed:** " + _format_name_list(diff_group.get("removed", [])))
+        st.markdown("**Unchanged:** " + _format_name_list(diff_group.get("unchanged", [])))
+
+
+def _render_pending_ai_draft_review(template_config: dict, ih_config: dict) -> None:
+    pending_sections = st.session_state.get("config_studio_pending_ai_sections")
+    if not pending_sections:
+        return
+    pending_ih_config = st.session_state.get("config_studio_pending_ih_config") or ih_config
+
+    diff = build_ai_config_diff(template_config, pending_sections)
+    referenced_fields = collect_referenced_fields(pending_sections)
+    metric_options = generated_metric_names(pending_sections)
+    report_options = generated_report_names(pending_sections)
+
+    with st.container(border=True):
+        st.write("### Review AI Draft Diff")
+        st.caption(
+            "Select the generated metrics and reports that should become the editable draft. "
+            "Reports tied to rejected metrics are excluded automatically."
+        )
+
+        summary_cols = st.columns(4)
+        summary_cols[0].metric(
+            "Metrics Added/Changed",
+            len(diff["metrics"]["added"]) + len(diff["metrics"]["changed"]),
+        )
+        summary_cols[1].metric(
+            "Reports Added/Changed",
+            len(diff["reports"]["added"]) + len(diff["reports"]["changed"]),
+        )
+        summary_cols[2].metric(
+            "Template Reports Removed",
+            len(diff["reports"]["removed"]),
+        )
+        summary_cols[3].metric("References", len(referenced_fields))
+
+        _render_diff_group("Metric Diff", diff["metrics"])
+        _render_diff_group("Report Diff", diff["reports"])
+        _render_diff_group("Variant Diff", diff["variants"])
+        with st.expander("Referenced Fields And Scores", expanded=False):
+            st.markdown(_format_name_list(referenced_fields))
+
+        if not metric_options:
+            st.error("The AI draft did not include any metric sections.")
+            return
+
+        metric_selection_key = "config_studio_pending_metric_selection"
+        if metric_selection_key not in st.session_state:
+            st.session_state[metric_selection_key] = metric_options
+        else:
+            st.session_state[metric_selection_key] = [
+                metric_name
+                for metric_name in st.session_state[metric_selection_key]
+                if metric_name in metric_options
+            ]
+        selected_metrics = st.multiselect(
+            "Metrics To Keep",
+            options=metric_options,
+            help="Rejected metrics will be omitted from the editable draft.",
+            key=metric_selection_key,
+        )
+        compatible_report_options = reports_for_metrics(pending_sections, selected_metrics)
+        incompatible_reports = sorted(set(report_options) - set(compatible_report_options), key=str.casefold)
+        if incompatible_reports:
+            st.warning(
+                "Reports excluded because their metrics are not selected: "
+                + ", ".join(incompatible_reports)
+            )
+        report_selection_key = "config_studio_pending_report_selection"
+        if report_selection_key not in st.session_state:
+            st.session_state[report_selection_key] = compatible_report_options
+        else:
+            st.session_state[report_selection_key] = [
+                report_name
+                for report_name in st.session_state[report_selection_key]
+                if report_name in compatible_report_options
+            ]
+        selected_reports = st.multiselect(
+            "Reports To Keep",
+            options=compatible_report_options,
+            help="Rejected reports will be omitted from the editable draft.",
+            key=report_selection_key,
+        )
+
+        action_col1, action_col2, _ = st.columns([0.24, 0.24, 0.52], vertical_alignment="center")
+        if action_col1.button(
+                "Accept Selected Draft",
+                type="primary",
+                key="config_studio_accept_pending_ai_draft",
+                disabled=not selected_metrics,
+        ):
+            filtered_sections = filter_generated_sections(
+                pending_sections,
+                selected_metrics=selected_metrics,
+                selected_reports=selected_reports,
+            )
+            final_config = build_final_config(template_config, pending_ih_config, filtered_sections)
+            st.session_state["config_studio_ai_sections"] = filtered_sections
+            st.session_state["config_studio_pending_ai_sections"] = None
+            st.session_state["config_studio_pending_ih_config"] = None
+            st.session_state["config_studio_pending_metric_selection"] = []
+            st.session_state["config_studio_pending_report_selection"] = []
+            _set_draft_config(final_config)
+            _reset_report_builder_state()
+            _set_step(STEP_OPTIONS[7])
+            st.rerun()
+        if action_col2.button(
+                "Discard Pending Draft",
+                key="config_studio_discard_pending_ai_draft",
+        ):
+            st.session_state["config_studio_pending_ai_sections"] = None
+            st.session_state["config_studio_pending_ih_config"] = None
+            st.session_state["config_studio_pending_metric_selection"] = []
+            st.session_state["config_studio_pending_report_selection"] = []
+            st.rerun()
+
+
 @st.fragment()
 def _render_ai_schema_preview_table(schema_editor_df) -> None:
     """Render the AI schema preview editor and return the masked dataframe sent to AI."""
@@ -403,6 +533,10 @@ def _initialize_editor_state(template_config: dict, file_signature: str, sample_
     st.session_state["config_studio_pending_step"] = None
     st.session_state["config_studio_ai_sections"] = None
     st.session_state["config_studio_ai_report_sections"] = None
+    st.session_state["config_studio_pending_ai_sections"] = None
+    st.session_state["config_studio_pending_ih_config"] = None
+    st.session_state["config_studio_pending_metric_selection"] = []
+    st.session_state["config_studio_pending_report_selection"] = []
     st.session_state["config_studio_generated_toml"] = None
     st.session_state["config_studio_draft_config"] = None
     st.session_state["config_studio_selected_fields"] = []
@@ -807,6 +941,7 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pl.DataFr
         example_fields=st.session_state.get("config_studio_ai_example_fields", []),
         prompt=prompt,
     )
+    _render_pending_ai_draft_review(template_config, ih_config)
 
     if not llm:
         st.info("Configure an API key in the sidebar when you are ready to generate metrics and reports.")
@@ -819,13 +954,12 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pl.DataFr
                 with st.status("Generating metrics and reports", expanded=True) as status:
                     status.write("Building AI prompt from the approved schema...")
                     sections = generate_ai_sections(llm, prompt)
-                    final_config = build_final_config(template_config, ih_config, sections)
-                    st.session_state["config_studio_ai_sections"] = sections
-                    _set_draft_config(final_config)
-                    _reset_report_builder_state()
+                    st.session_state["config_studio_pending_ai_sections"] = sections
+                    st.session_state["config_studio_pending_ih_config"] = ih_config
+                    st.session_state["config_studio_pending_metric_selection"] = generated_metric_names(sections)
+                    st.session_state["config_studio_pending_report_selection"] = generated_report_names(sections)
                     status.write("AI sections parsed successfully.")
-                    status.update(label="Draft ready", state="complete")
-                _set_step(STEP_OPTIONS[7])
+                    status.update(label="Draft ready for review", state="complete")
                 st.rerun()
             except Exception as exc:
                 st.error(f"AI draft generation failed: {exc}")
