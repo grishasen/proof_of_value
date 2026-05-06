@@ -235,6 +235,48 @@ def _mask_schema_preview_for_ai(schema_preview, example_fields: list[str]):
     ])
 
 
+def _format_field_list(fields: list[str]) -> str:
+    if not fields:
+        return "_None_"
+    return ", ".join(f"`{field}`" for field in fields)
+
+
+def _render_ai_privacy_summary(
+        *,
+        approved_fields: list[str],
+        working_fields: list[str],
+        example_fields: list[str],
+        prompt: str,
+) -> None:
+    approved_field_set = set(approved_fields)
+    example_field_set = set(example_fields)
+    fields_sent = sorted(approved_field_set, key=str.casefold)
+    fields_hidden = sorted(set(working_fields) - approved_field_set, key=str.casefold)
+    sample_values_shared = sorted(approved_field_set & example_field_set, key=str.casefold)
+    sample_values_masked = sorted(approved_field_set - example_field_set, key=str.casefold)
+    prompt_chars = len(prompt)
+    estimated_tokens = max(1, (prompt_chars + 3) // 4)
+
+    with st.container(border=True):
+        st.write("### AI Privacy Summary")
+        st.caption(
+            "The AI request includes the IH preprocessing config, template baseline, approved schema fields, "
+            "and only the sample values enabled below."
+        )
+        summary_cols = st.columns(5)
+        summary_cols[0].metric("Fields Sent", len(fields_sent))
+        summary_cols[1].metric("Fields Hidden", len(fields_hidden))
+        summary_cols[2].metric("Sample Values Shared", len(sample_values_shared))
+        summary_cols[3].metric("Sample Values Masked", len(sample_values_masked))
+        summary_cols[4].metric("Prompt Size", f"~{estimated_tokens:,} tokens")
+        with st.expander("Privacy Details", expanded=False):
+            st.markdown("**Fields sent:** " + _format_field_list(fields_sent))
+            st.markdown("**Fields hidden:** " + _format_field_list(fields_hidden))
+            st.markdown("**Sample values shared:** " + _format_field_list(sample_values_shared))
+            st.markdown("**Sample values masked:** " + _format_field_list(sample_values_masked))
+            st.caption(f"Prompt length: {prompt_chars:,} characters.")
+
+
 @st.fragment()
 def _render_ai_schema_preview_table(schema_editor_df) -> None:
     """Render the AI schema preview editor and return the masked dataframe sent to AI."""
@@ -752,10 +794,6 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pl.DataFr
                                                             st.session_state["config_studio_ai_example_fields"])
             st.dataframe(ai_schema_preview, width="stretch", height=480)
 
-    if not llm:
-        st.info("Configure an API key in the sidebar when you are ready to generate metrics and reports.")
-        return
-
     prompt = build_ai_config_prompt(
         file_name=file_name,
         approved_schema=ai_schema_preview,
@@ -763,6 +801,16 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pl.DataFr
         template_config=template_config,
         ih_config=ih_config,
     )
+    _render_ai_privacy_summary(
+        approved_fields=approved_fields,
+        working_fields=list(working_df.columns),
+        example_fields=st.session_state.get("config_studio_ai_example_fields", []),
+        prompt=prompt,
+    )
+
+    if not llm:
+        st.info("Configure an API key in the sidebar when you are ready to generate metrics and reports.")
+        return
 
     action_col1, action_col2 = st.columns([0.35, 0.65], vertical_alignment="center")
     with action_col1:
