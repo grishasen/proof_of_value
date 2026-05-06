@@ -7,8 +7,8 @@ import polars as pl
 import streamlit as st
 import tomlkit
 
-from value_dashboard.config_generator.ai import build_ai_config_prompt, build_ai_reports_refinement_prompt, \
-    build_final_config, generate_ai_sections, save_generated_config
+from value_dashboard.config_generator.ai import build_ai_config_prompt, build_ai_config_repair_prompt, \
+    build_ai_reports_refinement_prompt, build_final_config, generate_ai_sections, save_generated_config
 from value_dashboard.config_generator.config_builder import ensure_metric_group_by, render_section, render_value, \
     serialize_exprs
 from value_dashboard.config_generator.diff import build_ai_config_diff, collect_referenced_fields, \
@@ -57,6 +57,7 @@ CONFIG_STUDIO_PRESERVE_KEYS = {
     "config_studio_reasoning_effort",
     "config_studio_verbosity",
 }
+AI_REPAIRABLE_SECTIONS = ("metrics", "reports", "variants")
 STEP_OPTIONS = [
     "1. Sample",
     "2. Required Fields",
@@ -408,6 +409,203 @@ def _render_pending_ai_draft_review(template_config: dict, ih_config: dict) -> N
             st.rerun()
 
 
+def _clear_pending_ai_repair() -> None:
+    st.session_state["config_studio_pending_repair_sections"] = None
+    st.session_state["config_studio_pending_repair_base_toml"] = None
+    st.session_state["config_studio_pending_repair_prompt"] = None
+
+
+def _repairable_validation_issues(validation_issues: list) -> list:
+    return [
+        issue
+        for issue in validation_issues
+        if issue.is_blocking and issue.section in AI_REPAIRABLE_SECTIONS
+    ]
+
+
+def _apply_ai_repair_sections(current_config: dict, repair_sections: dict) -> dict:
+    repaired_config = deepcopy(current_config)
+    for section_name in AI_REPAIRABLE_SECTIONS:
+        if section_name in repair_sections:
+            repaired_config[section_name] = repair_sections[section_name]
+    return repaired_config
+
+
+def _render_pending_ai_repair_review(
+        current_config: dict,
+        *,
+        approved_fields: list[str],
+        runtime_fields: list[str],
+) -> None:
+    pending_sections = st.session_state.get("config_studio_pending_repair_sections")
+    if not pending_sections:
+        return
+
+    safe_current_config = serialize_exprs(deepcopy(current_config))
+    current_toml = tomlkit.dumps(safe_current_config)
+    base_toml = st.session_state.get("config_studio_pending_repair_base_toml")
+    base_matches = base_toml == current_toml
+    repaired_config = _apply_ai_repair_sections(safe_current_config, pending_sections)
+    repair_validation_issues = validate_config(
+        repaired_config,
+        approved_fields=approved_fields,
+        runtime_fields=runtime_fields,
+    )
+    remaining_repairable_issues = _repairable_validation_issues(repair_validation_issues)
+    diff = build_ai_config_diff(safe_current_config, repaired_config)
+    referenced_fields = collect_referenced_fields(repaired_config)
+
+    with st.container(border=True):
+        st.write("### Review AI Repair Diff")
+        st.caption("Inspect the proposed metric, report, and variant changes before updating the draft.")
+        if not base_matches:
+            st.warning(
+                "The draft changed after this repair was generated. Discard the repair and generate a fresh one."
+            )
+
+        summary_cols = st.columns(4)
+        summary_cols[0].metric(
+            "Metric Changes",
+            len(diff["metrics"]["added"]) + len(diff["metrics"]["changed"]) + len(diff["metrics"]["removed"]),
+        )
+        summary_cols[1].metric(
+            "Report Changes",
+            len(diff["reports"]["added"]) + len(diff["reports"]["changed"]) + len(diff["reports"]["removed"]),
+        )
+        summary_cols[2].metric(
+            "Remaining Errors",
+            sum(1 for issue in repair_validation_issues if issue.severity == "error"),
+        )
+        summary_cols[3].metric("References", len(referenced_fields))
+
+        _render_diff_group("Metric Repair Diff", diff["metrics"])
+        _render_diff_group("Report Repair Diff", diff["reports"])
+        _render_diff_group("Variant Repair Diff", diff["variants"])
+        with st.expander("Referenced Fields And Scores", expanded=False):
+            st.markdown(_format_name_list(referenced_fields))
+        with st.expander("Repair TOML Preview", expanded=False):
+            preview_sections = {
+                section_name: repaired_config.get(section_name, {})
+                for section_name in ("metrics", "reports", "variants")
+                if section_name in repaired_config
+            }
+            st.code(tomlkit.dumps(preview_sections), language="toml", height=360)
+
+        render_validation_details(
+            repair_validation_issues,
+            expanded=bool(remaining_repairable_issues),
+            label="Repair Validation Details",
+        )
+
+        if remaining_repairable_issues:
+            st.error("The proposed repair still has metric or report validation errors.")
+
+        action_col1, action_col2, _ = st.columns([0.24, 0.24, 0.52], vertical_alignment="center")
+        if action_col1.button(
+                "Accept AI Repair",
+                type="primary",
+                key="config_studio_accept_pending_ai_repair",
+                disabled=not base_matches or bool(remaining_repairable_issues),
+        ):
+            _set_draft_config(repaired_config)
+            _reset_report_builder_state()
+            st.rerun()
+        if action_col2.button(
+                "Discard AI Repair",
+                key="config_studio_discard_pending_ai_repair",
+        ):
+            _clear_pending_ai_repair()
+            st.rerun()
+
+
+def _render_ai_repair_flow(
+        *,
+        file_name: str,
+        schema_preview,
+        approved_fields: list[str],
+        runtime_fields: list[str],
+        llm,
+        template_config: dict,
+        validation_issues: list,
+) -> None:
+    cfg = st.session_state.get("config_studio_draft_config")
+    if cfg is None:
+        return
+
+    _render_pending_ai_repair_review(
+        cfg,
+        approved_fields=approved_fields,
+        runtime_fields=runtime_fields,
+    )
+    if st.session_state.get("config_studio_pending_repair_sections"):
+        return
+
+    repairable_issues = _repairable_validation_issues(validation_issues)
+    if not repairable_issues:
+        if has_blocking_issues(validation_issues):
+            st.info(
+                "AI repair can update metrics, reports, and variants. Resolve remaining preprocessing or app-setting "
+                "errors in the earlier steps."
+            )
+        return
+
+    safe_cfg = serialize_exprs(deepcopy(cfg))
+    prompt = build_ai_config_repair_prompt(
+        file_name=file_name,
+        approved_schema=schema_preview,
+        approved_fields=approved_fields,
+        current_config=safe_cfg,
+        template_config=template_config,
+        validation_issues=repairable_issues,
+    )
+
+    with st.container(border=True):
+        st.write("### AI Repair")
+        st.caption(
+            "Ask AI to propose a targeted replacement for invalid metric and report sections. "
+            "The proposal is held for review before it changes the draft."
+        )
+        summary_cols = st.columns(2)
+        summary_cols[0].metric("Repairable Errors", len(repairable_issues))
+        summary_cols[1].metric(
+            "Affected Sections",
+            ", ".join(sorted({issue.section for issue in repairable_issues}, key=str.casefold)),
+        )
+
+        if not llm:
+            st.info("Configure an API key in the sidebar when you are ready to generate a repair.")
+            return
+
+        action_col1, action_col2 = st.columns([0.35, 0.65], vertical_alignment="center")
+        with action_col1:
+            if st.button("Generate AI Repair", type="primary", key="config_studio_generate_ai_repair"):
+                try:
+                    with st.status("Generating repair", expanded=True) as status:
+                        status.write("Building a repair prompt from the current validation errors...")
+                        sections = generate_ai_sections(llm, prompt)
+                        missing_sections = [
+                            section_name
+                            for section_name in ("metrics", "reports")
+                            if section_name not in sections
+                        ]
+                        if missing_sections:
+                            raise ValueError(
+                                "AI response did not include required sections: "
+                                + ", ".join(f"[{section_name}]" for section_name in missing_sections)
+                            )
+                        st.session_state["config_studio_pending_repair_sections"] = sections
+                        st.session_state["config_studio_pending_repair_base_toml"] = tomlkit.dumps(safe_cfg)
+                        st.session_state["config_studio_pending_repair_prompt"] = prompt
+                        status.write("Repair sections parsed successfully.")
+                        status.update(label="Repair ready for review", state="complete")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"AI repair failed: {exc}")
+        with action_col2:
+            with st.popover("Show repair prompt", icon=":material/build:"):
+                st.code(prompt, language="text")
+
+
 @st.fragment()
 def _render_ai_schema_preview_table(schema_editor_df) -> None:
     """Render the AI schema preview editor and return the masked dataframe sent to AI."""
@@ -484,6 +682,7 @@ def _set_step(step_label: str):
 
 def _set_draft_config(config: dict):
     """Store the mutable generated config that will be reviewed in later steps."""
+    _clear_pending_ai_repair()
     st.session_state["config_studio_draft_config"] = deepcopy(config)
     st.session_state["config_studio_generated_toml"] = tomlkit.dumps(serialize_exprs(deepcopy(config)))
 
@@ -538,6 +737,9 @@ def _initialize_editor_state(template_config: dict, file_signature: str, sample_
     st.session_state["config_studio_pending_ih_config"] = None
     st.session_state["config_studio_pending_metric_selection"] = []
     st.session_state["config_studio_pending_report_selection"] = []
+    st.session_state["config_studio_pending_repair_sections"] = None
+    st.session_state["config_studio_pending_repair_base_toml"] = None
+    st.session_state["config_studio_pending_repair_prompt"] = None
     st.session_state["config_studio_generated_toml"] = None
     st.session_state["config_studio_draft_config"] = None
     st.session_state["config_studio_selected_fields"] = []
@@ -1227,7 +1429,13 @@ def _render_ai_reports_step(file_name: str, working_df: pl.DataFrame, schema_pre
     )
 
 
-def _render_reports_step():
+def _render_reports_step(
+        file_name: str,
+        schema_preview,
+        llm,
+        template_config: dict,
+        runtime_fields: list[str],
+):
     """Review, select, and edit reports on top of the current draft config."""
     cfg = st.session_state.get("config_studio_draft_config")
     if cfg is None:
@@ -1243,6 +1451,15 @@ def _render_reports_step():
         safe_cfg,
         validation_issues,
         caption="Review report-level issues before editing individual report definitions.",
+    )
+    _render_ai_repair_flow(
+        file_name=file_name,
+        schema_preview=schema_preview,
+        approved_fields=approved_fields,
+        runtime_fields=runtime_fields,
+        llm=llm,
+        template_config=template_config,
+        validation_issues=validation_issues,
     )
     render_report_builder(cfg)
 
@@ -1306,7 +1523,15 @@ def _get_draft_validation_issues(approved_fields: list[str], runtime_fields: lis
     )
 
 
-def _render_save_step(approved_fields: list[str], runtime_fields: list[str]):
+def _render_save_step(
+        approved_fields: list[str],
+        runtime_fields: list[str],
+        *,
+        file_name: str,
+        schema_preview,
+        llm,
+        template_config: dict,
+):
     """Show the final config and enable apply/download only after all review steps."""
     cfg = st.session_state.get("config_studio_draft_config")
     if cfg is None:
@@ -1336,6 +1561,15 @@ def _render_save_step(approved_fields: list[str], runtime_fields: list[str]):
         st.error(
             "Resolve validation errors before downloading or applying this draft."
         )
+    _render_ai_repair_flow(
+        file_name=file_name,
+        schema_preview=schema_preview,
+        approved_fields=approved_fields,
+        runtime_fields=runtime_fields,
+        llm=llm,
+        template_config=template_config,
+        validation_issues=validation_issues,
+    )
 
     st.code(toml_text, language="toml", height=520)
     action_col1, action_col2, others = st.columns([1, 2, 5])
@@ -1559,7 +1793,13 @@ def main():
             template_config=template_config,
         )
     elif selected_step == STEP_OPTIONS[9]:
-        _render_reports_step()
+        _render_reports_step(
+            file_name=file_name,
+            schema_preview=ai_schema_preview,
+            llm=llm,
+            template_config=template_config,
+            runtime_fields=runtime_fields,
+        )
     elif selected_step == STEP_OPTIONS[10]:
         _render_chat_step()
     elif selected_step == STEP_OPTIONS[11]:
@@ -1568,6 +1808,10 @@ def main():
         _render_save_step(
             approved_fields=approved_fields,
             runtime_fields=runtime_fields,
+            file_name=file_name,
+            schema_preview=ai_schema_preview,
+            llm=llm,
+            template_config=template_config,
         )
 
 

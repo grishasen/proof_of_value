@@ -3,6 +3,7 @@ import os
 import pprint
 import tomllib
 import uuid
+from typing import Iterable
 
 import polars as pl
 import tomlkit
@@ -147,6 +148,77 @@ Final self-check:
 2. Every referenced field exists in approved fields or is a valid score for that metric.
 3. Output contains only [reports].
 4. Output valid TOML only.
+"""
+
+
+def _format_validation_issues(validation_issues: Iterable) -> str:
+    lines = []
+    for issue in validation_issues:
+        severity = getattr(issue, "severity", "")
+        path = getattr(issue, "path", "")
+        message = getattr(issue, "message", str(issue))
+        lines.append(f"- {severity.upper()} {path}: {message}")
+    return "\n".join(lines) if lines else "- No validation issues provided."
+
+
+def build_ai_config_repair_prompt(
+        file_name: str,
+        approved_schema,
+        approved_fields: list[str],
+        current_config: dict,
+        template_config: dict,
+        validation_issues: Iterable,
+) -> str:
+    """Build a constrained prompt that repairs AI-owned metric/report config sections."""
+    with pl.Config(tbl_cols=len(approved_schema), tbl_rows=len(approved_schema),
+                   fmt_str_lengths=255, tbl_width_chars=-1):
+        return f"""
+You generate only valid TOML.
+
+Task:
+Repair the current dashboard draft by replacing only AI-owned sections that caused validation errors.
+
+Output contract:
+1. Output valid TOML only.
+2. Do not include markdown, comments, prose, or code fences.
+3. Output complete replacement sections for [metrics] and [reports].
+4. Output [variants] only if a variants change is necessary.
+5. Do not output [ih], [holdings], [ux], [copyright], or [chat_with_data].
+6. Never invent fields.
+7. Only use approved fields listed below.
+8. Preserve valid existing metric and report keys when possible.
+9. Remove a report if it cannot be repaired safely.
+10. Prefer small, targeted changes that resolve the validation issues.
+
+File name:
+{file_name}
+
+Approved fields:
+{approved_fields}
+
+Approved schema:
+{approved_schema}
+
+Validation issues to repair:
+{_format_validation_issues(validation_issues)}
+
+Current draft config:
+{_safe_prompt_config_block(current_config)}
+
+Template baseline:
+{_safe_prompt_config_block(template_config)}
+
+Hard rules:
+1. Every metric group_by field must exist in approved fields.
+2. Every report metric must exist in [metrics].
+3. Every report field must exist in approved fields or be a known score for that report metric.
+4. report.group_by fields must come from the report metric group_by or metrics.global_filters.
+5. Keep reports internally consistent with the repaired [metrics] section.
+
+Final self-check:
+1. All listed validation errors are addressed or the unsafe report was removed.
+2. No non-AI-owned section is included in the output.
+3. Output valid TOML only.
 """
 
 
