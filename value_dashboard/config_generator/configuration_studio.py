@@ -12,6 +12,7 @@ from value_dashboard.utils.config import set_config
 from value_dashboard.config_generator.config_builder import ensure_metric_group_by, render_section, render_value, \
     serialize_exprs
 from value_dashboard.config_generator.validation import has_blocking_issues, validate_config
+from value_dashboard.config_generator.validation_ui import render_config_health_panel, render_validation_details
 
 
 def _render_intro():
@@ -348,33 +349,6 @@ def _render_reports_step(cfg: dict):
         render_report_builder(cfg)
 
 
-def _render_validation_issues(issues) -> None:
-    if not issues:
-        st.success("No validation issues found.")
-        return
-
-    issue_counts = {"error": 0, "warning": 0, "info": 0}
-    for issue in issues:
-        issue_counts[issue.severity] = issue_counts.get(issue.severity, 0) + 1
-
-    summary_cols = st.columns(3)
-    summary_cols[0].metric("Errors", issue_counts["error"])
-    summary_cols[1].metric("Warnings", issue_counts["warning"])
-    summary_cols[2].metric("Info", issue_counts["info"])
-
-    with st.expander("Validation Details", expanded=bool(issue_counts["error"])):
-        for issue in issues:
-            prefix = issue.severity.upper()
-            step_hint = f" ({issue.step_hint})" if issue.step_hint else ""
-            message = f"**{prefix}** `{issue.path}`{step_hint}: {issue.message}"
-            if issue.severity == "error":
-                st.error(message)
-            elif issue.severity == "warning":
-                st.warning(message)
-            else:
-                st.info(message)
-
-
 def _render_save_step(cfg: dict):
     safe_cfg = serialize_exprs(cfg)
     toml_text = tomlkit.dumps(safe_cfg)
@@ -389,7 +363,7 @@ def _render_save_step(cfg: dict):
 
     validation_issues = validate_config(safe_cfg)
     has_blocking_validation_issues = has_blocking_issues(validation_issues)
-    _render_validation_issues(validation_issues)
+    render_validation_details(validation_issues)
 
     if has_blocking_validation_issues:
         st.error(
@@ -425,6 +399,10 @@ def _render_save_step(cfg: dict):
 def render_configuration_studio(cfg: dict):
     _render_intro()
     cfg = _ensure_working_config(cfg)
+    render_config_health_panel(
+        validate_config(serialize_exprs(deepcopy(cfg))),
+        caption="Checks the current working config before export.",
+    )
 
     steps = _build_steps(cfg)
     step_labels = [label for _, label in steps]

@@ -14,6 +14,7 @@ from value_dashboard.config_generator.config_builder import ensure_metric_group_
 from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, build_ih_config, build_schema_preview, \
     build_calculated_fields_config_text, compile_filter_rules, detect_ih_file_settings, load_ih_sample
 from value_dashboard.config_generator.validation import has_blocking_issues, validate_config
+from value_dashboard.config_generator.validation_ui import render_config_health_panel, render_validation_details
 from value_dashboard.metrics.constants import DECISION_TIME, OUTCOME_TIME, REQ_IH_COLUMNS
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.common_constants import AI_SCHEMA_EXAMPLE_COLUMNS, FILTER_OPERATORS, IH_FILE_TYPES, \
@@ -1070,31 +1071,15 @@ def _render_app_settings_step():
         cfg["variants"] = render_section(cfg.get("variants", {}), "variants")
 
 
-def _render_validation_issues(issues) -> None:
-    if not issues:
-        st.success("No validation issues found.")
-        return
-
-    issue_counts = {"error": 0, "warning": 0, "info": 0}
-    for issue in issues:
-        issue_counts[issue.severity] = issue_counts.get(issue.severity, 0) + 1
-
-    summary_cols = st.columns(3)
-    summary_cols[0].metric("Errors", issue_counts["error"])
-    summary_cols[1].metric("Warnings", issue_counts["warning"])
-    summary_cols[2].metric("Info", issue_counts["info"])
-
-    with st.expander("Validation Details", expanded=bool(issue_counts["error"])):
-        for issue in issues:
-            prefix = issue.severity.upper()
-            step_hint = f" ({issue.step_hint})" if issue.step_hint else ""
-            message = f"**{prefix}** `{issue.path}`{step_hint}: {issue.message}"
-            if issue.severity == "error":
-                st.error(message)
-            elif issue.severity == "warning":
-                st.warning(message)
-            else:
-                st.info(message)
+def _get_draft_validation_issues(approved_fields: list[str], runtime_fields: list[str]):
+    cfg = st.session_state.get("config_studio_draft_config")
+    if cfg is None:
+        return None
+    return validate_config(
+        serialize_exprs(deepcopy(cfg)),
+        approved_fields=approved_fields,
+        runtime_fields=runtime_fields,
+    )
 
 
 def _render_save_step(approved_fields: list[str], runtime_fields: list[str]):
@@ -1121,7 +1106,7 @@ def _render_save_step(approved_fields: list[str], runtime_fields: list[str]):
         runtime_fields=runtime_fields,
     )
     has_blocking_validation_issues = has_blocking_issues(validation_issues)
-    _render_validation_issues(validation_issues)
+    render_validation_details(validation_issues)
 
     if has_blocking_validation_issues:
         st.error(
@@ -1247,6 +1232,12 @@ def main():
         _sync_ai_example_field_selection(approved_fields),
     )
     _render_metrics_bar(sample_df, working_df, approved_fields)
+    runtime_fields = list(sample_df.columns)
+    render_config_health_panel(
+        _get_draft_validation_issues(approved_fields, runtime_fields),
+        caption="Checks the current AI draft against the approved field catalog and report builder rules.",
+        pending_message="Generate an AI draft to validate metrics, reports, and app settings.",
+    )
 
     if "config_studio_step_selector" not in st.session_state:
         st.session_state["config_studio_step_selector"] = st.session_state.get("config_studio_step", STEP_OPTIONS[0])
@@ -1349,7 +1340,7 @@ def main():
     else:
         _render_save_step(
             approved_fields=approved_fields,
-            runtime_fields=list(sample_df.columns),
+            runtime_fields=runtime_fields,
         )
 
 
