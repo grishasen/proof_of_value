@@ -11,8 +11,8 @@ authors = [
 ]
 dependencies = [
     "numpy>=1.26.4,<2",
-    "polars>=1.38.1",
-    "polars-ds>=0.10.5",
+    "polars>=1.40.1",
+    "polars-ds>=0.11.2",
     "datasketches>=5.2.0",
     "pandas>=2.3.3",
     "plotly>=6.6.0",
