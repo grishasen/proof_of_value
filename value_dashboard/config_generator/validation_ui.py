@@ -5,6 +5,61 @@ import streamlit as st
 from value_dashboard.config_generator.validation import ValidationIssue
 
 
+BADGE_SETTINGS = {
+    "Ready": ("green", ":material/check_circle:"),
+    "Needs Review": ("orange", ":material/rate_review:"),
+    "Blocked": ("red", ":material/error:"),
+    "Pending": ("gray", ":material/hourglass_empty:"),
+}
+
+
+def validation_status_for_issues(issues: list[ValidationIssue]) -> str:
+    if any(issue.severity == "error" for issue in issues):
+        return "Blocked"
+    if any(issue.severity in {"warning", "info"} for issue in issues):
+        return "Needs Review"
+    return "Ready"
+
+
+def validation_issue_note(issues: list[ValidationIssue]) -> str:
+    if not issues:
+        return "No validation issues."
+    counts = count_validation_issues(issues)
+    parts = []
+    if counts["error"]:
+        parts.append(f"{counts['error']} error{'s' if counts['error'] != 1 else ''}")
+    if counts["warning"]:
+        parts.append(f"{counts['warning']} warning{'s' if counts['warning'] != 1 else ''}")
+    if counts["info"]:
+        parts.append(f"{counts['info']} info")
+    return ", ".join(parts)
+
+
+def render_review_progress_badges(
+        items: list[dict],
+        *,
+        title: str = "Review Progress",
+        caption: str = "",
+) -> None:
+    with st.container(border=True):
+        st.write(f"### {title}")
+        if caption:
+            st.caption(caption)
+        if not items:
+            st.info("No review steps are available yet.")
+            return
+
+        cols = st.columns(min(4, len(items)))
+        for idx, item in enumerate(items):
+            with cols[idx % len(cols)]:
+                status = item.get("status", "Pending")
+                color, icon = BADGE_SETTINGS.get(status, BADGE_SETTINGS["Pending"])
+                st.badge(status, color=color, icon=icon, help=item.get("help"))
+                st.write(f"**{item.get('label', 'Review')}**")
+                if item.get("note"):
+                    st.caption(item["note"])
+
+
 def _status_for_issues(issues: list[ValidationIssue]) -> str:
     if any(issue.severity == "error" for issue in issues):
         return "Error"

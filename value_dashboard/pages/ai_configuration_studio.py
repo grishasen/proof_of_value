@@ -18,7 +18,7 @@ from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, 
     build_calculated_fields_config_text, compile_filter_rules, detect_ih_file_settings, load_ih_sample
 from value_dashboard.config_generator.validation import has_blocking_issues, validate_config
 from value_dashboard.config_generator.validation_ui import render_config_health_panel, render_report_validation_summary, \
-    render_validation_details
+    render_review_progress_badges, render_validation_details, validation_issue_note, validation_status_for_issues
 from value_dashboard.metrics.constants import DECISION_TIME, OUTCOME_TIME, REQ_IH_COLUMNS
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.common_constants import AI_SCHEMA_EXAMPLE_COLUMNS, FILTER_OPERATORS, IH_FILE_TYPES, \
@@ -1523,6 +1523,174 @@ def _get_draft_validation_issues(approved_fields: list[str], runtime_fields: lis
     )
 
 
+def _progress_item(label: str, status: str, note: str, help_text: str = "") -> dict:
+    return {
+        "label": label,
+        "status": status,
+        "note": note,
+        "help": help_text,
+    }
+
+
+def _issues_for_sections(validation_issues: list, sections: set[str]) -> list:
+    return [issue for issue in validation_issues if issue.section in sections]
+
+
+def _validation_progress_item(
+        label: str,
+        validation_issues: list | None,
+        sections: set[str],
+        *,
+        pending_note: str,
+        ready_note: str,
+        help_text: str,
+) -> dict:
+    if validation_issues is None:
+        return _progress_item(label, "Pending", pending_note, help_text)
+    section_issues = _issues_for_sections(validation_issues, sections)
+    status = validation_status_for_issues(section_issues)
+    note = ready_note if status == "Ready" else validation_issue_note(section_issues)
+    return _progress_item(label, status, note, help_text)
+
+
+def _render_ai_review_progress(
+        *,
+        preprocessing_error: str | None,
+        empty_after_preprocessing: bool,
+        selected_fields: list[str],
+        draft_config: dict | None,
+        pending_ai_sections: dict | None,
+        pending_repair_sections: dict | None,
+        validation_issues: list | None,
+):
+    if preprocessing_error:
+        preprocessing_item = _progress_item(
+            "Preprocessing",
+            "Blocked",
+            "Preprocessing failed.",
+            "Resolve sample, runtime, default, filter, or calculated-field issues.",
+        )
+    elif empty_after_preprocessing:
+        preprocessing_item = _progress_item(
+            "Preprocessing",
+            "Blocked",
+            "Preprocessing returned zero rows.",
+            "Adjust runtime, defaults, filters, or calculated fields.",
+        )
+    else:
+        preprocessing_item = _progress_item(
+            "Preprocessing",
+            "Ready",
+            "Working schema is available.",
+            "Sample upload and preprocessing output.",
+        )
+
+    if preprocessing_item["status"] == "Blocked":
+        field_item = _progress_item(
+            "Field Approval",
+            "Blocked",
+            "Fix preprocessing first.",
+            "Approve the field catalog before generating an AI draft.",
+        )
+    elif selected_fields:
+        field_item = _progress_item(
+            "Field Approval",
+            "Ready",
+            f"{len(selected_fields)} fields approved.",
+            "Approved field catalog sent to AI.",
+        )
+    else:
+        field_item = _progress_item(
+            "Field Approval",
+            "Pending",
+            "Approve fields before AI generation.",
+            "Select the fields AI can use in generated metrics and reports.",
+        )
+
+    if pending_ai_sections:
+        draft_item = _progress_item(
+            "AI Draft",
+            "Needs Review",
+            "Generated draft is waiting for approval.",
+            "Accept or discard the pending AI draft diff.",
+        )
+    elif draft_config is not None:
+        draft_item = _progress_item(
+            "AI Draft",
+            "Ready",
+            "Draft accepted for review.",
+            "Editable generated config draft.",
+        )
+    else:
+        draft_item = _progress_item(
+            "AI Draft",
+            "Pending",
+            "Generate and accept an AI draft.",
+            "AI-generated metrics, reports, and variants.",
+        )
+
+    if validation_issues is None:
+        repair_item = _progress_item(
+            "AI Repair",
+            "Pending",
+            "Available after draft validation.",
+            "Targeted AI repair for metric, report, and variant errors.",
+        )
+    elif pending_repair_sections:
+        repair_item = _progress_item(
+            "AI Repair",
+            "Needs Review",
+            "Repair diff is waiting for approval.",
+            "Accept or discard the pending AI repair.",
+        )
+    else:
+        repairable_issues = _repairable_validation_issues(validation_issues)
+        repair_item = _progress_item(
+            "AI Repair",
+            "Needs Review" if repairable_issues else "Ready",
+            (
+                f"{len(repairable_issues)} repairable error"
+                f"{'s' if len(repairable_issues) != 1 else ''}."
+                if repairable_issues else "No AI-owned errors detected."
+            ),
+            "Targeted AI repair for metric, report, and variant errors.",
+        )
+
+    final_status = "Pending" if validation_issues is None else validation_status_for_issues(validation_issues)
+    final_note = (
+        "Accept an AI draft before export."
+        if validation_issues is None
+        else ("Draft can be exported." if final_status == "Ready" else validation_issue_note(validation_issues))
+    )
+
+    render_review_progress_badges(
+        [
+            preprocessing_item,
+            field_item,
+            draft_item,
+            _validation_progress_item(
+                "Metrics",
+                validation_issues,
+                {"metrics"},
+                pending_note="Accept an AI draft first.",
+                ready_note="Metric definitions look consistent.",
+                help_text="Metric group_by, filters, and field references.",
+            ),
+            _validation_progress_item(
+                "Reports",
+                validation_issues,
+                {"reports"},
+                pending_note="Accept an AI draft first.",
+                ready_note="Report definitions look consistent.",
+                help_text="Report metrics, chart fields, and visual-builder support.",
+            ),
+            repair_item,
+            _progress_item("Final Export", final_status, final_note, "Overall draft export readiness."),
+        ],
+        caption="Track the AI Studio review path from preprocessing through final export.",
+    )
+
+
 def _render_save_step(
         approved_fields: list[str],
         runtime_fields: list[str],
@@ -1694,10 +1862,20 @@ def main():
     )
     _render_metrics_bar(sample_df, working_df, approved_fields)
     runtime_fields = list(sample_df.columns)
+    draft_validation_issues = _get_draft_validation_issues(approved_fields, runtime_fields)
     render_config_health_panel(
-        _get_draft_validation_issues(approved_fields, runtime_fields),
+        draft_validation_issues,
         caption="Checks the current AI draft against the approved field catalog and report builder rules.",
         pending_message="Generate an AI draft to validate metrics, reports, and app settings.",
+    )
+    _render_ai_review_progress(
+        preprocessing_error=preprocessing_error,
+        empty_after_preprocessing=empty_after_preprocessing,
+        selected_fields=st.session_state.get("config_studio_selected_fields") or [],
+        draft_config=st.session_state.get("config_studio_draft_config"),
+        pending_ai_sections=st.session_state.get("config_studio_pending_ai_sections"),
+        pending_repair_sections=st.session_state.get("config_studio_pending_repair_sections"),
+        validation_issues=draft_validation_issues,
     )
 
     if "config_studio_step_selector" not in st.session_state:

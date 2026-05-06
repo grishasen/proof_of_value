@@ -13,7 +13,7 @@ from value_dashboard.config_generator.config_builder import ensure_metric_group_
     serialize_exprs
 from value_dashboard.config_generator.validation import has_blocking_issues, validate_config
 from value_dashboard.config_generator.validation_ui import render_config_health_panel, render_report_validation_summary, \
-    render_validation_details
+    render_review_progress_badges, render_validation_details, validation_issue_note, validation_status_for_issues
 
 
 def _render_intro():
@@ -343,6 +343,62 @@ def _render_chat_step(cfg: dict):
         cfg["chat_with_data"] = render_section(chat, "chat_with_data")
 
 
+def _issues_for_sections(validation_issues: list, sections: set[str]) -> list:
+    return [issue for issue in validation_issues if issue.section in sections]
+
+
+def _review_item(
+        label: str,
+        issues: list,
+        *,
+        ready_note: str = "Ready for review.",
+        help_text: str = "",
+) -> dict:
+    status = validation_status_for_issues(issues)
+    return {
+        "label": label,
+        "status": status,
+        "note": ready_note if status == "Ready" else validation_issue_note(issues),
+        "help": help_text,
+    }
+
+
+def _render_configuration_review_progress(validation_issues: list):
+    metrics_issues = _issues_for_sections(validation_issues, {"metrics"})
+    reports_issues = _issues_for_sections(validation_issues, {"reports"})
+    runtime_issues = _issues_for_sections(validation_issues, {"ih", "holdings"})
+
+    render_review_progress_badges(
+        [
+            _review_item(
+                "Runtime",
+                runtime_issues,
+                ready_note="Runtime sections look consistent.",
+                help_text="Interaction History and Holdings runtime settings.",
+            ),
+            _review_item(
+                "Metrics",
+                metrics_issues,
+                ready_note="Metric definitions look consistent.",
+                help_text="Metric group_by, filters, and field references.",
+            ),
+            _review_item(
+                "Reports",
+                reports_issues,
+                ready_note="Report definitions look consistent.",
+                help_text="Report metrics, chart fields, and visual-builder support.",
+            ),
+            _review_item(
+                "Final Export",
+                validation_issues,
+                ready_note="Config can be exported.",
+                help_text="Overall export readiness.",
+            ),
+        ],
+        caption="Track which editor areas are ready before applying or downloading the config.",
+    )
+
+
 def _render_reports_step(cfg: dict):
     safe_cfg = serialize_exprs(deepcopy(cfg))
     validation_issues = validate_config(safe_cfg)
@@ -407,10 +463,12 @@ def _render_save_step(cfg: dict):
 def render_configuration_studio(cfg: dict):
     _render_intro()
     cfg = _ensure_working_config(cfg)
+    validation_issues = validate_config(serialize_exprs(deepcopy(cfg)))
     render_config_health_panel(
-        validate_config(serialize_exprs(deepcopy(cfg))),
+        validation_issues,
         caption="Checks the current working config before export.",
     )
+    _render_configuration_review_progress(validation_issues)
 
     steps = _build_steps(cfg)
     step_labels = [label for _, label in steps]
