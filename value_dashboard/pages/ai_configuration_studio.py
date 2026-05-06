@@ -17,7 +17,8 @@ from value_dashboard.config_generator.field_classification import FIELD_TAGS_COL
 from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, build_ih_config, build_schema_preview, \
     build_calculated_fields_config_text, compile_filter_rules, detect_ih_file_settings, load_ih_sample
 from value_dashboard.config_generator.validation import has_blocking_issues, validate_config
-from value_dashboard.config_generator.validation_ui import render_config_health_panel, render_validation_details
+from value_dashboard.config_generator.validation_ui import render_config_health_panel, render_report_validation_summary, \
+    render_validation_details
 from value_dashboard.metrics.constants import DECISION_TIME, OUTCOME_TIME, REQ_IH_COLUMNS
 from value_dashboard.report_builder import render_report_builder
 from value_dashboard.utils.common_constants import AI_SCHEMA_EXAMPLE_COLUMNS, FILTER_OPERATORS, IH_FILE_TYPES, \
@@ -1172,6 +1173,14 @@ def _render_ai_reports_step(file_name: str, working_df: pl.DataFrame, schema_pre
         current_config=cfg,
         template_config=template_config
     )
+    safe_cfg = serialize_exprs(deepcopy(cfg))
+    validation_issues = validate_config(safe_cfg, approved_fields=approved_fields)
+    render_report_validation_summary(
+        safe_cfg,
+        validation_issues,
+        title="Current Report Validation",
+        caption="Check which reports still match the edited metrics before asking AI to refresh them.",
+    )
 
     summary_col1, summary_col2 = st.columns(2)
     with summary_col1:
@@ -1227,6 +1236,14 @@ def _render_reports_step():
 
     st.write("### Reports Review")
     st.caption("Review the AI-refreshed report set, remove weak reports, and refine the remaining definitions.")
+    approved_fields = st.session_state.get("config_studio_selected_fields") or []
+    safe_cfg = serialize_exprs(deepcopy(cfg))
+    validation_issues = validate_config(safe_cfg, approved_fields=approved_fields)
+    render_report_validation_summary(
+        safe_cfg,
+        validation_issues,
+        caption="Review report-level issues before editing individual report definitions.",
+    )
     render_report_builder(cfg)
 
 

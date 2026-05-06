@@ -12,7 +12,8 @@ from value_dashboard.utils.config import set_config
 from value_dashboard.config_generator.config_builder import ensure_metric_group_by, render_section, render_value, \
     serialize_exprs
 from value_dashboard.config_generator.validation import has_blocking_issues, validate_config
-from value_dashboard.config_generator.validation_ui import render_config_health_panel, render_validation_details
+from value_dashboard.config_generator.validation_ui import render_config_health_panel, render_report_validation_summary, \
+    render_validation_details
 
 
 def _render_intro():
@@ -343,6 +344,13 @@ def _render_chat_step(cfg: dict):
 
 
 def _render_reports_step(cfg: dict):
+    safe_cfg = serialize_exprs(deepcopy(cfg))
+    validation_issues = validate_config(safe_cfg)
+    render_report_validation_summary(
+        safe_cfg,
+        validation_issues,
+        caption="Review report-level issues before editing individual report definitions.",
+    )
     with st.container(border=True):
         st.write("### Reports")
         st.caption("Use the visual report builder to edit the report catalog without rewriting TOML by hand.")
