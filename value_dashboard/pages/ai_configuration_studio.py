@@ -11,6 +11,7 @@ from value_dashboard.config_generator.ai import build_ai_config_prompt, build_ai
     build_final_config, generate_ai_sections, save_generated_config
 from value_dashboard.config_generator.config_builder import ensure_metric_group_by, render_section, render_value, \
     serialize_exprs
+from value_dashboard.config_generator.field_classification import FIELD_TAGS_COLUMN, add_field_classification
 from value_dashboard.config_generator.preprocess import apply_ih_preprocessing, build_ih_config, build_schema_preview, \
     build_calculated_fields_config_text, compile_filter_rules, detect_ih_file_settings, load_ih_sample
 from value_dashboard.config_generator.validation import has_blocking_issues, validate_config
@@ -249,6 +250,11 @@ def _render_ai_schema_preview_table(schema_editor_df) -> None:
                 "Sample To AI",
                 help="Uncheck a row to hide **Most occurring** and **Values** for this field in the AI prompt.",
                 width="small",
+            ),
+            FIELD_TAGS_COLUMN: st.column_config.TextColumn(
+                FIELD_TAGS_COLUMN,
+                help="Automatic field classification used during AI and manual review.",
+                width="medium",
             ),
         },
     )
@@ -664,6 +670,22 @@ def _render_field_step(working_df):
             st.caption(
                 "Required IH fields are always included: " + ", ".join(required_fields)
             )
+        field_catalog_preview = add_field_classification(
+            build_schema_preview(working_df),
+            row_count=working_df.height,
+        )
+        with st.expander("Field classification", expanded=False, icon=":material/sell:"):
+            st.dataframe(
+                field_catalog_preview.select([
+                    "Column",
+                    FIELD_TAGS_COLUMN,
+                    "Data Type",
+                    "Unique Count",
+                ]),
+                width="stretch",
+                hide_index=True,
+                height=320,
+            )
         if optional_fields:
             selected_optional_fields = st.pills(
                 "Optional Fields Available To AI",
@@ -684,7 +706,10 @@ def _render_field_step(working_df):
     with st.container(border=True):
         st.subheader("Approve Data Sharing with AI", help="Review schema and data samples sent to AI.")
         st.caption("This is the post-processed schema. Derived time fields are already visible here.")
-        schema_preview = build_schema_preview(working_df, selected_fields)
+        schema_preview = add_field_classification(
+            build_schema_preview(working_df, selected_fields),
+            row_count=working_df.height,
+        )
         selected_ai_example_fields = _sync_ai_example_field_selection(selected_fields)
         schema_editor_df = schema_preview.with_columns(
             pl.col("Column").is_in(selected_ai_example_fields).alias("Send To AI")
@@ -1226,7 +1251,10 @@ def main():
     approved_fields = [field for field in approved_fields if field in working_columns]
     if not approved_fields:
         approved_fields = list(working_columns)
-    schema_preview = build_schema_preview(working_df, approved_fields)
+    schema_preview = add_field_classification(
+        build_schema_preview(working_df, approved_fields),
+        row_count=working_df.height,
+    )
     ai_schema_preview = _mask_schema_preview_for_ai(
         schema_preview,
         _sync_ai_example_field_selection(approved_fields),
