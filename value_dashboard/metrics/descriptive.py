@@ -9,8 +9,6 @@ from value_dashboard.utils.polars_utils import build_digest, merge_digests
 from value_dashboard.utils.py_utils import strtobool, stable_dedup
 from value_dashboard.utils.timer import timed
 
-NUM_DTYPES = tuple(pl.INTEGER_DTYPES) + tuple(pl.FLOAT_DTYPES)
-
 
 def _existing_columns(schema: dict[str, pl.DataType], wanted: list[str]) -> list[str]:
     """Keep configured columns that still exist in the current schema."""
@@ -22,7 +20,7 @@ def _numeric_intersection(schema: dict[str, pl.DataType], wanted: list[str]) -> 
     Intersect a list of desired column names with numeric columns present in a schema.
 
     Filters `wanted` to keep only those names that exist in the schema and whose
-    `pl.DataType` is considered numeric (as defined by `NUM_DTYPES`).
+    `pl.DataType` is considered numeric.
 
     Parameters
     ----------
@@ -35,16 +33,14 @@ def _numeric_intersection(schema: dict[str, pl.DataType], wanted: list[str]) -> 
     Returns
     -------
     list[str]
-        The subset of `wanted` that are present in `schema` and have numeric types
-        according to `NUM_DTYPES`.
+        The subset of `wanted` that are present in `schema` and have numeric types.
 
     Notes
     -----
-    - `NUM_DTYPES` must be defined elsewhere (e.g., a tuple of numeric Polars types).
     - This helper is used to select the set of columns eligible for numeric aggregations
       in descriptive statistics.
     """
-    return [c for c in wanted if (c in schema) and isinstance(schema[c], NUM_DTYPES)]
+    return [c for c in wanted if (c in schema) and schema[c].is_numeric()]
 
 
 @timed

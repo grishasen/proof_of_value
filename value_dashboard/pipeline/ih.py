@@ -91,8 +91,7 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
     - `eval` is used to transform filter and column expressions defined in config
       (`config["ih"]["extensions"]["filter"]`, `config["ih"]["extensions"]["columns"]`,
       and metric-level `filter`). Ensure these are from trusted sources.
-    - When `streaming` is True, Polars streaming affinity is enabled globally:
-      `pl.Config.set_engine_affinity("streaming")`.
+    - When `streaming` is True, collection calls pass `engine="streaming"` explicitly.
     - Files already recorded in metadata are skipped to avoid reprocessing.
     - Groups are determined via `config["ih"]["ih_group_pattern"]`. If the pattern
       does not match, the file basename is used as a fallback group key.
@@ -146,8 +145,6 @@ def load_data() -> typing.Dict[str, pl.DataFrame]:
     if "streaming" in config['ih'].keys():
         streaming = strtobool(config['ih']['streaming'])
     logger.debug("Use polars streaming dataframe collect: " + str(streaming))
-    if streaming:
-        pl.Config.set_engine_affinity("streaming")
     background = False
     if "background" in config['ih'].keys():
         background = strtobool(config['ih']['background'])

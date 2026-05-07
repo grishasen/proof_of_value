@@ -65,12 +65,12 @@ STEP_OPTIONS = [
     "4. Filters",
     "5. Calculations",
     "6. Approve Fields",
-    "7. AI Draft Review",
+    "7. AI Draft",
     "8. Metrics",
-    "9. AI Report Refresh",
-    "10. Report Review",
-    "11. Chat with Data",
-    "12. App Settings",
+    "9. AI Reports",
+    "10. Reports Review",
+    "11. Chat",
+    "12. Settings",
     "13. Save & Export",
 ]
 

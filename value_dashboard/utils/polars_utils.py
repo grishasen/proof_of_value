@@ -4,7 +4,6 @@ from typing import List
 import datasketches
 import numpy as np
 import polars as pl
-from polars.datatypes._parse import NoneType
 
 from value_dashboard.utils.common_constants import SCHEMA_PREVIEW_COLUMN, SCHEMA_PREVIEW_MOST_OCCURRING, SCHEMA_PREVIEW_VALUES
 from value_dashboard.utils.logger import get_logger
@@ -41,7 +40,7 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
                 SCHEMA_PREVIEW_MOST_OCCURRING: "N/A",
                 SCHEMA_PREVIEW_VALUES: '',
             })
-        elif dtype == pl.Utf8:
+        elif dtype == pl.String:
             col_data = df[col].drop_nulls()
             mode = col_data.mode().to_list()
             unique = df[col].unique().shuffle().head(10).to_list()
@@ -52,7 +51,7 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
                 SCHEMA_PREVIEW_MOST_OCCURRING: str(mode),
                 SCHEMA_PREVIEW_VALUES: str(unique),
             })
-        elif dtype == NoneType:
+        elif dtype == pl.Null:
             mode = df[col].mode().to_list()
             unique = df[col].unique().shuffle().head(10).to_list()
             records.append({
