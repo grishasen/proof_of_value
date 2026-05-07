@@ -61,7 +61,7 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         ``filter_dataframe``.
     """
     xplot_y_bool = False
-    xplot_col = config.get('color', None)
+    xplot_col = normalize_optional_dimension(config.get('color', None))
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
     x_axis = config.get('x', None)
@@ -81,7 +81,7 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             y_axis = plot_menu['y']
             facet_column = plot_menu['facet_col']
             facet_row = plot_menu['facet_row']
-            xplot_col = plot_menu['color']
+            xplot_col = normalize_optional_dimension(plot_menu['color'])
             xplot_y_bool = plot_menu['log_y']
 
     grp_by = [x_axis]
@@ -96,11 +96,14 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     else:
         facet_row = None
 
-    if not xplot_col in grp_by:
-        grp_by.append(xplot_col)
+    append_plot_dimension(grp_by, xplot_col)
 
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
+    if xplot_col is not None:
+        cp_config['color'] = xplot_col
+    else:
+        cp_config.pop('color', None)
 
     ih_analysis = data.copy()
     if options_panel:
@@ -112,6 +115,7 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if options_panel and cards_on:
         conversion_rate_cards_subplot(ih_analysis, cp_config)
 
+    custom_data, hovertemplate = line_hover_args(x_axis, y_axis, xplot_col, ":.2%")
     if len(ih_analysis[x_axis].unique()) < 30:
         fig = px.bar(ih_analysis,
                      x=x_axis,
@@ -122,7 +126,7 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      facet_row=facet_row,
                      barmode="group",
                      title=config['description'],
-                     custom_data=[xplot_col],
+                     custom_data=custom_data,
                      log_y=xplot_y_bool
                      )
         fig.update_layout(
@@ -154,7 +158,7 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             title=config['description'],
             facet_col=facet_column,
             facet_row=facet_row,
-            custom_data=[xplot_col],
+            custom_data=custom_data,
             log_y=xplot_y_bool,
         )
 
@@ -172,9 +176,7 @@ def conversion_rate_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         height=height
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-    fig = fig.update_traces(hovertemplate=x_axis + ' : %{x}' + '<br>' +
-                                          xplot_col + ' : %{customdata[0]}' + '<br>' +
-                                          y_axis + ' : %{y:.2%}' + '<extra></extra>')
+    fig = fig.update_traces(hovertemplate=hovertemplate)
     st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 
@@ -520,7 +522,7 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     adv_on = st.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
                        help="Show advanced reporting options")
     xplot_y_bool = False
-    xplot_col = config.get('color', None)
+    xplot_col = normalize_optional_dimension(config.get('color', None))
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
     x_axis = config.get('x', None)
@@ -533,7 +535,7 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         y_axis = plot_menu['y']
         facet_column = plot_menu['facet_col']
         facet_row = plot_menu['facet_row']
-        xplot_col = plot_menu['color']
+        xplot_col = normalize_optional_dimension(plot_menu['color'])
         xplot_y_bool = plot_menu['log_y']
 
     grp_by = [x_axis]
@@ -548,11 +550,14 @@ def conversion_revenue_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     else:
         facet_row = None
 
-    if not xplot_col in grp_by:
-        grp_by.append(xplot_col)
+    append_plot_dimension(grp_by, xplot_col)
 
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
+    if xplot_col is not None:
+        cp_config['color'] = xplot_col
+    else:
+        cp_config.pop('color', None)
 
     ih_analysis = data.copy()
     ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)

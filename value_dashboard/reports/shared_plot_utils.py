@@ -12,6 +12,37 @@ from value_dashboard.utils.st_utils import filter_dataframe, align_column_types
 from value_dashboard.utils.timer import timed
 
 
+def normalize_optional_dimension(value):
+    """Normalize optional report dimensions used by Plotly and report aggregation."""
+    if value in (None, "", "---", []):
+        return None
+    return value
+
+
+def append_plot_dimension(group_by: list, value):
+    """Append a plot dimension only when it names a real report field."""
+    value = normalize_optional_dimension(value)
+    if value is not None and value not in group_by:
+        group_by.append(value)
+
+
+def line_hover_args(x_axis: str, y_axis: str, color: str | None = None, y_format: str = ":.2%",
+                    extras: list[tuple[str, str, str]] | None = None) -> tuple[list[str], str]:
+    """Build Plotly custom_data and hovertemplate for optional-color line charts."""
+    custom_data = []
+    template = x_axis + ' : %{x}' + '<br>'
+    color = normalize_optional_dimension(color)
+    if color is not None:
+        custom_data.append(color)
+        template += color + f' : %{{customdata[{len(custom_data) - 1}]}}' + '<br>'
+    template += y_axis + f' : %{{y{y_format}}}' + '<br>'
+    for label, field, value_format in extras or []:
+        custom_data.append(field)
+        template += label + f' : %{{customdata[{len(custom_data) - 1}]{value_format}}}' + '<br>'
+    template += '<extra></extra>'
+    return custom_data, template
+
+
 @timed
 def eng_conv_ml_heatmap_plot(data: Union[pl.DataFrame, pd.DataFrame],
                              config: dict) -> pd.DataFrame:
@@ -226,7 +257,7 @@ def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     adv_on = st.toggle("Advanced options", value=True, key="Advanced options" + config['description'],
                        help="Show advanced reporting options")
     xplot_y_bool = False
-    xplot_col = config.get('color', None)
+    xplot_col = normalize_optional_dimension(config.get('color', None))
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
     x_axis = config.get('x', None)
@@ -238,7 +269,7 @@ def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         y_axis = plot_menu['y']
         facet_column = plot_menu['facet_col']
         facet_row = plot_menu['facet_row']
-        xplot_col = plot_menu['color']
+        xplot_col = normalize_optional_dimension(plot_menu['color'])
         xplot_y_bool = plot_menu['log_y']
 
     grp_by = [x_axis]
@@ -253,14 +284,16 @@ def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     else:
         facet_row = None
 
-    if not xplot_col in grp_by:
-        grp_by.append(xplot_col)
+    append_plot_dimension(grp_by, xplot_col)
 
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
     cp_config['x'] = x_axis
     cp_config['y'] = y_axis
-    cp_config['color'] = xplot_col
+    if xplot_col is not None:
+        cp_config['color'] = xplot_col
+    else:
+        cp_config.pop('color', None)
 
     if (x_axis is None) or (y_axis is None):
         st.warning("Please select X and Y Axis.")
@@ -273,6 +306,7 @@ def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         st.warning("No data available.")
         return ih_analysis
 
+    custom_data, hovertemplate = line_hover_args(x_axis, y_axis, xplot_col, ":.4")
     if len(ih_analysis[x_axis].unique()) < 25:
         fig = px.bar(ih_analysis,
                      x=x_axis,
@@ -282,7 +316,7 @@ def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      facet_row=facet_row,
                      barmode="group",
                      title=config['description'],
-                     custom_data=[xplot_col],
+                     custom_data=custom_data,
                      log_y=xplot_y_bool
                      )
         fig.update_layout(
@@ -317,7 +351,7 @@ def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             title=config['description'],
             facet_col=facet_column,
             facet_row=facet_row,
-            custom_data=[xplot_col],
+            custom_data=custom_data,
             log_y=xplot_y_bool,
         )
     fig.update_xaxes(tickfont=dict(size=10))
@@ -335,11 +369,7 @@ def default_bar_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         height=height
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-    fig = fig.update_traces(hovertemplate=x_axis + ' : %{x}' + '<br>' +
-                                          xplot_col + ' : %{customdata[0]}' + '<br>' +
-                                          y_axis + ' : %{y:.4}' + '<br>' +
-                                          '<extra></extra>'
-                            )
+    fig = fig.update_traces(hovertemplate=hovertemplate)
     st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 

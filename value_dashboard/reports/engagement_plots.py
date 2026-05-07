@@ -64,7 +64,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         ``filter_dataframe``.
     """
     xplot_y_bool = False
-    xplot_col = config.get('color', None)
+    xplot_col = normalize_optional_dimension(config.get('color', None))
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
     x_axis = config.get('x', None)
@@ -85,7 +85,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             y_axis = plot_menu['y']
             facet_column = plot_menu['facet_col']
             facet_row = plot_menu['facet_row']
-            xplot_col = plot_menu['color']
+            xplot_col = normalize_optional_dimension(plot_menu['color'])
             xplot_y_bool = plot_menu['log_y']
 
     grp_by = [x_axis]
@@ -100,11 +100,14 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     else:
         facet_row = None
 
-    if not xplot_col in grp_by:
-        grp_by.append(xplot_col)
+    append_plot_dimension(grp_by, xplot_col)
 
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
+    if xplot_col is not None:
+        cp_config['color'] = xplot_col
+    else:
+        cp_config.pop('color', None)
 
     ih_analysis = data.copy()
     if options_panel:
@@ -117,6 +120,13 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         engagement_ctr_cards_subplot(ih_analysis, cp_config)
 
     ih_analysis['ConfInterval'] = ih_analysis['StdErr'] * 1.96
+    custom_data, hovertemplate = line_hover_args(
+        x_axis,
+        y_axis,
+        xplot_col,
+        ":.2%",
+        extras=[('CI', 'ConfInterval', ':.2%')]
+    )
     if len(ih_analysis[x_axis].unique()) < 25:
         fig = px.bar(ih_analysis,
                      x=x_axis,
@@ -128,7 +138,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      facet_row=facet_row,
                      barmode="group",
                      title=config['description'] + " with 95% confidence interval",
-                     custom_data=[xplot_col, 'ConfInterval']
+                     custom_data=custom_data
                      )
         if options_panel:
             fig.update_layout(
@@ -164,7 +174,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             title=config['description'],
             facet_col=facet_column,
             facet_row=facet_row,
-            custom_data=[xplot_col, 'ConfInterval']
+            custom_data=custom_data
         )
     fig.update_xaxes(tickfont=dict(size=10))
     yaxis_names = ['yaxis'] + [axis_name for axis_name in fig.layout._subplotid_props if 'yaxis' in axis_name]
@@ -179,11 +189,7 @@ def engagement_ctr_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         height=height
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-    fig = fig.update_traces(hovertemplate=x_axis + ' : %{x}' + '<br>' +
-                                          xplot_col + ' : %{customdata[0]}' + '<br>' +
-                                          y_axis + ' : %{y:.2%}' + '<br>' +
-                                          'CI' + ' : ± %{customdata[1]:.2%}' + '<extra></extra>'
-                            )
+    fig = fig.update_traces(hovertemplate=hovertemplate)
     st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 
@@ -238,7 +244,7 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
     adv_on = st.toggle("Advanced options", value=False, key="Advanced options" + config['description'],
                        help="Show advanced reporting options")
     xplot_y_bool = False
-    color = config['color']
+    color = normalize_optional_dimension(config.get('color', None))
     xplot_col = color
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
@@ -251,7 +257,7 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
         y_axis = plot_menu['y']
         facet_column = plot_menu['facet_col']
         facet_row = plot_menu['facet_row']
-        xplot_col = plot_menu['color']
+        xplot_col = normalize_optional_dimension(plot_menu['color'])
         xplot_y_bool = plot_menu['log_y']
 
     grp_by = [x_axis]
@@ -266,11 +272,14 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
     else:
         facet_row = None
 
-    if not xplot_col in grp_by:
-        grp_by.append(xplot_col)
+    append_plot_dimension(grp_by, xplot_col)
 
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
+    if xplot_col is not None:
+        cp_config['color'] = xplot_col
+    else:
+        cp_config.pop('color', None)
 
     ih_analysis = data.copy()
     ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
@@ -278,6 +287,7 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         return ih_analysis
+    custom_data, hovertemplate = line_hover_args(x_axis, y_axis, xplot_col, ":.2%")
     if len(ih_analysis[x_axis].unique()) < 25:
         fig = px.bar(ih_analysis,
                      x=x_axis,
@@ -287,7 +297,7 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      facet_row=facet_row,
                      barmode="group",
                      title=config['description'],
-                     custom_data=[xplot_col],
+                     custom_data=custom_data,
                      log_y=xplot_y_bool
                      )
         fig.update_layout(
@@ -319,14 +329,14 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
             title=config['description'],
             facet_row=facet_row,
             facet_col=facet_column,
-            custom_data=[xplot_col],
+            custom_data=custom_data,
             log_y=xplot_y_bool
         )
     yaxis_names = ['yaxis'] + [axis_name for axis_name in fig.layout._subplotid_props if 'yaxis' in axis_name]
     yaxis_layout_dict = {yaxis_name + "_tickformat": ',.4' for yaxis_name in yaxis_names}
     fig.update_layout(yaxis_layout_dict)
     height = 640
-    if 'facet_row' in config.keys():
+    if facet_row:
         height = max(640, 300 * len(ih_analysis[facet_row].unique()))
 
     fig.update_layout(
@@ -336,9 +346,7 @@ def engagement_z_score_plot(data: Union[pl.DataFrame, pd.DataFrame],
         height=height
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-    fig = fig.update_traces(hovertemplate=x_axis + ' : %{x}' + '<br>' +
-                                          xplot_col + ' : %{customdata[0]}' + '<br>' +
-                                          y_axis + ' : %{y:.2%}' + '<extra></extra>')
+    fig = fig.update_traces(hovertemplate=hovertemplate)
     fig.add_hrect(y0=-1.96, y1=1.96, line_width=0, fillcolor="red", opacity=0.1)
     fig.add_hline(y=-1.96, line_width=2, line_dash="dash", line_color="darkred")
     fig.add_hline(y=1.96, line_width=2, line_dash="dash", line_color="darkred")
@@ -516,7 +524,7 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                        help="Show advanced reporting options")
 
     xplot_y_bool = False
-    color = config['color']
+    color = normalize_optional_dimension(config.get('color', None))
     xplot_col = color
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
@@ -529,7 +537,7 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         y_axis = plot_menu['y']
         facet_column = plot_menu['facet_col']
         facet_row = plot_menu['facet_row']
-        xplot_col = plot_menu['color']
+        xplot_col = normalize_optional_dimension(plot_menu['color'])
         xplot_y_bool = plot_menu['log_y']
 
     grp_by = [x_axis]
@@ -544,11 +552,14 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     else:
         facet_row = None
 
-    if not xplot_col in grp_by:
-        grp_by.append(xplot_col)
+    append_plot_dimension(grp_by, xplot_col)
 
     cp_config = config.copy()
     cp_config['group_by'] = grp_by
+    if xplot_col is not None:
+        cp_config['color'] = xplot_col
+    else:
+        cp_config.pop('color', None)
 
     ih_analysis = data.copy()
     ih_analysis = filter_dataframe(align_column_types(ih_analysis), case=False)
@@ -556,6 +567,7 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     if ih_analysis.shape[0] == 0:
         st.warning("No data available.")
         return ih_analysis
+    custom_data, hovertemplate = line_hover_args(x_axis, y_axis, xplot_col, ":.2%")
     if len(ih_analysis[x_axis].unique()) < 30:
         fig = px.bar(ih_analysis,
                      x=x_axis,
@@ -565,7 +577,7 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
                      facet_row=facet_row,
                      barmode="group",
                      title=config['description'],
-                     custom_data=[xplot_col],
+                     custom_data=custom_data,
                      log_y=xplot_y_bool
                      )
         fig.update_layout(
@@ -594,7 +606,7 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
             x=x_axis,
             y=y_axis,
             color=xplot_col,
-            custom_data=[xplot_col],
+            custom_data=custom_data,
             title=config['description'],
             facet_row=facet_row,
             facet_col=facet_column,
@@ -603,8 +615,8 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
     fig.update_xaxes(tickfont=dict(size=10))
     fig.update_yaxes(tickformat=',.0%')
     height = 640
-    if 'facet_row' in config.keys():
-        height = max(640, 300 * len(ih_analysis[config['facet_row']].unique()))
+    if facet_row:
+        height = max(640, 300 * len(ih_analysis[facet_row].unique()))
     fig.update_layout(
         xaxis_title=x_axis,
         yaxis_title=y_axis,
@@ -612,9 +624,7 @@ def engagement_lift_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         height=height
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-    fig = fig.update_traces(hovertemplate=x_axis + ' : %{x}' + '<br>' +
-                                          xplot_col + ' : %{customdata[0]}' + '<br>' +
-                                          y_axis + ' : %{y:.2%}' + '<extra></extra>')
+    fig = fig.update_traces(hovertemplate=hovertemplate)
     st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
 

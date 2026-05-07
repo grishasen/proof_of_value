@@ -54,16 +54,18 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         return ih_analysis
     y_axis = config.get('y', None)
     x_axis = config.get('x', None)
+    xplot_col = normalize_optional_dimension(config.get('color', None))
+    custom_data, hovertemplate = line_hover_args(x_axis, y_axis, xplot_col, ":.2%")
     fig = px.line(
         ih_analysis,
         x=x_axis,
         y=y_axis,
-        color=config['color'],
+        color=xplot_col,
         log_y=config.get('log_y', False),
         title=config['description'],
         facet_row=config['facet_row'] if 'facet_row' in config.keys() else None,
         facet_col=config['facet_column'] if 'facet_column' in config.keys() else None,
-        custom_data=[config['color']]
+        custom_data=custom_data
     )
     fig.update_xaxes(tickfont=dict(size=10))
     yaxis_names = ['yaxis'] + [axis_name for axis_name in fig.layout._subplotid_props if 'yaxis' in axis_name]
@@ -80,9 +82,7 @@ def model_ml_scores_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         height=height
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
-    fig = fig.update_traces(hovertemplate=x_axis + ' : %{x}' + '<br>' +
-                                          config['color'] + ' : %{customdata[0]}' + '<br>' +
-                                          y_axis + ' : %{y:.2%}' + '<extra></extra>')
+    fig = fig.update_traces(hovertemplate=hovertemplate)
 
     st.plotly_chart(fig, width='stretch', theme="streamlit")
     return ih_analysis
@@ -179,7 +179,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
     #    st.stop()
 
     xplot_y_bool = False
-    xplot_col = config.get('color', None)
+    xplot_col = normalize_optional_dimension(config.get('color', None))
     facet_row = '---' if not 'facet_row' in config.keys() else config['facet_row']
     facet_column = '---' if not 'facet_column' in config.keys() else config['facet_column']
     x_axis = config.get('x', None)
@@ -192,7 +192,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
         y_axis = plot_menu['y']
         facet_column = plot_menu['facet_col']
         facet_row = plot_menu['facet_row']
-        xplot_col = plot_menu['color']
+        xplot_col = normalize_optional_dimension(plot_menu['color'])
         property = plot_menu['property']
 
     grp_by = [x_axis]
@@ -207,11 +207,7 @@ def model_ml_scores_line_plot_roc_pr_curve(data: Union[pl.DataFrame, pd.DataFram
     else:
         facet_row = None
 
-    if not (xplot_col == '---'):
-        if not xplot_col in grp_by:
-            grp_by.append(xplot_col)
-    else:
-        xplot_col = None
+    append_plot_dimension(grp_by, xplot_col)
 
     cp_config = config.copy()
     cp_config['x'] = x_axis
