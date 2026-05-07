@@ -89,7 +89,8 @@ def _unique_non_empty(values):
     return result
 
 
-def ensure_metric_group_by(metric_name, selected_group_by, current_group_by=None, global_filters=None, available_fields=None):
+def ensure_metric_group_by(metric_name, selected_group_by, current_group_by=None, global_filters=None,
+                           available_fields=None):
     """Ensure metric group_by keeps at least one field and provide a UI-safe fallback."""
     cleaned_selection = _unique_non_empty(selected_group_by)
     if cleaned_selection:

@@ -4,7 +4,6 @@ import streamlit as st
 
 from value_dashboard.config_generator.validation import ValidationIssue
 
-
 BADGE_SETTINGS = {
     "Ready": ("green", ":material/check_circle:"),
     "Needs Review": ("orange", ":material/rate_review:"),

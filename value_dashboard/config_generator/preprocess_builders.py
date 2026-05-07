@@ -4,8 +4,8 @@ import re
 import polars as pl
 import streamlit as st
 
-from value_dashboard.utils.common_constants import FILTER_OPERATORS
 from value_dashboard.config_generator.preprocess import build_calculated_fields_config_text, compile_filter_rules
+from value_dashboard.utils.common_constants import FILTER_OPERATORS
 
 
 def blank_default_row() -> dict:

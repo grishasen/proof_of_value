@@ -5,15 +5,15 @@ from copy import deepcopy
 import streamlit as st
 import tomlkit
 
-from value_dashboard.config_generator.preprocess_builders import render_calculated_fields_builder, \
-    render_defaults_builder, render_filter_builder
-from value_dashboard.report_builder import render_report_builder
-from value_dashboard.utils.config import set_config
 from value_dashboard.config_generator.config_builder import ensure_metric_group_by, render_section, render_value, \
     serialize_exprs
+from value_dashboard.config_generator.preprocess_builders import render_calculated_fields_builder, \
+    render_defaults_builder, render_filter_builder
 from value_dashboard.config_generator.validation import has_blocking_issues, validate_config
 from value_dashboard.config_generator.validation_ui import render_config_health_panel, render_report_validation_summary, \
     render_review_progress_badges, render_validation_details, validation_issue_note, validation_status_for_issues
+from value_dashboard.report_builder import render_report_builder
+from value_dashboard.utils.config import set_config
 
 
 def _render_intro():

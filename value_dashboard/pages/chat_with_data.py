@@ -60,7 +60,7 @@ if "data_loaded" not in st.session_state:
 
 # Sidebar for API Key settings
 with st.sidebar:
-    model: str = "gpt-5.4"
+    model: str = "gpt-5.5"
     reasoning_effort = "low"  # "minimal" | "low" | "medium" | "high"
     verbosity = "low"  # "low" | "medium" | "high"
     llm = render_litellm_sidebar(

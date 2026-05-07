@@ -5,7 +5,8 @@ import datasketches
 import numpy as np
 import polars as pl
 
-from value_dashboard.utils.common_constants import SCHEMA_PREVIEW_COLUMN, SCHEMA_PREVIEW_MOST_OCCURRING, SCHEMA_PREVIEW_VALUES
+from value_dashboard.utils.common_constants import SCHEMA_PREVIEW_COLUMN, SCHEMA_PREVIEW_MOST_OCCURRING, \
+    SCHEMA_PREVIEW_VALUES
 from value_dashboard.utils.logger import get_logger
 
 T_DIGEST_COMPRESSION = 500
@@ -73,7 +74,7 @@ def schema_with_unique_counts(df: pl.DataFrame) -> pl.DataFrame:
                 "Unique Count": unique_count,
                 SCHEMA_PREVIEW_MOST_OCCURRING: "N/A",
                 SCHEMA_PREVIEW_VALUES: "Min = " + f'{min_val:.4f}' + " Max = " + f'{max_val:.4f}' + " Mean = "
-                + f'{mean_val:.4f}' + " Median = " + f'{med_val:.4f}',
+                                       + f'{mean_val:.4f}' + " Median = " + f'{med_val:.4f}',
             })
         else:
             col_data = df[col].drop_nulls()

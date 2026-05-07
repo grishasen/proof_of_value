@@ -392,8 +392,6 @@ def _render_pending_ai_draft_review(template_config: dict, ih_config: dict) -> N
             st.session_state["config_studio_ai_sections"] = filtered_sections
             st.session_state["config_studio_pending_ai_sections"] = None
             st.session_state["config_studio_pending_ih_config"] = None
-            st.session_state["config_studio_pending_metric_selection"] = []
-            st.session_state["config_studio_pending_report_selection"] = []
             _set_draft_config(final_config)
             _reset_report_builder_state()
             _set_step(STEP_OPTIONS[7])
@@ -404,8 +402,6 @@ def _render_pending_ai_draft_review(template_config: dict, ih_config: dict) -> N
         ):
             st.session_state["config_studio_pending_ai_sections"] = None
             st.session_state["config_studio_pending_ih_config"] = None
-            st.session_state["config_studio_pending_metric_selection"] = []
-            st.session_state["config_studio_pending_report_selection"] = []
             st.rerun()
 
 
@@ -1145,6 +1141,7 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pl.DataFr
         prompt=prompt,
     )
     _render_pending_ai_draft_review(template_config, ih_config)
+    has_pending_ai_draft = st.session_state.get("config_studio_pending_ai_sections") is not None
 
     if not llm:
         st.info("Configure an API key in the sidebar when you are ready to generate metrics and reports.")
@@ -1152,7 +1149,13 @@ def _render_ai_step(template_config: dict, file_name: str, working_df: pl.DataFr
 
     action_col1, action_col2 = st.columns([0.35, 0.65], vertical_alignment="center")
     with action_col1:
-        if st.button("Generate AI Draft", type="primary", key="config_studio_generate_ai"):
+        if st.button(
+                "Generate AI Draft",
+                type="primary",
+                key="config_studio_generate_ai",
+                disabled=has_pending_ai_draft,
+                help="Accept or discard the pending AI draft before generating another.",
+        ):
             try:
                 with st.status("Generating metrics and reports", expanded=True) as status:
                     status.write("Building AI prompt from the approved schema...")
@@ -1778,7 +1781,7 @@ def main():
         )
         llm = render_litellm_sidebar(
             key_prefix="config_studio",
-            default_model="gpt-5.4",
+            default_model="gpt-5.5",
             reasoning_effort="low",
             verbosity="medium",
             missing_key_message="Please configure LLM API key.",

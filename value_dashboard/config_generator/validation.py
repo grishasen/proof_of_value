@@ -116,8 +116,8 @@ def _validate_runtime_fields(
             section="ih",
             path="ih",
             message=(
-                "Required runtime fields are missing before Interaction History preprocessing: "
-                + ", ".join(missing_runtime_fields)
+                    "Required runtime fields are missing before Interaction History preprocessing: "
+                    + ", ".join(missing_runtime_fields)
             ),
             step_hint="Required Fields",
         ))
@@ -294,8 +294,8 @@ def _validate_report_group_by(
         section="reports",
         path=f"reports.{report_name}.group_by",
         message=(
-            f"Report '{report_name}' group_by fields must come from the report metric group_by "
-            "or metrics.global_filters: " + ", ".join(unknown_group_by)
+                f"Report '{report_name}' group_by fields must come from the report metric group_by "
+                "or metrics.global_filters: " + ", ".join(unknown_group_by)
         ),
         step_hint="Reports",
     )]
@@ -368,4 +368,3 @@ def validate_config(
 
 def has_blocking_issues(issues: Iterable[ValidationIssue]) -> bool:
     return any(issue.is_blocking for issue in issues)
-

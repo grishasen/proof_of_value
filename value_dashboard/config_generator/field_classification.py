@@ -119,10 +119,10 @@ def classify_field(
     )
     has_measure_hint = _has_any(field_lower, MEASURE_FIELD_HINTS)
     is_numeric_measure = (
-            _is_numeric_dtype(data_type)
-            and not is_likely_id
-            and not is_time
-    ) or has_measure_hint
+                                 _is_numeric_dtype(data_type)
+                                 and not is_likely_id
+                                 and not is_time
+                         ) or has_measure_hint
     is_high_cardinality = _is_high_cardinality(unique_count, row_count)
     is_business_dimension = (
             not is_technical
@@ -130,8 +130,8 @@ def classify_field(
             and not is_numeric_measure
             and not is_time
             and (
-                _has_any(field_lower, BUSINESS_FIELD_HINTS)
-                or not is_high_cardinality
+                    _has_any(field_lower, BUSINESS_FIELD_HINTS)
+                    or not is_high_cardinality
             )
     )
 
