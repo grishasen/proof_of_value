@@ -11,9 +11,10 @@ Go to [Wiki page](https://github.com/grishasen/proof_of_value/wiki) for addition
 
 ## Features
 
-- **Data Import**: Upload and load data files (ZIP or Parquet) for analysis.
-- **Interactive Dashboard**: Visualize data and apply filters to explore and analyze the data interactively.
+- **Data Import**: Load Interaction History and Product Holdings data from folders or uploads.
+- **Interactive Dashboard**: Visualize KPIs, configurable reports, and filtered data interactively.
 - **Configuration Editor**: Review, validate, edit, apply, and download TOML configuration from the app.
+- **Chat With Data**: Ask questions over loaded metrics data when optional AI dependencies are installed.
 - **AI Configuration Studio**: Generate a config draft from an Interaction History sample, review AI changes, validate
   reports, and repair AI-owned sections before export.
 
@@ -21,7 +22,10 @@ Go to [Wiki page](https://github.com/grishasen/proof_of_value/wiki) for addition
 
 1. **Data Import**:
     - Navigate to the "Data Import" page.
-    - Upload your data by selecting and loading ZIP or Parquet files.
+    - For Interaction History, load raw data from a folder or upload ZIP, Parquet, or JSON files. You can also switch
+      off `Import raw data` and upload a pre-aggregated metrics JSON file.
+    - For Product Holdings / CLV, load data from a folder or upload ZIP, Parquet, JSON, CSV, or XLSX files. The selected
+      config `file_type` must match the uploaded data format.
     - **For demo**:
         - IH reporting: switch off `Import raw data` toggle. Upload JSON file available in `data` folder (unzip
           archive).
@@ -30,8 +34,9 @@ Go to [Wiki page](https://github.com/grishasen/proof_of_value/wiki) for addition
 
 2. **Dashboard**:
     - Navigate to the "Dashboard" page.
-    - View the visualized data and apply various filters to interactively explore and analyze the data.
-    - Use "Chat with data" with own OpenAI key.
+    - Review top-level KPIs and prebuilt charts with global filters.
+    - Use "Reports and Analysis" for configurable report views and the underlying aggregated data.
+    - Use "Chat with data" with your own API key after installing the optional AI dependencies.
 
 3. **Configuration Editor**:
     - Navigate to the "Configuration Editor" page to edit the active TOML config.
@@ -53,7 +58,7 @@ The project uses [uv](https://docs.astral.sh/uv/) as the main dependency manager
 
 ### Prerequisites
 
-- Python 3.11 - 3.14
+- Python >=3.11, <=3.14
 - `uv`
 
 Install `uv`:
@@ -81,8 +86,9 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
    This installs `litellm` for AI-assisted config generation and chat with data.
 
-4. **Edit the config file if needed**:
+4. **Prepare a custom config if needed**:
    ```bash
+   cp value_dashboard/config/config_template.toml value_dashboard/config/config.toml
    vi value_dashboard/config/config.toml
    ```
 
@@ -90,9 +96,13 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
    ```bash
    uv run cdhdashboard run
    ```
-   or with an explicit config file:
+   The app uses `value_dashboard/config/config_template.toml` by default. To run with a specific config:
    ```bash
-   uv run cdhdashboard run -- --config=<config_file_path.toml>
+   uv run cdhdashboard run --config value_dashboard/config/config_demo.toml
+   ```
+   Streamlit options can be passed before app options:
+   ```bash
+   uv run cdhdashboard run --server.port 8502 --config value_dashboard/config/config_demo.toml
    ```
 
 ### Install As a Python Package
@@ -112,7 +122,7 @@ uv pip install "cdhdashboard[ai]"
 To verify the installation:
 
 ```bash
-cdhdashboard run -- --config <config_file_path.toml>
+cdhdashboard run --config <config_file_path.toml>
 ```
 
 ### Build Distributions
@@ -130,9 +140,10 @@ This creates the package archives in `dist/`.
 - **vd_app.py**: The main entry point of the application.
 - **value_dashboard/pages/home.py**: Application description.
 - **value_dashboard/pages/data_import.py**: Handles data import functionality.
-- **value_dashboard/pages/ih_analysis.py**: Contains the dashboard for IH data visualization and interaction.
+- **value_dashboard/pages/mkt_dashboard.py**: Contains the KPI dashboard for Interaction History metrics.
+- **value_dashboard/pages/ih_analysis.py**: Contains configurable IH report views and aggregated data tables.
 - **value_dashboard/pages/clv_analysis.py**: Contains the dashboard for Product Holdings data and CLV-related metrics.
-- **value_dashboard/pages/chat_with_data.py**: Chat with your data (engagement, conversion, experiment).
+- **value_dashboard/pages/chat_with_data.py**: Chat with loaded engagement, conversion, experiment, and CLV data.
 - **value_dashboard/pages/configuration_editor.py**: Visual configuration editor for the active TOML config.
 - **value_dashboard/pages/ai_configuration_studio.py**: AI-assisted config generator with field approval, privacy
   controls, draft diff review, validation, report refresh, and repair workflow.
@@ -141,7 +152,7 @@ This creates the package archives in `dist/`.
 - **value_dashboard/pipeline/**: Data loading and processing steps.
 - **value_dashboard/reports/**: Plots and data visualization functions.
 - **value_dashboard/utils/**: Utility functions for configuration and Streamlit components.
-- **value_dashboard/datalake/**: Persistent cache based on Duck DB
+- **value_dashboard/datalake/**: Persistent cache based on DuckDB.
 
 ## Metrics
 
@@ -158,9 +169,9 @@ The application currently supports various metrics, configured through a TOML fi
 
 ```toml
 [metrics.conversion]
-group_by = ['Day', 'Month', 'Year', 'Quarter', 'Channel', 'ModelType', 'Issue', 'CustomerType']
-filter = """"""
-scores = ['ConversionRate', 'Revenue']
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group"]
+filter = ""
+scores = ["ConversionRate", "Revenue"]
 positive_model_response = ["Conversion"]
 negative_model_response = ["Impression"]
 ```
@@ -174,9 +185,9 @@ negative_model_response = ["Impression"]
 
 ```toml
 [metrics.engagement]
-group_by = ['Day', 'Month', 'Year', 'Quarter', 'Channel', 'CustomerType', 'Placement', 'Issue', 'Group']
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group"]
 filter = """"""
-scores = ['CTR', 'Lift']
+scores = ["CTR", "Lift", "Lift_Z_Score", "Lift_P_Val", "Positives", "Negatives", "Count"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
 ```
@@ -197,22 +208,25 @@ There are two options for ML metrics calculation:
 
 ```toml
 [metrics.model_ml_scores]
-group_by = ['Day', 'Month', 'Year', 'Quarter', 'Channel', 'CustomerType', 'Placement']
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group"]
 filter = """"""
-use_t_digest = "true" #Use t-digest of probs to calculate roc_auc and average_precision or weighted average
-scores = ['roc_auc', 'average_precision', 'personalization', 'novelty']
+use_t_digest = "true"
+scores = ["roc_auc", "average_precision", "personalization", "novelty"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
 ```
 
-- **Descriptive**: Describes dataset, aggregating counts, sums, etc. across givven dimensions
+- **Descriptive**: Describes the dataset by aggregating counts, sums, distributions, and related statistics across
+  configured dimensions.
     - ***Count***: Return the number of non-null elements in the column.
     - ***Sum***: Get sum value for column.
     - ***Mean***: Get mean value.
     - ***Median***: Get median (50-percentile) value using t-digest data structure and corresponding algorithm.
+    - ***p25***: Get 25-percentile using t-digest data structure and corresponding algorithm.
     - ***p75***: Get 75-percentile using t-digest data structure and corresponding algorithm.
     - ***p90***: Get 90-percentile using t-digest data structure and corresponding algorithm.
     - ***p95***: Get 95-percentile using t-digest data structure and corresponding algorithm.
+    - ***Min / Max***: Get minimum and maximum values.
     - ***Std***: Get standard deviation (Delta Degrees of Freedom = 1).
     - ***Var***: Get variance (Delta Degrees of Freedom = 1).
     - ***Skew***: Compute Bowley's Skewness (Quartile Coefficient of Skewness) of a data
@@ -223,10 +237,11 @@ negative_model_response = ["Impression", "Pending"]
 
 ```toml
 [metrics.descriptive]
-group_by = ['Day', 'Month', 'Year', 'Quarter', 'Channel', 'CustomerType', 'Placement', 'Issue', 'Group', 'Outcome']
+group_by = ["Day", "Month", "Year", "Quarter", "Channel", "PlacementType", "PropensitySource", "Issue", "Group", "Outcome"]
 filter = """"""
-columns = ['Outcome', 'Propensity', 'FinalPropensity', 'Priority']
-scores = ['Count', 'Sum', 'Mean', 'Median', 'p75', 'p90', 'p95', 'Std', 'Var', 'Skew']
+use_t_digest = "true"
+columns = ["Outcome", "Propensity", "FinalPropensity", "Priority", "ResponseTime", "Weight", "OutcomeWeight"]
+scores = ["Count", "Sum", "Mean", "Median", "p25", "p75", "p90", "p95", "Std", "Var", "Skew", "Min", "Max"]
 ```
 
 - **Experiment**: Various metrics used during A/B testing.
@@ -242,11 +257,11 @@ scores = ['Count', 'Sum', 'Mean', 'Median', 'p75', 'p90', 'p95', 'Std', 'Var', '
 
 ```toml
 [metrics.experiment]
-group_by = ['Year', 'Channel', 'CustomerType']
-filter = """(pl.col("ModelControlGroup").is_in(["Test", "Control"]))"""
-experiment_name = 'ExperimentName'
-experiment_group = 'ExperimentGroup'
-scores = ['z_score', 'z_p_val', 'g_stat', 'g_p_val', 'chi2_stat', 'chi2_p_val', 'g_odds_ratio_stat', 'g_odds_ratio_ci_low', 'g_odds_ratio_ci_high', 'chi2_odds_ratio_stat', 'chi2_odds_ratio_ci_low', 'chi2_odds_ratio_ci_high']
+group_by = ["Year", "Channel", "PlacementType", "PropensitySource"]
+filter = """"""
+experiment_name = "ExperimentName"
+experiment_group = "ExperimentGroup"
+scores = ["z_score", "z_p_val", "g_stat", "g_p_val", "chi2_stat", "chi2_p_val", "g_odds_ratio_stat", "g_odds_ratio_ci_low", "g_odds_ratio_ci_high", "chi2_odds_ratio_stat", "chi2_odds_ratio_ci_low", "chi2_odds_ratio_ci_high"]
 positive_model_response = ["Clicked"]
 negative_model_response = ["Impression", "Pending"]
 ```
@@ -270,18 +285,23 @@ order_id_col = "HoldingID"
 customer_id_col = 'CustomerID'
 monetary_value_col = 'OneTimeCost'
 purchase_date_col = 'PurchasedDateTime'
-lifespan = 3
-rfm_segment_config = { "Premium Customer" = ["334", "443", "444", "344", "434", "433", "343", "333"], "Repeat Customer" = ["244", "234", "232", "332", "143", "233", "243", "242"], "Top Spender" = ["424", "414", "144", "314", "324", "124", "224", "423", "413", "133", "323", "313", "134"], "At Risk Customer" = ["422", "223", "212", "122", "222", "132", "322", "312", "412", "123", "214"], "Inactive Customer" = ["411", "111", "113", "114", "112", "211", "311"]}
+model = 'non-contractual' # contractual, non-contractual
+recurring_period = 'RecurringPeriod' # only for model = 'contractual'
+recurring_cost = 'RecurringCost' # only for model = 'contractual'
+lifespan = 9
+rfm_segment_config = 'retail_banking' # telco, e-commerce
 ```
 
 ## Configuration
 
 The application configuration is managed through a TOML file, which includes the following main sections:
 
-1. **Application info and UX behaviour**: Branding, styling, layout
-2. **IH (Data Extraction)**: Configuration for data extraction processes.
-3. **Metrics (Provided Functionality)**: Definitions of various metrics that the dashboard supports.
-4. **Reports (Configurable Reports)**: Definitions of reports that can be generated based on the metrics.
+1. **Application info and UX behaviour**: Branding, versioning, refresh, caching, and optional chat controls.
+2. **Interaction History (`[ih]`)**: Raw data extraction and preprocessing settings.
+3. **Product Holdings (`[holdings]`)**: Product-holdings extraction and preprocessing settings for CLV analysis.
+4. **Metrics (`[metrics]`)**: Definitions of the metric families the dashboard calculates.
+5. **Reports (`[reports]`)**: Configurable visual reports built from those metrics.
+6. **Variants and Chat (`[variants]`, `[chat_with_data]`)**: Demo-mode metadata and AI prompt context.
 
 ---
 
@@ -321,9 +341,9 @@ These settings control the behavior of the application's user interface.
 - **refresh_dashboard**: A boolean-like string that indicates whether the dashboard should automatically refresh.
   Possible values are "true" or "false".
 - **refresh_interval**: The time interval (in milliseconds) for refreshing the dashboard automatically. The default
-  value is 120000, which equals 2 minutes.
-- **data_cache_hours**: Cache processed data for N hours
-- **chat_with_data**: true/false - enable "Chat with your data" option
+  template value is 180000, which equals 3 minutes.
+- **data_cache_hours**: Cache processed data for N hours.
+- **chat_with_data**: true/false - enable "Chat with your data" option.
 
 ---
 
@@ -334,18 +354,18 @@ application.
 
 ##### Interaction History
 
-- **file_type**: The expected type of input data files. The default setting is "parquet", indicating that files should
-  be in Apache Parquet format.
-- **file_pattern**: A glob pattern used to locate data files within the directory structure. For example: "**/*
-  .parquet", which recursively searches for all files with a .parquet extension.
+- **file_type**: The expected type of input data files. The default template setting is "pega_ds_export"; "parquet" is
+  also supported for raw Interaction History.
+- **file_pattern**: A glob pattern used to locate data files within the directory structure. The default template uses
+  "**/*.zip" for Pega dataset exports.
 - **ih_group_pattern**: A regular expression pattern used to extract date or identifier information from file names.
-  E.g. "ih_(\\d{8})", which captures date in YYYYMMDD format. Data from files will be grouped before processing.
+  The default template captures the date from Pega export file names. Data from files will be grouped before processing.
 - **streaming**: Process the polars query in batches to handle larger-than-memory data. If set to False (default), the
   entire query is processed in a single batch. Should be changed to `true` if dataset files are larger than few GBs.
 - **background**: Run the polars query in the background and return execution. Currently, all initial load frames are
   lazy frames, collected asynchronously.
 - **hive_partitioning**: Expect data to be partitioned.
-- **extensions**: A placeholder for any additional file handling extensions or configurations that might be added later.
+- **extensions**: Preprocessing rules applied before metric calculation.
 
 The extensions section in the configuration file defines custom operations to manipulate and filter input data. These
 operations are essential for optimizing performance and tailoring the data analysis to meet specific business needs. By
@@ -361,7 +381,9 @@ providing insights that align with business objectives.
 
 ##### Product Holdings
 
-- **file_type**: The expected type of input data files. The default setting is "pega_ds_export".
+- **file_type**: The expected type of input data files. The default setting is "pega_ds_export". Product Holdings also
+  supports "parquet", "csv", and "xlsx" when the matching config is selected.
+  XLSX loading uses Polars Excel support, so install a compatible Excel engine if your environment does not include one.
 - **file_pattern**: A glob pattern used to locate data files within the directory structure. For example: "**/*.json",
   works for "pega_ds_export".
 - **file_group_pattern**: A regular expression pattern used to extract date or identifier information from file names.
@@ -370,7 +392,7 @@ providing insights that align with business objectives.
 - **background**: Run the polars query in the background and return execution. Currently, all initial load frames are
   lazy frames, collected asynchronously.
 - **hive_partitioning**: Expect data to be partitioned.
-- **extensions**: A placeholder for any additional file handling extensions or configurations that might be added later.
+- **extensions**: Preprocessing rules applied before CLV metric calculation.
 
 The extensions section in the configuration file defines custom operations to manipulate and filter input data. These
 operations are essential for optimizing performance and tailoring the data analysis to meet specific business needs. By
@@ -404,18 +426,21 @@ Examples:
 engagement (used to track user interactions like click-through rates)
 model_ml_scores (used to monitor machine learning model performance metrics such as ROC AUC or average precision score)
 
-#### 3. Type
+#### 2. Type
 
 Definition: The type property defines the visual representation or chart type for the report. It determines how the data
 is displayed to the user.
 The supported report types are defined under the `type` property in the configuration file. The types include:
 
 - **line**: Line (or bar) plots for time-series or trend analysis.
+- **gauge**: KPI gauge charts for engagement and conversion rates.
 - **bar_polar**: Polar bar charts for categorical data visualization.
 - **treemap**: Treemaps for hierarchical data representation.
 - **heatmap**: Heatmaps for showing data density or correlation.
 - **scatter**: Scatter plot.
-- **generic**: Plot constructor, allowing use any of available dimensions and scores.
+- **boxplot**, **histogram**, **funnel**: Descriptive analysis plots.
+- **exposure**, **corr**, **model**, **rfm_density**: CLV-specific views.
+- **generic**: Fallback plot constructor for available dimensions and scores.
 
 #### 3. Description
 
@@ -431,7 +456,7 @@ how data is segmented for analysis.
 Examples:
 
 - `['Issue', 'Group']` for grouping data by specific issues and groups
-- `['Day', 'Channel', 'CustomerType']` for analyzing daily trends across multiple dimensions
+- `['Day', 'Channel', 'PlacementType']` for analyzing daily trends across multiple dimensions
 
 #### 5. Visual Attributes
 
@@ -465,17 +490,21 @@ functionality of the dashboard.
       audience of this dashboard configuration variant.
 
 - **demo_mode**
-    - **Definition**: The `demo_mode` property allows to use sample data provided in `data` directory automatically (data must be unarchived).
+    - **Definition**: The `demo_mode` property allows the app to load sample data from the `data` directory
+      automatically. Demo files must be available locally.
 
 ---
 
 ### Chat With Data
 
-The `[chat_with_data]` section used to configure integration with a chatbot for questions on the data and visualizations
-beyond ad-hoc reports and queries configured for dashboard.
+The `[chat_with_data]` section configures LLM context for questions about the loaded data and visualizations beyond the
+reports configured for the dashboard. The page requires the optional AI dependencies.
 
-Use `OPENAI_API_KEY` environment variable to set integration with ChatGPT, run
-`export OPENAI_API_KEY="<<your_open_api_key>>"` before starting the application or paste key directly in the UI form.
+Use the `OPENAI_API_KEY` environment variable to provide credentials, or paste the key directly in the UI form:
+
+```bash
+export OPENAI_API_KEY="<<your_openai_api_key>>"
+```
 
 #### Properties in section
 
