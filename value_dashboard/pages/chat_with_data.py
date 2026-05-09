@@ -1,16 +1,13 @@
-import base64
-import os
 import traceback
 from io import BytesIO
 
-import pandasai as pai
 import plotly.io as pio
 import streamlit as st
-from PIL import Image
 from dotenv import load_dotenv
-from pandasai import Agent
-from pandasai.core.response import ChartResponse, DataFrameResponse
 
+from value_dashboard.ai.code_agent import DataCodeAgent
+from value_dashboard.ai.data_context import DataChatDataset
+from value_dashboard.ai.responses import DataFrameResponse, PlotlyResponse
 from value_dashboard.metrics.clv import rfm_summary
 from value_dashboard.pipeline.holdings import load_holdings_data as load_holdings_data
 from value_dashboard.pipeline.ih import load_data as ih_load_data
@@ -37,9 +34,10 @@ st.markdown(
 )
 
 
-def get_agent(data) -> Agent:
-    agent = Agent(
-        data,
+def get_agent(data, llm) -> DataCodeAgent:
+    agent = DataCodeAgent(
+        datasets=data,
+        llm=llm,
         memory_size=10,
         description=get_config()["chat_with_data"]["agent_prompt"],
     )
@@ -50,6 +48,41 @@ def get_agent(data) -> Agent:
 def clear_chat_history(analyst_ref):
     st.session_state.messages = []
     analyst_ref.start_new_conversation()
+
+
+def metric_description(metric: str, descriptions: dict) -> str:
+    if metric in descriptions:
+        return descriptions[metric]
+    for prefix in ("engagement", "conversion", "experiment", "clv"):
+        if metric.startswith(prefix):
+            return descriptions.get(prefix, "")
+    return ""
+
+
+def message_log_text(message: dict) -> str:
+    if "question" in message:
+        return message["question"]
+    if "error" in message:
+        return message["error"]
+
+    summary = message.get("summary")
+    if summary:
+        return summary
+    if message.get("type") == "plotly":
+        return "[Plotly chart]"
+    if message.get("type") == "data":
+        return "[Dataframe response]"
+    return str(message.get("response", ""))
+
+
+def messages_to_agent_history(messages: list[dict]) -> list[dict[str, str]]:
+    history = []
+    for message in messages:
+        if "question" in message:
+            history.append({"role": "user", "content": message["question"]})
+        elif "response" in message:
+            history.append({"role": "assistant", "content": message_log_text(message)})
+    return history
 
 
 load_dotenv()
@@ -77,44 +110,23 @@ with st.sidebar:
         data_list = []
         for metric in metrics_data.keys():
             if metric.startswith(("engagement", "conversion", "experiment")):
-                df = pai.DataFrame(
-                    metrics_data[metric].to_pandas(),
+                df = DataChatDataset(
                     name=metric,
-                    description=metrics_descs[metric]
-                )
-                schema = df.get_default_schema(df)
-                schema.description = metrics_descs[metric]
-                schema.name = metric
-                df = pai.DataFrame(
-                    metrics_data[metric].to_pandas(),
-                    name=metric,
-                    schema=schema
+                    dataframe=metrics_data[metric].to_pandas(),
+                    description=metric_description(metric, metrics_descs),
                 )
                 data_list.append(df)
         for metric in clv_data.keys():
             if metric.startswith(("clv")):
                 m_config = get_config()['metrics'][metric]
                 totals_frame = rfm_summary(clv_data[metric], m_config)
-                df = pai.DataFrame(
-                    totals_frame.to_pandas(),
+                df = DataChatDataset(
                     name=metric,
-                    description=metrics_descs[metric]
-                )
-                schema = df.get_default_schema(df)
-                schema.description = metrics_descs[metric]
-                schema.name = metric
-                df = pai.DataFrame(
-                    totals_frame.to_pandas(),
-                    name=metric,
-                    schema=schema
+                    dataframe=totals_frame.to_pandas(),
+                    description=metric_description(metric, metrics_descs),
                 )
                 data_list.append(df)
-        pai.config.set({
-            "llm": llm,
-            "verbose": True
-        })
-        analyst = get_agent(data_list)
-        analyst.start_new_conversation()
+        analyst = get_agent(data_list, llm)
 
     c1, c2 = st.columns([0.5, 0.5], vertical_alignment="center")
     with c1:
@@ -123,7 +135,7 @@ with st.sidebar:
         if "messages" in st.session_state:
             if st.session_state.messages:
                 chat_log = "\n\n".join(
-                    f"{msg['role'].capitalize()}: {msg.get('question') or msg.get('response') or msg.get('error')}"
+                    f"{msg['role'].capitalize()}: {message_log_text(msg)}"
                     for msg in st.session_state.messages
                 )
                 chat_log_bytes = BytesIO(chat_log.encode("utf-8"))
@@ -140,10 +152,10 @@ def print_previous_response(message):
     if "question" in message:
         st.markdown(message["question"])
     elif "response" in message:
-        if message["type"] == 'img':
-            st.image(Image.open(BytesIO(base64.b64decode(message["response"]))))
+        if message["type"] == 'plotly':
+            st.plotly_chart(message["response"], width='stretch', theme="streamlit")
         elif message["type"] == 'data':
-            st.dataframe(message["response"]['value'])
+            st.dataframe(message["response"])
         else:
             st.write(message["response"])
     elif "error" in message:
@@ -154,13 +166,10 @@ def print_response(message):
     if "question" in message:
         st.markdown(message["question"])
     elif "response" in message:
-        if message["type"] == 'img':
-            if message.get('last_generated_code', None):
-                if 'plotly_chart' in message['last_generated_code']:
-                    return
-            st.image(Image.open(BytesIO(base64.b64decode(message["response"]))))
+        if message["type"] == 'plotly':
+            st.plotly_chart(message["response"], width='stretch', theme="streamlit")
         elif message["type"] == 'data':
-            st.dataframe(message["response"]['value'])
+            st.dataframe(message["response"])
         else:
             st.write(message["response"])
     elif "error" in message:
@@ -185,25 +194,23 @@ def chat_window(analyst):
         try:
             st.toast("Getting response...")
             with st.spinner('Getting response...'):
-                response = analyst.chat(analyst.description + " " + prompt) if new_chat else analyst.follow_up(
-                    analyst.description + " " + prompt)
-            path = ''
-            if isinstance(response, ChartResponse):
-                saved_resp = response.get_base64_image()
-                resp_type = 'img'
-                path = response.value
+                analyst.set_history(messages_to_agent_history(st.session_state.messages[:-1]))
+                response = analyst.chat(prompt) if new_chat else analyst.follow_up(prompt)
+            if isinstance(response, PlotlyResponse):
+                saved_resp = response.value
+                resp_type = 'plotly'
             elif isinstance(response, DataFrameResponse):
-                saved_resp = response.to_dict()
+                saved_resp = response.value
                 resp_type = 'data'
             else:
-                saved_resp = response
+                saved_resp = response.value
                 resp_type = 'str'
 
             last_msg = {
                 "role": "assistant",
                 "response": saved_resp,
                 "type": resp_type,
-                "path": path,
+                "summary": response.summary,
                 "last_generated_code": analyst.last_generated_code
             }
             st.session_state.messages.append(last_msg)
@@ -212,8 +219,6 @@ def chat_window(analyst):
                 print_response(last_msg)
                 with st.status("Show explanation", expanded=False):
                     st.code(analyst.last_generated_code, line_numbers=True)
-                if os.path.exists(last_msg["path"]):
-                    os.remove(last_msg["path"])
         except Exception as e:
             print(traceback.format_exc())
             error_message = "⚠️Sorry, Couldn't generate the answer! Please try rephrasing your question!"

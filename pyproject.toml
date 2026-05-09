@@ -3,22 +3,23 @@ name = "cdhdashboard"
 version = "1.0.4"
 description = "The CDH Value Dashboard Application is an open-source prototype designed to provide customizable metrics and insights for linking marketing actions to business outcomes, such as customer lifetime value (CLV) and conversion rates."
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.13,<=3.14"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
     { name = "Grigoriy Sen", email = "grigoriy.sen@pega.com" }
 ]
 dependencies = [
-    "numpy>=1.26.4,<2",
+    "numpy>=1.26.4,< 2.4",
     "polars>=1.40.1",
     "polars-ds>=0.11.2",
     "datasketches>=5.2.0",
-    "pandas>=2.3.3",
-    "plotly>=6.6.0",
-    "streamlit>=1.55.0",
+    "pandas>=3.0.2",
+    "plotly>=6.7.0",
+    "streamlit>=1.57.0",
+    "python-dotenv>=1.2.1",
     "scikit-learn>=1.8.0",
-    "scipy>=1.10.1",
+    "scipy>=1.17.1",
     "streamlit-dynamic-filters>=0.1.9",
     "streamlit-option-menu>=0.4.0",
     "streamlit-dimensions>=0.0.1",
@@ -29,8 +30,8 @@ dependencies = [
     "duckdb>=1.5.0",
     "lifetimes>=0.11.3",
     "kaleido>=1.2.0",
-    "matplotlib>=3.7.5",
     "pyyaml>=6.0.3",
+    "matplotlib>=3.10.9"
 ]
 
 [project.scripts]
@@ -38,8 +39,6 @@ cdhdashboard = "value_dashboard.utils.cli:main"
 
 [project.optional-dependencies]
 ai = [
-    "pandasai>=3.0.0",
-    "pandasai-litellm>=0.0.1",
     "litellm>=1.83.3",
 ]
 
@@ -48,8 +47,6 @@ dev = [
     "watchdog>=6.0.0",
 ]
 ai = [
-    "pandasai>=3.0.0",
-    "pandasai-litellm>=0.0.1",
     "litellm>=1.83.3",
 ]
 

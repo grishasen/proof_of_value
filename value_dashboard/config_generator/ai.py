@@ -7,8 +7,6 @@ from typing import Iterable
 
 import polars as pl
 import tomlkit
-from jinja2 import Environment
-from pandasai.core.prompts import BasePrompt
 
 from value_dashboard.utils.config import set_config
 from value_dashboard.utils.timer import timed
@@ -225,10 +223,10 @@ Final self-check:
 @timed
 def generate_ai_sections(llm, prompt: str) -> dict:
     """Call the LLM and parse the returned TOML sections."""
-    env = Environment()
-    instruction = BasePrompt()
-    instruction.prompt = env.from_string(prompt)
-    response_text = llm.call(instruction=instruction)
+    response_text = llm.complete_text(
+        prompt,
+        system_prompt="You generate valid TOML only. Do not include markdown or commentary.",
+    )
     response_text = response_text.replace("```toml", "").replace("```", "").strip()
     return tomllib.loads(response_text)
 

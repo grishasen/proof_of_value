@@ -1,7 +1,8 @@
 import os
 
 import streamlit as st
-from pandasai_litellm import LiteLLM
+
+from value_dashboard.ai.litellm_client import LiteLLMClient
 
 SUPPORTED_LITELLM_MODELS = [
     "gpt-5.5",
@@ -33,7 +34,7 @@ def render_litellm_sidebar(
         env_var_name: str = "OPENAI_API_KEY",
         supported_models: list[str] | None = None,
         require_api_key: bool = True,
-) -> LiteLLM:
+) -> LiteLLMClient | None:
     """Render common LiteLLM sidebar controls and return a configured client."""
     models = supported_models or SUPPORTED_LITELLM_MODELS
     selected_default_model = default_model if default_model in models else models[0]
@@ -85,7 +86,7 @@ def render_litellm_sidebar(
         help="Controls how detailed the model response should be.",
     )
 
-    return LiteLLM(
+    return LiteLLMClient(
         model=model_choice,
         api_key=api_key,
         reasoning_effort=selected_reasoning_effort,

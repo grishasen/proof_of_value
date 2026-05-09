@@ -79,7 +79,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
    ```bash
    uv sync --extra ai
    ```
-   This installs `pandasai`, `pandasai-litellm`, and `litellm`.
+   This installs `litellm` for AI-assisted config generation and chat with data.
 
 4. **Edit the config file if needed**:
    ```bash
