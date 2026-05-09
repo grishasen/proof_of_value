@@ -477,9 +477,6 @@ beyond ad-hoc reports and queries configured for dashboard.
 Use `OPENAI_API_KEY` environment variable to set integration with ChatGPT, run
 `export OPENAI_API_KEY="<<your_open_api_key>>"` before starting the application or paste key directly in the UI form.
 
-As soon as this functionality is based on Pandas AI framework, refer
-to [Pandas AI documentation](https://docs.getpanda.ai/v3/introduction) for deep-dive.
-
 #### Properties in section
 
 - **agent_prompt**: description will be used to describe the agent in the chat and to provide more context for the LLM
