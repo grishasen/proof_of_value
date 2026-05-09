@@ -53,7 +53,7 @@ The project uses [uv](https://docs.astral.sh/uv/) as the main dependency manager
 
 ### Prerequisites
 
-- Python 3.11
+- Python 3.11 - 3.14
 - `uv`
 
 Install `uv`:
