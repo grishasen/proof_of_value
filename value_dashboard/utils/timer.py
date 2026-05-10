@@ -14,6 +14,7 @@ def timed(func: Callable) -> Callable:
     if asyncio.iscoroutinefunction(func):
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
+            """Time an async function call and log the elapsed duration."""
             start = time.time()
             result = await func(*args, **kwargs)
             end = time.time()
@@ -26,6 +27,7 @@ def timed(func: Callable) -> Callable:
     else:
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
+            """Time a synchronous function call and log the elapsed duration."""
             start = time.time()
             result = func(*args, **kwargs)
             end = time.time()

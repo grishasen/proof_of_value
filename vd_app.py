@@ -13,11 +13,13 @@ st.set_page_config(**get_page_configs())
 
 
 def create_page(relative_path, name, icon=None, default=False):
+    """Create a Streamlit navigation page descriptor."""
     current_dir = os.path.dirname(__file__)
     return st.Page(os.path.join(current_dir, relative_path), title=name, icon=icon, default=default)
 
 
 def get_pages():
+    """Return the configured Streamlit page groups."""
     pages = [
         create_page("value_dashboard/pages/home.py", "Home", default=True, icon=":material/home:"),
         create_page("value_dashboard/pages/data_import.py", "Data Import", icon=":material/database_upload:"),

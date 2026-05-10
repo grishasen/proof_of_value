@@ -33,6 +33,7 @@ RUNTIME_REQUIRED_FIELDS = [
 
 @dataclass(frozen=True)
 class ValidationIssue:
+    """Describe a configuration validation issue and whether it blocks saving."""
     severity: Severity
     section: str
     path: str
@@ -41,16 +42,19 @@ class ValidationIssue:
 
     @property
     def is_blocking(self) -> bool:
+        """Return whether this issue has error severity."""
         return self.severity == "error"
 
 
 def _field_set(fields: Iterable[str] | None) -> set[str] | None:
+    """Convert field names to a normalized set, preserving unknown catalogs as None."""
     if fields is None:
         return None
     return {str(field) for field in fields if field not in (None, "")}
 
 
 def _clean_list(values) -> list[str]:
+    """Normalize TOML values into a list of non-empty strings."""
     if isinstance(values, list):
         return [str(value) for value in values if value not in (None, "", [])]
     if isinstance(values, str):
@@ -59,6 +63,7 @@ def _clean_list(values) -> list[str]:
 
 
 def _extract_filter_fields(filter_expression: str) -> list[str]:
+    """Extract referenced Polars column names from a filter expression."""
     if not filter_expression:
         return []
     pattern = r"""pl\.col\(\s*["']([^"']+)["']\s*\)"""
@@ -75,6 +80,7 @@ def _add_unknown_field_issues(
         step_hint: str,
         message_prefix: str,
 ):
+    """Add unknown field issues."""
     if available_fields is None:
         return
     unknown_fields = sorted(
@@ -96,6 +102,7 @@ def _validate_runtime_fields(
         cfg: dict,
         runtime_fields: set[str] | None,
 ) -> list[ValidationIssue]:
+    """Validate runtime fields."""
     if runtime_fields is None:
         return []
 
@@ -131,6 +138,7 @@ def _validate_metric_filters(
         filter_expression: str,
         available_fields: set[str] | None,
 ):
+    """Validate metric filters."""
     referenced_fields = _extract_filter_fields(filter_expression)
     _add_unknown_field_issues(
         issues,
@@ -147,6 +155,7 @@ def _validate_metrics(
         cfg: dict,
         approved_fields: set[str] | None,
 ) -> list[ValidationIssue]:
+    """Validate metrics."""
     issues = []
     metrics = cfg.get("metrics", {})
     if not isinstance(metrics, dict):
@@ -250,6 +259,7 @@ def _validate_metrics(
 
 
 def _validate_required_ih_fields(approved_fields: set[str] | None) -> list[ValidationIssue]:
+    """Validate required Interaction History fields."""
     if approved_fields is None:
         return []
     missing_fields = [
@@ -273,6 +283,7 @@ def _validate_report_group_by(
         report: dict,
         cfg: dict,
 ) -> list[ValidationIssue]:
+    """Validate report grouping fields against available metric fields."""
     metric_name = report.get("metric", "")
     if not metric_name or metric_name not in cfg.get("metrics", {}):
         return []
@@ -302,6 +313,7 @@ def _validate_report_group_by(
 
 
 def _validate_reports(cfg: dict) -> list[ValidationIssue]:
+    """Validate reports."""
     issues = []
     reports = cfg.get("reports", {})
     if not isinstance(reports, dict):
@@ -367,4 +379,5 @@ def validate_config(
 
 
 def has_blocking_issues(issues: Iterable[ValidationIssue]) -> bool:
+    """Return whether any validation issue is blocking."""
     return any(issue.is_blocking for issue in issues)

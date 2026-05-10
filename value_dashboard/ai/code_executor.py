@@ -28,6 +28,7 @@ class CodeExecutionError(RuntimeError):
 
 @dataclass
 class CodeExecutionResult:
+    """Store a generated-code execution response with the source code that produced it."""
     response: AgentResponse
     code: str
 
@@ -78,6 +79,7 @@ class GeneratedCodeValidator:
     }
 
     def validate(self, code: str) -> None:
+        """Validate generated Python code against the local execution policy."""
         tree = ast.parse(code)
         has_result_assignment = False
 
@@ -103,6 +105,7 @@ class GeneratedCodeValidator:
             raise CodeValidationError("Generated code must assign a `result` variable.")
 
     def _validate_import(self, node: ast.Import | ast.ImportFrom) -> None:
+        """Validate that an import statement only uses approved package roots."""
         if isinstance(node, ast.Import):
             module_names = [alias.name for alias in node.names]
         else:
@@ -118,10 +121,12 @@ class GeneratedCodeExecutor:
     """Execute generated dataframe analysis code and normalize its result."""
 
     def __init__(self, datasets: list[DataChatDataset]):
+        """Initialize the executor with datasets and a generated-code validator."""
         self._datasets = datasets
         self._validator = GeneratedCodeValidator()
 
     def execute(self, code: str) -> CodeExecutionResult:
+        """Validate and execute generated code, then normalize its result payload."""
         self._validator.validate(code)
         env = self._build_environment()
         try:
@@ -138,12 +143,14 @@ class GeneratedCodeExecutor:
         return CodeExecutionResult(response=response, code=code)
 
     def _build_environment(self) -> dict[str, Any]:
+        """Build the restricted execution environment exposed to generated code."""
         dataset_map = {
             dataset.name: dataset.dataframe.copy(deep=False)
             for dataset in self._datasets
         }
 
         def execute_sql_query(query: str) -> pd.DataFrame:
+            """Execute a DuckDB SQL query against the registered chat datasets."""
             connection = duckdb.connect(database=":memory:")
             try:
                 for name, dataframe in dataset_map.items():
@@ -190,6 +197,7 @@ class GeneratedCodeExecutor:
         }
 
     def _parse_result(self, result: Any) -> AgentResponse:
+        """Convert a generated result object into an agent response model."""
         if not isinstance(result, dict):
             if isinstance(result, BaseFigure):
                 return PlotlyResponse(value=result)

@@ -9,18 +9,22 @@ from value_dashboard.utils.common_constants import FILTER_OPERATORS
 
 
 def blank_default_row() -> dict:
+    """Return an empty default-value editor row."""
     return {"Field": "", "Default Value": "", "Enabled": True}
 
 
 def blank_filter_row() -> dict:
+    """Return an empty filter editor row."""
     return {"Field": "", "Operator": "==", "Value": "", "Enabled": True}
 
 
 def blank_calculated_row() -> dict:
+    """Return an empty calculated-field editor row."""
     return {"Name": "", "Expression": "", "Enabled": True}
 
 
 def default_rows_from_dict(default_values: dict) -> list[dict]:
+    """Convert configured default values into editor rows."""
     return [
         {"Field": key, "Default Value": value, "Enabled": True}
         for key, value in default_values.items()
@@ -28,6 +32,7 @@ def default_rows_from_dict(default_values: dict) -> list[dict]:
 
 
 def build_default_values_map(default_rows: list[dict]) -> dict:
+    """Build default values map."""
     result = {}
     for row in default_rows:
         if not row.get("Enabled", True):
@@ -40,16 +45,19 @@ def build_default_values_map(default_rows: list[dict]) -> dict:
 
 
 def _frame_records(frame) -> list[dict]:
+    """Convert an editor dataframe-like object to row dictionaries."""
     if hasattr(frame, "to_dicts"):
         return frame.to_dicts()
     return frame.to_dict("records")
 
 
 def _is_missing_editor_value(value) -> bool:
+    """Return whether an editor value should be treated as empty."""
     return value is None or value != value
 
 
 def normalize_rows(frame) -> list[dict]:
+    """Normalize editor rows by replacing missing values with blanks."""
     rows = _frame_records(frame)
     return [
         {key: ("" if _is_missing_editor_value(value) else value) for key, value in row.items()}
@@ -58,6 +66,7 @@ def normalize_rows(frame) -> list[dict]:
 
 
 def editor_frame(rows: list[dict], columns: list[str], blank_row_factory) -> pl.DataFrame:
+    """Build a Polars dataframe for Streamlit data editor rows."""
     editor_rows = rows or [blank_row_factory()]
     return pl.DataFrame({
         column: [
@@ -73,6 +82,7 @@ def editor_frame(rows: list[dict], columns: list[str], blank_row_factory) -> pl.
 
 
 def _split_top_level(text: str, separator: str) -> list[str]:
+    """Split top level."""
     items = []
     start = 0
     depth = 0
@@ -106,6 +116,7 @@ def _split_top_level(text: str, separator: str) -> list[str]:
 
 
 def _strip_outer_parentheses(text: str) -> str:
+    """Remove balanced outer parentheses from an expression."""
     candidate = text.strip()
     while candidate.startswith("(") and candidate.endswith(")"):
         inner = candidate[1:-1].strip()
@@ -138,12 +149,14 @@ def _strip_outer_parentheses(text: str) -> str:
 
 
 def parse_simple_filter_rules(filter_text: str) -> list[dict] | None:
+    """Parse simple filter rules."""
     raw_text = str(filter_text or "").strip()
     if not raw_text:
         return []
     rows = []
 
     def _safe_literal_eval(value_text: str):
+        """Parse a Python literal, raising ValueError on invalid input."""
         try:
             return ast.literal_eval(value_text)
         except (SyntaxError, ValueError):
@@ -229,6 +242,7 @@ def parse_simple_filter_rules(filter_text: str) -> list[dict] | None:
 
 
 def stringify_columns_value(columns_value) -> str:
+    """Convert calculated field rows into a TOML-ready columns expression."""
     if columns_value is None:
         return ""
     if isinstance(columns_value, str):
@@ -237,6 +251,7 @@ def stringify_columns_value(columns_value) -> str:
 
 
 def parse_calculated_rows(columns_value) -> list[dict] | None:
+    """Parse calculated rows."""
     raw_text = stringify_columns_value(columns_value).strip()
     if not raw_text:
         return []
@@ -259,6 +274,7 @@ def parse_calculated_rows(columns_value) -> list[dict] | None:
 
 
 def _init_defaults_editor_state(source_key: str, rows_key: str, default_values):
+    """Initialize session state for the defaults editor."""
     if not isinstance(default_values, dict):
         st.session_state.pop(rows_key, None)
         st.session_state[source_key] = None
@@ -274,6 +290,7 @@ def _init_defaults_editor_state(source_key: str, rows_key: str, default_values):
 
 
 def _init_filter_editor_state(source_key: str, mode_key: str, rows_key: str, raw_key: str, filter_value: str):
+    """Initialize session state for the filter editor."""
     source_value = str(filter_value or "")
     if st.session_state.get(source_key) == source_value and rows_key in st.session_state:
         return
@@ -290,6 +307,7 @@ def _init_filter_editor_state(source_key: str, mode_key: str, rows_key: str, raw
 
 
 def _init_calculated_editor_state(source_key: str, mode_key: str, rows_key: str, raw_key: str, columns_value):
+    """Initialize session state for the calculated-fields editor."""
     source_value = stringify_columns_value(columns_value)
     if st.session_state.get(source_key) == source_value and rows_key in st.session_state:
         return
@@ -306,6 +324,7 @@ def _init_calculated_editor_state(source_key: str, mode_key: str, rows_key: str,
 
 
 def _append_suggested_row(rows_key: str, blank_row_factory, target_key: str, field_name: str):
+    """Append a suggested row to a Streamlit editor state list."""
     rows = list(st.session_state.get(rows_key) or [])
     rows.append({**blank_row_factory(), target_key: field_name})
     st.session_state[rows_key] = rows
@@ -319,6 +338,7 @@ def _render_suggested_field_picker(
         target_key: str,
         widget_key_prefix: str,
 ):
+    """Render a field picker for adding suggested rows."""
     if not suggestions:
         return
     select_col, button_col = st.columns([0.75, 0.25], vertical_alignment="bottom")
@@ -346,6 +366,7 @@ def render_defaults_builder(
         allow_custom_fields: bool = False,
         extensions: dict,
 ):
+    """Render the default-values builder UI."""
     if isinstance(default_values, dict):
         _init_defaults_editor_state(source_key, rows_key, default_values)
     with st.container(border=True):
@@ -412,6 +433,7 @@ def render_filter_builder(
         allow_custom_fields: bool = False,
         extensions: dict,
 ):
+    """Render the filter builder UI."""
     _init_filter_editor_state(source_key, mode_key, rows_key, raw_key, filter_value)
     with st.container(border=True):
         st.write(f"### {title}")
@@ -519,6 +541,7 @@ def render_calculated_fields_builder(
         allow_raw_mode: bool = True,
         extensions: dict,
 ):
+    """Render the calculated-fields builder UI."""
     _init_calculated_editor_state(source_key, mode_key, rows_key, raw_key, columns_value)
     with st.container(border=True):
         title_col, _, example_col = st.columns([0.4, 0.3, 0.3], vertical_alignment="center")

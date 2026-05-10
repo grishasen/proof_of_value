@@ -179,6 +179,7 @@ def experiment_odds_ratio_plot(data: Union[pl.DataFrame, pd.DataFrame],
     """
 
     def categorize_color(g_odds_ratio_ci_high, g_odds_ratio_ci_low):
+        """Categorize a metric value for Plotly color bucketing."""
         if (g_odds_ratio_ci_high < 1) & (g_odds_ratio_ci_low < 1):
             return 'Control'
         elif (g_odds_ratio_ci_high > 1) & (g_odds_ratio_ci_low > 1):

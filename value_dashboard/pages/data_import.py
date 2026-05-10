@@ -23,6 +23,7 @@ st.title("Importing the data")
 
 @st.fragment()
 def download_collected_metrics(name, data_loaded):
+    """Prepare the collected metrics export for download."""
     collected_metrics_data: typing.Dict[str, str] = {}
     for metric in data_loaded:
         frame = data_loaded[metric]
@@ -37,6 +38,7 @@ def download_collected_metrics(name, data_loaded):
 
 @st.fragment
 def import_data():
+    """Render the Interaction History import controls."""
     dims = st.session_state.get('dashboard_dims', {})
     if not dims:
         dims = st_dimensions()
@@ -155,6 +157,7 @@ def import_data():
 
 @st.fragment
 def import_holdings_data():
+    """Render the product holdings import controls."""
     if is_demo_mode():
         with st.spinner("Wait for it...", show_time=True):
             st.info("Application is in DEMO mode. Wait for data load.")

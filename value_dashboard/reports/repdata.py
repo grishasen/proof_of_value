@@ -12,12 +12,20 @@ from value_dashboard.metrics.constants import MODELCONTROLGROUP, PROPENSITY
 from value_dashboard.metrics.ml import binary_metrics_tdigest, calibration_tdigest
 from value_dashboard.utils.config import get_config
 from value_dashboard.utils.logger import get_logger
-from value_dashboard.utils.polars_utils import merge_digests, estimate_quantile
+from value_dashboard.utils.polars_utils import merge_digests, estimate_quantiles_arr
 from value_dashboard.utils.py_utils import strtobool
 from value_dashboard.utils.stats import chi2_test, g_test, z_test, proportions_ztest
 from value_dashboard.utils.timer import timed
 
 logger = get_logger(__name__)
+
+
+def _estimate_tdigest_quantiles(args: list[pl.Series], quantiles: list[float]) -> list[float]:
+    """Estimate multiple quantiles from merged descriptive t-digests."""
+    values = estimate_quantiles_arr(args, quantiles)
+    if len(values) != len(quantiles):
+        return [0.0] * len(quantiles)
+    return values
 
 
 @timed
@@ -884,23 +892,32 @@ def calculate_descriptive_scores(
             (0.0, "p0"),
             (1.0, "p100")
         ]
+        quantile_values = [quantile for quantile, _ in quantiles]
+        quantile_suffixes = [suffix for _, suffix in quantiles]
         tdigest_aggs = []
         for c in num_columns:
-            for quantile, suffix in quantiles:
-                tdigest_aggs.append(
-                    pl.map_groups(
-                        exprs=[f"{c}_tdigest"],
-                        function=partial(estimate_quantile, quantile=quantile),
-                        returns_scalar=True,
-                        return_dtype=pl.Float64
-                    ).alias(f'{c}_{suffix}_a')
-                )
+            tdigest_aggs.append(
+                pl.map_groups(
+                    exprs=[f"{c}_tdigest"],
+                    function=partial(_estimate_tdigest_quantiles, quantiles=quantile_values),
+                    returns_scalar=True,
+                    return_dtype=pl.List(pl.Float64)
+                ).alias(f"{c}_quantiles_a")
+            )
 
         cdata = cdata.group_by(grp_by).agg(non_tdigest_aggs + tdigest_aggs)
         cdata = (
             cdata.select(cs.ends_with("_a"))
             .rename(lambda column_name: column_name.removesuffix("_a"))
+            .with_columns(
+                [
+                    pl.col(f"{c}_quantiles").list.get(index).alias(f"{c}_{suffix}")
+                    for c in num_columns
+                    for index, suffix in enumerate(quantile_suffixes)
+                ]
+            )
             .select(~cs.ends_with("_tdigest"))
+            .select(~cs.ends_with("_quantiles"))
             .with_columns(
                 [
                     (

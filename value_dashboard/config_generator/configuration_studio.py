@@ -17,14 +17,17 @@ from value_dashboard.utils.config import set_config
 
 
 def _render_intro():
+    """Render intro."""
     st.header("Configuration Editor", divider="red")
 
 
 def _config_signature(cfg: dict) -> str:
+    """Build a compact signature used to detect config changes."""
     return tomlkit.dumps(serialize_exprs(deepcopy(cfg)))
 
 
 def _ensure_working_config(cfg: dict) -> dict:
+    """Ensure the working configuration exists in Streamlit state."""
     working_key = "configuration_editor_working_cfg"
     source_key = "configuration_editor_source_signature"
     incoming_signature = _config_signature(cfg)
@@ -35,6 +38,7 @@ def _ensure_working_config(cfg: dict) -> dict:
 
 
 def _build_steps(cfg: dict) -> list[tuple[str, str]]:
+    """Build steps."""
     step_names = [
         ("branding", "Branding"),
         ("ux", "UX"),
@@ -60,6 +64,7 @@ def _build_steps(cfg: dict) -> list[tuple[str, str]]:
 
 
 def _render_simple_section_step(title: str, caption: str, section: dict, path: str) -> dict:
+    """Render simple section step."""
     with st.container(border=True):
         st.write(f"### {title}")
         st.caption(caption)
@@ -67,6 +72,7 @@ def _render_simple_section_step(title: str, caption: str, section: dict, path: s
 
 
 def _render_runtime_card(section: dict, path: str, title: str, group_pattern_key: str) -> dict:
+    """Render runtime card."""
     updated = dict(section)
     runtime_keys = ["file_type", "file_pattern", group_pattern_key, "hive_partitioning", "streaming", "background"]
     present_runtime_keys = [key for key in runtime_keys if key in section]
@@ -88,6 +94,7 @@ def _render_additional_settings_card(
         title: str,
         excluded_keys: set[str],
 ):
+    """Render additional settings card."""
     remaining_keys = [key for key in original_section.keys() if key not in excluded_keys]
     if not remaining_keys:
         return
@@ -99,6 +106,7 @@ def _render_additional_settings_card(
 
 
 def _ensure_extensions(cfg: dict, section_name: str) -> dict:
+    """Ensure the IH extensions section exists in the working config."""
     section = dict(cfg.get(section_name, {}))
     extensions = section.get("extensions", {})
     if not isinstance(extensions, dict):
@@ -110,6 +118,7 @@ def _ensure_extensions(cfg: dict, section_name: str) -> dict:
 
 @st.fragment()
 def _render_data_runtime_step(cfg: dict):
+    """Render data runtime step."""
     st.write("### Data Runtime")
     st.caption(
         "Interaction History and Holdings runtime settings are grouped here so ingestion-level options live in one place.")
@@ -140,6 +149,7 @@ def _render_data_runtime_step(cfg: dict):
 
 
 def _render_defaults_step(cfg: dict, section_name: str, title: str):
+    """Render defaults step."""
     section = _ensure_extensions(cfg, section_name)
     extensions = dict(section.get("extensions", {}))
     default_values = extensions.get("default_values", {})
@@ -165,6 +175,7 @@ def _render_defaults_step(cfg: dict, section_name: str, title: str):
 
 
 def _render_filter_step(cfg: dict, section_name: str, title: str):
+    """Render filter step."""
     section = _ensure_extensions(cfg, section_name)
     extensions = dict(section.get("extensions", {}))
     mode_key = f"configuration_editor_{section_name}_filter_mode"
@@ -189,6 +200,7 @@ def _render_filter_step(cfg: dict, section_name: str, title: str):
 
 
 def _render_columns_step(cfg: dict, section_name: str, title: str):
+    """Render columns step."""
     section = _ensure_extensions(cfg, section_name)
     extensions = dict(section.get("extensions", {}))
     mode_key = f"configuration_editor_{section_name}_columns_mode"
@@ -214,6 +226,7 @@ def _render_columns_step(cfg: dict, section_name: str, title: str):
 
 @st.fragment()
 def _render_ux_step(cfg: dict):
+    """Render ux step."""
     ux = cfg.get("ux", {})
     updated = {}
     primary_keys = ["refresh_dashboard", "refresh_interval", "data_cache_hours", "data_profiling"]
@@ -242,6 +255,7 @@ def _render_ux_step(cfg: dict):
 
 @st.fragment()
 def _render_metrics_step(cfg: dict):
+    """Render metrics step."""
     st.write("### Metrics Review")
     st.caption("Review metric-level grouping, filters, and field references. Scores remain read-only.")
 
@@ -325,6 +339,7 @@ def _render_metrics_step(cfg: dict):
 
 @st.fragment()
 def _render_chat_step(cfg: dict):
+    """Render chat step."""
     st.write("### Chat with Data")
     st.caption("Manage assistant settings, the agent prompt, and metric descriptions.")
 
@@ -344,6 +359,7 @@ def _render_chat_step(cfg: dict):
 
 
 def _issues_for_sections(validation_issues: list, sections: set[str]) -> list:
+    """Return whether validation issues exist for any requested section."""
     return [issue for issue in validation_issues if issue.section in sections]
 
 
@@ -354,6 +370,7 @@ def _review_item(
         ready_note: str = "Ready for review.",
         help_text: str = "",
 ) -> dict:
+    """Render a configuration review item with status."""
     status = validation_status_for_issues(issues)
     return {
         "label": label,
@@ -364,6 +381,7 @@ def _review_item(
 
 
 def _render_configuration_review_progress(validation_issues: list):
+    """Render configuration review progress."""
     metrics_issues = _issues_for_sections(validation_issues, {"metrics"})
     reports_issues = _issues_for_sections(validation_issues, {"reports"})
     runtime_issues = _issues_for_sections(validation_issues, {"ih", "holdings"})
@@ -400,6 +418,7 @@ def _render_configuration_review_progress(validation_issues: list):
 
 
 def _render_reports_step(cfg: dict):
+    """Render reports step."""
     safe_cfg = serialize_exprs(deepcopy(cfg))
     validation_issues = validate_config(safe_cfg)
     render_report_validation_summary(
@@ -414,6 +433,7 @@ def _render_reports_step(cfg: dict):
 
 
 def _render_save_step(cfg: dict):
+    """Render save step."""
     safe_cfg = serialize_exprs(cfg)
     toml_text = tomlkit.dumps(safe_cfg)
 
@@ -461,6 +481,7 @@ def _render_save_step(cfg: dict):
 
 
 def render_configuration_studio(cfg: dict):
+    """Render configuration studio."""
     _render_intro()
     cfg = _ensure_working_config(cfg)
     validation_issues = validate_config(serialize_exprs(deepcopy(cfg)))

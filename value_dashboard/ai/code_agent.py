@@ -19,6 +19,7 @@ class DataCodeAgent:
             memory_size: int = 10,
             max_retries: int = 2,
     ):
+        """Initialize the data code agent with datasets, an LLM client, and conversation settings."""
         self.datasets = datasets
         self.llm = llm
         self.description = description
@@ -30,21 +31,26 @@ class DataCodeAgent:
         self._executor = GeneratedCodeExecutor(datasets)
 
     def start_new_conversation(self) -> None:
+        """Clear conversation memory and generated-code diagnostics."""
         self.messages = []
         self.last_generated_code = ""
         self.last_prompt = ""
 
     def set_history(self, messages: list[dict[str, str]]) -> None:
+        """Replace conversation memory with the most recent messages."""
         self.messages = messages[-self.memory_size:]
 
     def chat(self, query: str) -> AgentResponse:
+        """Start a fresh chat turn and process the user query."""
         self.start_new_conversation()
         return self._process_query(query)
 
     def follow_up(self, query: str) -> AgentResponse:
+        """Process a follow-up query using the current conversation memory."""
         return self._process_query(query)
 
     def _process_query(self, query: str) -> AgentResponse:
+        """Generate, execute, and optionally repair code for a user query."""
         prompt = self._build_prompt(query)
         code = self._generate_code(prompt)
 
@@ -70,6 +76,7 @@ class DataCodeAgent:
         raise CodeExecutionError(last_error)
 
     def _generate_code(self, prompt: str) -> str:
+        """Ask the LLM for executable analysis code for the prompt."""
         self.last_prompt = prompt
         response = self.llm.complete_text(
             prompt,
@@ -78,6 +85,7 @@ class DataCodeAgent:
         return self._extract_code(response)
 
     def _repair_code(self, query: str, code: str, error: str) -> str:
+        """Ask the LLM to repair generated code after an execution failure."""
         repair_prompt = f"""
 The previous generated code failed.
 
@@ -101,6 +109,7 @@ Return a corrected complete Python code block only. Preserve the same result con
         return self._extract_code(response)
 
     def _build_prompt(self, query: str) -> str:
+        """Build the full code-generation prompt for a user query."""
         datasets = "\n".join(dataset.prompt_description() for dataset in self.datasets)
         history = self._history_block()
         return f"""
@@ -146,6 +155,7 @@ Generate complete Python code now.
 """
 
     def _history_block(self) -> str:
+        """Format recent conversation memory for prompt context."""
         if not self.messages:
             return "No previous conversation."
         lines = []
@@ -157,6 +167,7 @@ Generate complete Python code now.
 
     @staticmethod
     def _extract_code(response: str) -> str:
+        """Extract Python code from an LLM response or fenced code block."""
         fenced = re.search(
             r"```(?:python|py)?\s*(.*?)```",
             response,
@@ -170,6 +181,7 @@ Generate complete Python code now.
 
     @staticmethod
     def _response_preview(response: AgentResponse) -> str:
+        """Return a compact message preview for a response object."""
         if response.response_type == "plotly":
             return "Generated a Plotly chart."
         if response.response_type == "dataframe":

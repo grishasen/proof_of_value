@@ -17,6 +17,7 @@ class LiteLLMClient:
     extra_params: dict[str, Any] = field(default_factory=dict)
 
     def _completion_params(self, **overrides: Any) -> dict[str, Any]:
+        """Build LiteLLM completion parameters with configured overrides."""
         params = dict(self.extra_params)
         if self.api_key:
             params["api_key"] = self.api_key
@@ -28,6 +29,7 @@ class LiteLLMClient:
         return params
 
     def complete_messages(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
+        """Send chat messages to LiteLLM and return text content."""
         response = completion(
             model=self.model,
             messages=messages,
@@ -36,6 +38,7 @@ class LiteLLMClient:
         return response.choices[0].message.content or ""
 
     def complete_text(self, prompt: str, system_prompt: str | None = None, **kwargs: Any) -> str:
+        """Send a prompt to LiteLLM with an optional system message."""
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})

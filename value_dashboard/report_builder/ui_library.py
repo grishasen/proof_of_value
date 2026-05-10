@@ -35,6 +35,7 @@ def _format_report_label(summary: dict) -> str:
 
 @st.dialog("Report Parameters", width="large")
 def _show_report_parameters_dialog(report_name: str, report: dict):
+    """Show the report parameters dialog for the selected report."""
     st.write(f"### {report_name}")
     st.code(
         tomlkit.dumps({"reports": {report_name: report}}),

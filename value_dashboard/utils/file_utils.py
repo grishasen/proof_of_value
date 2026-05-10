@@ -17,6 +17,7 @@ _DATASET_EXPORT_TEMP_DIRS = set()
 
 
 def _cleanup_dataset_export_temp_dir(temp_dir: str | None):
+    """Remove a temporary dataset-export directory and unregister it."""
     if not temp_dir:
         return
     shutil.rmtree(temp_dir, ignore_errors=True)
@@ -25,17 +26,20 @@ def _cleanup_dataset_export_temp_dir(temp_dir: str | None):
 
 @atexit.register
 def _cleanup_dataset_export_temp_dirs():
+    """Remove all registered temporary dataset-export directories."""
     for temp_dir in list(_DATASET_EXPORT_TEMP_DIRS):
         _cleanup_dataset_export_temp_dir(temp_dir)
 
 
 def _create_dataset_export_temp_dir(tmp_folder: str) -> str:
+    """Create and register a temporary dataset-export directory."""
     temp_dir = tempfile.mkdtemp(prefix="dataset_export_", dir=tmp_folder)
     _DATASET_EXPORT_TEMP_DIRS.add(temp_dir)
     return temp_dir
 
 
 def _copy_stream_with_newline(src, dst):
+    """Copy a binary stream and ensure the output ends with a newline."""
     last_byte = None
     while True:
         chunk = src.read(1024 * 1024)
@@ -48,6 +52,7 @@ def _copy_stream_with_newline(src, dst):
 
 
 def _normalized_archive_output_path(temp_dir: str, archive_path: str, index: int) -> str:
+    """Build a safe normalized JSON output path for an archive."""
     archive_name = Path(archive_path).name
     for suffix in (".tar.gz", ".tgz", ".gzip", ".gz", ".zip"):
         if archive_name.endswith(suffix):
@@ -58,11 +63,13 @@ def _normalized_archive_output_path(temp_dir: str, archive_path: str, index: int
 
 
 def _normalize_gzip_archive(file_path: str, output_path: str):
+    """Normalize a gzip archive into a newline-delimited JSON file."""
     with gzip.open(file_path, "rb") as src, open(output_path, "wb") as dst:
         shutil.copyfileobj(src, dst)
 
 
 def _normalize_zip_archive(file_path: str, output_path: str):
+    """Normalize JSON members from a zip archive into one output file."""
     with zipfile.ZipFile(file_path, "r") as zip_ref, open(output_path, "wb") as dst:
         json_members = sorted(
             name
@@ -77,6 +84,7 @@ def _normalize_zip_archive(file_path: str, output_path: str):
 
 
 def _normalize_tar_gz_archive(file_path: str, output_path: str):
+    """Normalize JSON members from a tar.gz archive into one output file."""
     with tarfile.open(file_path, "r:gz") as tar_ref, open(output_path, "wb") as dst:
         json_members = sorted(
             member for member in tar_ref.getmembers()
@@ -93,6 +101,7 @@ def _normalize_tar_gz_archive(file_path: str, output_path: str):
 
 
 def _normalize_compressed_exports(file_paths: list[str], temp_dir: str) -> list[str]:
+    """Normalize compressed dataset export files into readable JSON files."""
     normalized_files = []
     for index, file_path in enumerate(file_paths):
         suffixes = Path(file_path).suffixes
@@ -145,6 +154,7 @@ def read_dataset_export(
         lazy=False,
         verbose=False
 ):
+    """Read Pega dataset export files into a Polars frame or lazy frame."""
     if isinstance(file_names, str):
         file_names = [file_names]
     if not file_names:
@@ -155,6 +165,7 @@ def read_dataset_export(
     df = pl.DataFrame() if not lazy else pl.LazyFrame()
 
     def resolve_path(f):
+        """Resolve a dataset export path from a manifest-relative reference."""
         if os.path.exists(f):
             return f
         elif os.path.exists(os.path.join(src_folder, f)):
@@ -201,6 +212,7 @@ def read_dataset_export(
 
 
 def detect_delimiter(filename: str, n=2):
+    """Detect the delimiter used in a text data file."""
     sample_lines = head(filename, n)
     common_delimiters = [',', ';', '\t', ' ', '|', ':']
     for d in common_delimiters:
@@ -212,6 +224,7 @@ def detect_delimiter(filename: str, n=2):
 
 
 def head(filename: str, n: int):
+    """Return the first rows of a file as a Polars dataframe."""
     try:
         with open(filename) as f:
             head_lines = [next(f).rstrip() for x in range(n)]

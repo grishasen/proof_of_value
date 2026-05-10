@@ -13,6 +13,7 @@ BADGE_SETTINGS = {
 
 
 def validation_status_for_issues(issues: list[ValidationIssue]) -> str:
+    """Return the overall validation status for a list of issues."""
     if any(issue.severity == "error" for issue in issues):
         return "Blocked"
     if any(issue.severity in {"warning", "info"} for issue in issues):
@@ -21,6 +22,7 @@ def validation_status_for_issues(issues: list[ValidationIssue]) -> str:
 
 
 def validation_issue_note(issues: list[ValidationIssue]) -> str:
+    """Render a short note for a validation issue."""
     if not issues:
         return "No validation issues."
     counts = count_validation_issues(issues)
@@ -40,6 +42,7 @@ def render_review_progress_badges(
         title: str = "Review Progress",
         caption: str = "",
 ) -> None:
+    """Render review progress badges."""
     with st.container(border=True):
         st.write(f"### {title}")
         if caption:
@@ -60,6 +63,7 @@ def render_review_progress_badges(
 
 
 def _status_for_issues(issues: list[ValidationIssue]) -> str:
+    """Return the strongest status represented by a set of issues."""
     if any(issue.severity == "error" for issue in issues):
         return "Error"
     if any(issue.severity == "warning" for issue in issues):
@@ -70,6 +74,7 @@ def _status_for_issues(issues: list[ValidationIssue]) -> str:
 
 
 def _issue_summary(report_name: str, issues: list[ValidationIssue]) -> str:
+    """Return a display summary for validation issue counts."""
     if not issues:
         return "Ready"
     messages = []
@@ -85,6 +90,7 @@ def _issue_summary(report_name: str, issues: list[ValidationIssue]) -> str:
 
 
 def _match_report_name(issue_path: str, report_names: list[str]) -> str | None:
+    """Return whether an issue path belongs to a report."""
     for report_name in sorted(report_names, key=len, reverse=True):
         report_path = f"reports.{report_name}"
         if issue_path == report_path or issue_path.startswith(f"{report_path}."):
@@ -96,6 +102,7 @@ def _build_report_issue_map(
         reports: dict,
         issues: list[ValidationIssue],
 ) -> tuple[dict[str, list[ValidationIssue]], list[ValidationIssue]]:
+    """Group validation issues by report name."""
     issue_map = {report_name: [] for report_name in reports}
     section_issues = []
     report_names = list(reports.keys())
@@ -111,6 +118,7 @@ def _build_report_issue_map(
 
 
 def count_validation_issues(issues: Iterable[ValidationIssue]) -> dict[str, int]:
+    """Count validation issues."""
     counts = {"error": 0, "warning": 0, "info": 0}
     for issue in issues:
         counts[issue.severity] = counts.get(issue.severity, 0) + 1
@@ -123,6 +131,7 @@ def render_validation_details(
         expanded: bool | None = None,
         label: str = "Validation Details",
 ) -> None:
+    """Render validation details."""
     if not issues:
         st.success("No validation issues found.")
         return
@@ -154,6 +163,7 @@ def render_config_health_panel(
         caption: str = "",
         pending_message: str = "",
 ) -> None:
+    """Render the configuration health summary panel."""
     with st.container(border=True):
         st.write(f"### {title}")
         if caption:
@@ -171,6 +181,7 @@ def render_report_validation_summary(
         title: str = "Report Validation Summary",
         caption: str = "",
 ) -> None:
+    """Render report validation summary."""
     reports = cfg.get("reports", {})
     if not isinstance(reports, dict):
         reports = {}

@@ -7,6 +7,7 @@ import streamlit as st
 
 @lru_cache(maxsize=1)
 def init_plotly_theme():
+    """Initialize the shared Plotly theme."""
     adjusted_colors = [
         "#3498db", "#2ecc71", "#e74c3c", "#9b59b6",
         "#f39c12", "#d35400", "#1abc9c", "red", "green", "blue", "#7b3f00",

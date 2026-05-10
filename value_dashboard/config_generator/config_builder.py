@@ -9,6 +9,7 @@ from value_dashboard.utils.common_constants import CONFIG_FILE_TYPES
 
 
 def serialize_exprs(obj):
+    """Serialize Polars expression rows into config text."""
     if isinstance(obj, dict):
         return {k: serialize_exprs(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -20,6 +21,7 @@ def serialize_exprs(obj):
 
 
 def is_date_field(key, value):
+    """Return whether field metadata identifies a date or datetime field."""
     key_lower = key.lower()
     if any(s in key_lower for s in ["date", "time", "datetime", "timestamp"]):
         return True
@@ -68,6 +70,7 @@ def date_to_str(dt):
 
 
 def parse_list(val):
+    """Parse a list-like config value into Python strings."""
     if isinstance(val, list):
         return val
     elif isinstance(val, str):
@@ -78,6 +81,7 @@ def parse_list(val):
 
 
 def _unique_non_empty(values):
+    """Return unique non-empty strings while preserving order."""
     result = []
     for value in values or []:
         if value in (None, ""):
@@ -189,6 +193,7 @@ def render_value(key, value, path=""):
 
 
 def display_dict_as_table(values, read_only=False):
+    """Render a dictionary as an editable Streamlit table."""
     report_data = []
     for key, val in values.items():
         report_data.append([key, val])

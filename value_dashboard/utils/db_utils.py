@@ -8,21 +8,25 @@ logger = get_logger(__name__, logging.DEBUG)
 
 
 def save_file_meta(proxy: PolarsDuckDBProxy, file_name: str):
+    """Save file processing metadata for incremental imports."""
     proxy.sql("CREATE TABLE IF NOT EXISTS metadata (filename TEXT PRIMARY KEY, timestamp DATETIME)", [])
     ts = datetime.now()
     proxy.sql("INSERT OR REPLACE INTO metadata (filename, timestamp) VALUES (?, ?)", [file_name, ts])
 
 
 def get_file_meta(proxy: PolarsDuckDBProxy):
+    """Load file processing metadata from DuckDB."""
     proxy.sql("CREATE TABLE IF NOT EXISTS metadata (filename TEXT PRIMARY KEY, timestamp DATETIME)", [])
     return proxy.get_dataframe('metadata')
 
 
 def drop_file_meta(proxy: PolarsDuckDBProxy):
+    """Drop the file metadata table."""
     proxy.sql("DROP TABLE IF EXISTS metadata", [])
 
 
 def drop_all_tables(proxy: PolarsDuckDBProxy):
+    """Drop all tables from the configured DuckDB database."""
     tables = proxy.sql("SELECT table_name FROM information_schema.tables WHERE table_schema = 'main';", []).fetchall()
     for (table_name,) in tables:
         logger.info("Dropping table", extra={"table_name": table_name})

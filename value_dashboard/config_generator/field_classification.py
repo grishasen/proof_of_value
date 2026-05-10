@@ -64,6 +64,7 @@ TIME_TYPE_HINTS = ("date", "datetime", "time")
 
 
 def _as_int(value: Any) -> int | None:
+    """Convert a value to int, returning None when conversion fails."""
     if value in (None, ""):
         return None
     try:
@@ -73,18 +74,22 @@ def _as_int(value: Any) -> int | None:
 
 
 def _has_any(text: str, hints: set[str] | tuple[str, ...]) -> bool:
+    """Return whether any candidate substring is present."""
     return any(hint in text for hint in hints)
 
 
 def _is_numeric_dtype(data_type: str) -> bool:
+    """Return whether the dtype is numeric."""
     return _has_any(data_type.casefold(), NUMERIC_TYPE_HINTS)
 
 
 def _is_time_dtype(data_type: str) -> bool:
+    """Return whether the dtype represents a date or datetime."""
     return _has_any(data_type.casefold(), TIME_TYPE_HINTS)
 
 
 def _is_high_cardinality(unique_count: int | None, row_count: int | None) -> bool:
+    """Return whether a field is high-cardinality for the dataset size."""
     if unique_count is None:
         return False
     if unique_count >= 50:
@@ -102,6 +107,7 @@ def classify_field(
         row_count: int | None = None,
         required_fields: set[str] | None = None,
 ) -> list[str]:
+    """Classify a source field for config generation and UI guidance."""
     field_lower = field_name.casefold()
     required = required_fields if required_fields is not None else set(REQ_IH_COLUMNS)
     tags = []
@@ -155,6 +161,7 @@ def classify_field(
 
 
 def add_field_classification(schema_preview: pl.DataFrame, row_count: int | None = None) -> pl.DataFrame:
+    """Attach classification metadata to a schema preview dataframe."""
     if schema_preview.is_empty() or SCHEMA_PREVIEW_COLUMN not in schema_preview.columns:
         return schema_preview
 

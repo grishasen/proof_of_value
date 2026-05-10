@@ -43,6 +43,7 @@ def load_ih_sample(file_name: str, file_bytes: bytes, sample_size: int = 100_000
 
 
 def _safe_literal(value: Any) -> Any:
+    """Return an AST literal value when it can be safely parsed."""
     if value is None:
         return None
     if isinstance(value, (bool, int, float)):
@@ -61,6 +62,7 @@ def _safe_literal(value: Any) -> Any:
 
 
 def _eval_polars_expression(expression_text: str):
+    """Evaluate a trusted Polars expression string with a constrained namespace."""
     return eval(expression_text, {"pl": pl, "np": np})
 
 
@@ -145,6 +147,7 @@ def compile_calculated_fields(field_rows: list[dict]) -> tuple[list[Any], str]:
 
 
 def _apply_default_values(dataframe: pl.DataFrame, default_values: dict[str, Any]) -> pl.DataFrame:
+    """Apply configured default values to missing or null columns."""
     result = dataframe
     for column_name, raw_value in default_values.items():
         if column_name is None or str(column_name).strip() == "":
@@ -158,6 +161,7 @@ def _apply_default_values(dataframe: pl.DataFrame, default_values: dict[str, Any
 
 
 def _alias_time_columns(dataframe: pl.DataFrame, outcome_time_col: str, decision_time_col: str) -> pl.DataFrame:
+    """Add aliases for known time columns when present."""
     expressions = []
     if outcome_time_col and outcome_time_col in dataframe.columns and outcome_time_col != OUTCOME_TIME:
         expressions.append(pl.col(outcome_time_col).alias(OUTCOME_TIME))
@@ -169,6 +173,7 @@ def _alias_time_columns(dataframe: pl.DataFrame, outcome_time_col: str, decision
 
 
 def _derive_time_fields(dataframe: pl.DataFrame) -> pl.DataFrame:
+    """Derive calendar and response-time fields from timestamp columns."""
     if OUTCOME_TIME not in dataframe.columns or DECISION_TIME not in dataframe.columns:
         return dataframe
     return dataframe.with_columns([

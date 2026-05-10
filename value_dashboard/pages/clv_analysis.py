@@ -31,6 +31,7 @@ st.markdown(
 
 
 def download_clv_dataset(df):
+    """Prepare the CLV dataset export for download."""
     st.download_button(
         label="Export RFM data",
         data=df.to_csv(index=False).encode('utf-8'),

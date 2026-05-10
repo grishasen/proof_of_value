@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 @dataclass
 class ReportBuilderState:
+    """Store editable report-builder selections before serialization."""
     name: str = ""
     description: str = ""
     metric: str = ""

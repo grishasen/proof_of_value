@@ -76,6 +76,7 @@ STEP_OPTIONS = [
 
 
 def _load_template_config() -> dict:
+    """Load template config."""
     package_dir = os.path.dirname(__file__)
     config_path = os.path.join(package_dir, "../config", "config_template.toml")
     with open(config_path, mode="rb") as handle:
@@ -83,6 +84,7 @@ def _load_template_config() -> dict:
 
 
 def _default_defaults_rows(template_config: dict) -> list[dict]:
+    """Return default rows for the default-values editor."""
     default_values = template_config.get("ih", {}).get("extensions", {}).get("default_values", {})
     return [
         {"Field": key, "Default Value": value, "Enabled": True}
@@ -91,36 +93,44 @@ def _default_defaults_rows(template_config: dict) -> list[dict]:
 
 
 def _default_filter_rows() -> list[dict]:
+    """Return default rows for the filter editor."""
     return [_blank_filter_row()]
 
 
 def _default_calculated_rows() -> list[dict]:
+    """Return default rows for the calculated-fields editor."""
     return [_blank_calculated_row()]
 
 
 def _blank_default_row() -> dict:
+    """Return an empty default-value editor row."""
     return {"Field": "", "Default Value": "", "Enabled": True}
 
 
 def _blank_filter_row() -> dict:
+    """Return an empty filter editor row."""
     return {"Field": "", "Operator": "==", "Value": "", "Enabled": True}
 
 
 def _blank_calculated_row() -> dict:
+    """Return an empty calculated-field editor row."""
     return {"Name": "", "Expression": "", "Enabled": True}
 
 
 def _frame_records(frame) -> list[dict]:
+    """Convert an editor dataframe-like object to row dictionaries."""
     if hasattr(frame, "to_dicts"):
         return frame.to_dicts()
     return frame.to_dict("records")
 
 
 def _is_missing_editor_value(value) -> bool:
+    """Return whether an editor value should be treated as empty."""
     return value is None or value != value
 
 
 def _normalize_rows(frame) -> list[dict]:
+    """Normalize editor rows by replacing missing values with blanks."""
     rows = _frame_records(frame)
     cleaned = []
     for row in rows:
@@ -155,6 +165,7 @@ def _append_editor_row(state_key: str, blank_row_factory):
 
 
 def _default_time_column(columns: list[str], preferred: str) -> str:
+    """Return the default timestamp column selected from available fields."""
     if preferred in columns:
         return preferred
     for column in columns:
@@ -164,6 +175,7 @@ def _default_time_column(columns: list[str], preferred: str) -> str:
 
 
 def _default_subject_id_column(columns: list[str]) -> str:
+    """Return the default subject identifier column from available fields."""
     if "SubjectID" in columns:
         return "SubjectID"
     preferred_names = ["CustomerID", "CustomerId", "SubjectId", "CustomerKey", "Customer"]
@@ -191,6 +203,7 @@ def _build_effective_calculated_rows(
         default_values: dict[str, object],
         calculated_rows: list[dict],
 ) -> list[dict]:
+    """Build effective calculated rows."""
     effective_rows = list(calculated_rows)
     has_subject_id = "SubjectID" in source_columns or "SubjectID" in default_values
     has_custom_subject_id = any(
@@ -240,6 +253,7 @@ def _mask_schema_preview_for_ai(schema_preview, example_fields: list[str]):
 
 
 def _format_field_list(fields: list[str]) -> str:
+    """Format field list."""
     if not fields:
         return "_None_"
     return ", ".join(f"`{field}`" for field in fields)
@@ -252,6 +266,7 @@ def _render_ai_privacy_summary(
         example_fields: list[str],
         prompt: str,
 ) -> None:
+    """Render ai privacy summary."""
     approved_field_set = set(approved_fields)
     example_field_set = set(example_fields)
     fields_sent = sorted(approved_field_set, key=str.casefold)
@@ -282,12 +297,14 @@ def _render_ai_privacy_summary(
 
 
 def _format_name_list(names: list[str]) -> str:
+    """Format name list."""
     if not names:
         return "_None_"
     return ", ".join(f"`{name}`" for name in names)
 
 
 def _render_diff_group(title: str, diff_group: dict[str, list[str]]) -> None:
+    """Render diff group."""
     with st.expander(title, expanded=False):
         st.markdown("**Added:** " + _format_name_list(diff_group.get("added", [])))
         st.markdown("**Changed:** " + _format_name_list(diff_group.get("changed", [])))
@@ -296,6 +313,7 @@ def _render_diff_group(title: str, diff_group: dict[str, list[str]]) -> None:
 
 
 def _render_pending_ai_draft_review(template_config: dict, ih_config: dict) -> None:
+    """Render pending ai draft review."""
     pending_sections = st.session_state.get("config_studio_pending_ai_sections")
     if not pending_sections:
         return
@@ -406,12 +424,14 @@ def _render_pending_ai_draft_review(template_config: dict, ih_config: dict) -> N
 
 
 def _clear_pending_ai_repair() -> None:
+    """Clear pending ai repair."""
     st.session_state["config_studio_pending_repair_sections"] = None
     st.session_state["config_studio_pending_repair_base_toml"] = None
     st.session_state["config_studio_pending_repair_prompt"] = None
 
 
 def _repairable_validation_issues(validation_issues: list) -> list:
+    """Return validation issues that can be repaired by the AI flow."""
     return [
         issue
         for issue in validation_issues
@@ -420,6 +440,7 @@ def _repairable_validation_issues(validation_issues: list) -> list:
 
 
 def _apply_ai_repair_sections(current_config: dict, repair_sections: dict) -> dict:
+    """Apply ai repair sections."""
     repaired_config = deepcopy(current_config)
     for section_name in AI_REPAIRABLE_SECTIONS:
         if section_name in repair_sections:
@@ -433,6 +454,7 @@ def _render_pending_ai_repair_review(
         approved_fields: list[str],
         runtime_fields: list[str],
 ) -> None:
+    """Render pending ai repair review."""
     pending_sections = st.session_state.get("config_studio_pending_repair_sections")
     if not pending_sections:
         return
@@ -524,6 +546,7 @@ def _render_ai_repair_flow(
         template_config: dict,
         validation_issues: list,
 ) -> None:
+    """Render ai repair flow."""
     cfg = st.session_state.get("config_studio_draft_config")
     if cfg is None:
         return
@@ -704,6 +727,7 @@ def _delete_metric_from_draft(metric_name: str):
 
 
 def _initialize_editor_state(template_config: dict, file_signature: str, sample_columns: list[str], file_name: str):
+    """Initialize Streamlit session state for the editor workflow."""
     if st.session_state.get("config_studio_file_signature") == file_signature:
         return
     _clear_config_studio_state()
@@ -742,6 +766,7 @@ def _initialize_editor_state(template_config: dict, file_signature: str, sample_
 
 
 def _build_default_values_map(default_rows: list[dict]) -> dict:
+    """Build default values map."""
     result = {}
     for row in default_rows:
         if not row.get("Enabled", True):
@@ -778,12 +803,14 @@ def _extract_filter_fields(filter_expression: str) -> list[str]:
 
 
 def _render_intro():
+    """Render intro."""
     st.header("✨AI Configuration Studio", divider='red')
     st.info(
         "Build preprocessing first, approve the working field catalog, then let AI draft metrics and reports from the cleaned schema. Derived time fields are surfaced early so the field approval step reflects the real reporting surface, not just the raw upload.")
 
 
 def _render_metrics_bar(sample_df, working_df, approved_fields: list[str]):
+    """Render metrics bar."""
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Raw Columns", len(sample_df.columns))
     col2.metric("Working Columns", len(working_df.columns))
@@ -792,6 +819,7 @@ def _render_metrics_bar(sample_df, working_df, approved_fields: list[str]):
 
 
 def _render_sample_step(sample_df, file_name: str):
+    """Render sample step."""
     with st.container(border=True):
         title_col, action_col = st.columns([0.8, 0.2])
         with title_col:
@@ -853,6 +881,7 @@ def _render_sample_step(sample_df, file_name: str):
 
 
 def _render_required_fields_step(sample_df):
+    """Render required fields step."""
     st.write("### Required Field Mapping")
     st.caption(
         "Confirm the required identity and time fields before defaults, filters, and calculated fields are applied."
@@ -907,6 +936,7 @@ def _render_required_fields_step(sample_df):
 
 @st.fragment()
 def _render_preprocess_settings_step(default_frame: pl.DataFrame, sample_columns: list[str]):
+    """Render preprocess settings step."""
     with st.container(border=True):
         title_col, _ = st.columns([0.8, 0.2], vertical_alignment="center")
         with title_col:
@@ -940,6 +970,7 @@ def _render_preprocess_settings_step(default_frame: pl.DataFrame, sample_columns
 
 @st.fragment()
 def _render_filter_step(filter_field_options: list[str], filter_rows_frame: pl.DataFrame):
+    """Render filter step."""
     with st.container(border=True):
         st.write("### Filters")
         st.caption("Define the dataset-level filters before derived and calculated fields are added.")
@@ -986,6 +1017,7 @@ def _render_filter_step(filter_field_options: list[str], filter_rows_frame: pl.D
 
 @st.fragment()
 def _render_calculated_fields_step(calculated_frame: pl.DataFrame):
+    """Render calculated fields step."""
     with st.container(border=True):
         title_col, _, example_col = st.columns([0.4, 0.3, 0.3], vertical_alignment="center")
         with title_col:
@@ -1021,6 +1053,7 @@ def _render_calculated_fields_step(calculated_frame: pl.DataFrame):
 
 @st.fragment()
 def _render_field_step(working_df):
+    """Render field step."""
     available_fields = sorted(working_df.columns, key=str.casefold)
     current_selection = st.session_state.get("config_studio_selected_fields") or list(available_fields)
     current_selection = sorted(
@@ -1101,6 +1134,7 @@ def _render_field_step(working_df):
 def _render_ai_step(template_config: dict, file_name: str, working_df: pl.DataFrame, schema_preview: pl.DataFrame,
                     default_values: dict, filter_expression: str, calculated_fields_text: str, llm,
                     preprocessing_error: str | None = None):
+    """Render ai step."""
     st.write("### AI Configuration Draft")
     st.write("The AI sees only the approved working schema and the final IH preprocessing config.")
     if preprocessing_error:
@@ -1516,6 +1550,7 @@ def _render_app_settings_step():
 
 
 def _get_draft_validation_issues(approved_fields: list[str], runtime_fields: list[str]):
+    """Return draft validation issues."""
     cfg = st.session_state.get("config_studio_draft_config")
     if cfg is None:
         return None
@@ -1527,6 +1562,7 @@ def _get_draft_validation_issues(approved_fields: list[str], runtime_fields: lis
 
 
 def _progress_item(label: str, status: str, note: str, help_text: str = "") -> dict:
+    """Render a compact progress item for the current workflow step."""
     return {
         "label": label,
         "status": status,
@@ -1536,6 +1572,7 @@ def _progress_item(label: str, status: str, note: str, help_text: str = "") -> d
 
 
 def _issues_for_sections(validation_issues: list, sections: set[str]) -> list:
+    """Return whether validation issues exist for any requested section."""
     return [issue for issue in validation_issues if issue.section in sections]
 
 
@@ -1548,6 +1585,7 @@ def _validation_progress_item(
         ready_note: str,
         help_text: str,
 ) -> dict:
+    """Render a validation-aware progress item for the workflow."""
     if validation_issues is None:
         return _progress_item(label, "Pending", pending_note, help_text)
     section_issues = _issues_for_sections(validation_issues, sections)
@@ -1566,6 +1604,7 @@ def _render_ai_review_progress(
         pending_repair_sections: dict | None,
         validation_issues: list | None,
 ):
+    """Render ai review progress."""
     if preprocessing_error:
         preprocessing_item = _progress_item(
             "Preprocessing",
@@ -1765,6 +1804,7 @@ def _render_save_step(
 
 
 def main():
+    """Run the page entrypoint."""
     template_config = _load_template_config()
     _render_intro()
 

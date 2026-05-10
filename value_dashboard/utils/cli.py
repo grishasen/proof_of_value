@@ -4,6 +4,7 @@ import sys
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """Build the top-level CLI parser."""
     parser = argparse.ArgumentParser(
         prog="cdhdashboard",
         description="Launch the Value Dashboard Streamlit application.",
@@ -61,6 +62,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _build_run_app_parser() -> argparse.ArgumentParser:
+    """Build the parser for Streamlit launch options."""
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "--config",
@@ -78,6 +80,7 @@ def _build_run_app_parser() -> argparse.ArgumentParser:
 
 
 def _split_forwarded_args(args: list[str]) -> tuple[list[str], list[str]]:
+    """Split CLI arguments before and after the -- separator."""
     if "--" not in args:
         return list(args), []
     split_index = args.index("--")
@@ -85,6 +88,7 @@ def _split_forwarded_args(args: list[str]) -> tuple[list[str], list[str]]:
 
 
 def main():
+    """Run the cdhdashboard command-line entrypoint."""
     parser = _build_parser()
     raw_args = sys.argv[1:]
 
@@ -115,6 +119,7 @@ def main():
 
 
 def run(streamlit_args=None, script_args=None):
+    """Launch the Streamlit app with forwarded arguments."""
     from streamlit.web import cli as stcli
 
     streamlit_args = list(streamlit_args or [])

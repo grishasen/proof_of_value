@@ -24,6 +24,7 @@ st.markdown(
 
 
 def clear_config_cache():
+    """Clear cached configuration resources after an edit."""
     get_config.clear()
     holdings.get_reports_data.clear()
 

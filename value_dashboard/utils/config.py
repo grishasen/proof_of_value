@@ -12,6 +12,7 @@ logger = get_logger(__name__)
 
 @st.cache_resource()
 def get_config() -> dict:
+    """Load and cache the active application configuration."""
     config_file = None
     if "app_config" in st.session_state.keys():
         config_file = st.session_state["app_config"]
@@ -43,6 +44,7 @@ def get_config() -> dict:
 
 
 def clv_metrics_avail() -> bool:
+    """Return whether CLV metrics are configured."""
     metrics = get_config()["metrics"]
     for metric in metrics:
         if metric.startswith("clv"):
@@ -51,6 +53,7 @@ def clv_metrics_avail() -> bool:
 
 
 def ih_metrics_avail() -> bool:
+    """Return whether IH metrics are configured."""
     metrics = get_config()["metrics"]
     for metric in metrics:
         is_dict = isinstance(metrics[metric], dict)
@@ -60,16 +63,19 @@ def ih_metrics_avail() -> bool:
 
 
 def is_demo_mode() -> bool:
+    """Return whether the active config is in demo mode."""
     variants = get_config()["variants"]
     return strtobool(variants.get("demo_mode", False))
 
 
 def chat_with_data() -> bool:
+    """Return whether chat-with-data is enabled."""
     ux = get_config()["ux"]
     return strtobool(ux.get("chat_with_data", False))
 
 
 def set_config(cfg_file: str):
+    """Set the active config file and clear related caches."""
     if "app_config" in st.session_state:
         del st.session_state.app_config
     from value_dashboard.pipeline import holdings

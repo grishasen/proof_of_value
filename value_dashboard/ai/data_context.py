@@ -14,6 +14,7 @@ class DataChatDataset:
     description: str = ""
 
     def prompt_description(self, sample_rows: int = 5, max_columns: int = 30) -> str:
+        """Return a prompt-ready description of the dataset and its columns."""
         dtypes = "\n".join(
             f"- {column}: {dtype}" for column, dtype in self.dataframe.dtypes.astype(str).items()
         )

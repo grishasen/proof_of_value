@@ -14,6 +14,7 @@ im = Image.open(os.path.join(os.path.dirname(__file__), "../img/favicon.ico"))
 
 
 def get_page_configs():
+    """Return Streamlit page configuration metadata."""
     kwargs = {"layout": "wide",
               "page_icon": im}
     return kwargs
@@ -41,11 +42,13 @@ def highlight_and_format(val):
 
 
 def align_column_types(df: pd.DataFrame):
+    """Convert known date-like columns to formatted strings for filtering."""
     df = df.reindex(sorted(df.columns), axis=1)
     return df.convert_dtypes()
 
 
 def format_dates(df: pd.DataFrame):
+    """Format date columns for display in Streamlit filters."""
     for col in df.columns:
         if 'Month' == col:
             df['Month'] = pd.to_datetime(df['Month'], format='mixed')

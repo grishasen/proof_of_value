@@ -150,6 +150,7 @@ Final self-check:
 
 
 def _format_validation_issues(validation_issues: Iterable) -> str:
+    """Format validation issues for an AI repair prompt."""
     lines = []
     for issue in validation_issues:
         severity = getattr(issue, "severity", "")

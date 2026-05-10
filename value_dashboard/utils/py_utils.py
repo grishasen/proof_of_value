@@ -2,6 +2,7 @@ import re
 
 
 def find_between(s: str, start: str, end: str) -> str:
+    """Return the substring between two marker strings."""
     match = re.search(f"{re.escape(start)}(.*?){re.escape(end)}", s)
     return match.group(1) if match else ""
 
@@ -78,6 +79,7 @@ def capitalize(fields: list) -> list:
 
 
 def isBool(val):
+    """Return whether a value can be parsed as a boolean."""
     if isinstance(val, int):
         return (val == 1) or (val == 0)
     if not (isinstance(val, str)):
@@ -92,4 +94,5 @@ def isBool(val):
 
 
 def stable_dedup(seq):
+    """Return values with duplicates removed while preserving order."""
     return list(dict.fromkeys(seq))

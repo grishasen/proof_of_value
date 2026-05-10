@@ -35,6 +35,7 @@ st.markdown(
 
 
 def get_agent(data, llm) -> DataCodeAgent:
+    """Create or return the cached chat-with-data agent."""
     agent = DataCodeAgent(
         datasets=data,
         llm=llm,
@@ -46,11 +47,13 @@ def get_agent(data, llm) -> DataCodeAgent:
 
 
 def clear_chat_history(analyst_ref):
+    """Clear chat history."""
     st.session_state.messages = []
     analyst_ref.start_new_conversation()
 
 
 def metric_description(metric: str, descriptions: dict) -> str:
+    """Return the configured description for a metric family."""
     if metric in descriptions:
         return descriptions[metric]
     for prefix in ("engagement", "conversion", "experiment", "clv"):
@@ -60,6 +63,7 @@ def metric_description(metric: str, descriptions: dict) -> str:
 
 
 def message_log_text(message: dict) -> str:
+    """Format a chat message for agent memory."""
     if "question" in message:
         return message["question"]
     if "error" in message:
@@ -76,6 +80,7 @@ def message_log_text(message: dict) -> str:
 
 
 def messages_to_agent_history(messages: list[dict]) -> list[dict[str, str]]:
+    """Convert Streamlit chat messages into agent history entries."""
     history = []
     for message in messages:
         if "question" in message:
@@ -149,6 +154,7 @@ with st.sidebar:
 
 
 def print_previous_response(message):
+    """Render a previously stored chat response."""
     if "question" in message:
         st.markdown(message["question"])
     elif "response" in message:
@@ -163,6 +169,7 @@ def print_previous_response(message):
 
 
 def print_response(message):
+    """Render a newly generated chat response."""
     if "question" in message:
         st.markdown(message["question"])
     elif "response" in message:
@@ -177,6 +184,7 @@ def print_response(message):
 
 
 def chat_window(analyst):
+    """Render the interactive chat window."""
     new_chat = False
     if "messages" not in st.session_state or not st.session_state.messages:
         st.session_state.messages = []

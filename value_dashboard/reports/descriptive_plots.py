@@ -200,6 +200,7 @@ def descriptive_line_plot(data: Union[pl.DataFrame, pd.DataFrame],
         height = 640
 
     def select(arg):
+        """Select values from a row by column name."""
         if arg.title.text == config['y'] + "_" + option:
             return True
         return False
