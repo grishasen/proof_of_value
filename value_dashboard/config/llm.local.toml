@@ -1,0 +1,47 @@
+# Local LiteLLM configuration for AI Configuration Studio and Chat With Data.
+# Keep secrets out of this file. The app still asks for the API key in the sidebar,
+# or reads it from the configured environment variable.
+
+[defaults]
+model = "gpt-5.5"
+api_key_env_var = "OPENAI_API_KEY"
+api_key_label = "Enter API Key (Leave empty to use environment variable)"
+api_key_required = true
+api_key_fallback = ""
+missing_key_message = "Please configure API key."
+missing_key_stops_page = true
+reasoning_effort = "low"
+verbosity = "low"
+api_base = ""
+
+[defaults.extra_params]
+# Add provider-specific LiteLLM parameters here, for example:
+# temperature = 0.2
+# timeout = 120
+
+[chat_with_data]
+verbosity = "low"
+missing_key_stops_page = true
+
+[config_studio]
+verbosity = "medium"
+missing_key_stops_page = false
+
+# Local model examples:
+#
+# Ollama chat:
+# [defaults]
+# model = "ollama_chat/llama3.1"
+# api_base = "http://localhost:11434"
+# api_key_required = false
+# reasoning_effort = ""
+# verbosity = ""
+#
+# Generic OpenAI-compatible local server:
+# [defaults]
+# model = "openai/local-model"
+# api_base = "http://localhost:8000/v1"
+# api_key_required = false
+# api_key_fallback = "local"
+# reasoning_effort = ""
+# verbosity = ""
