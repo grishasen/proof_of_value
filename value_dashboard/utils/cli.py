@@ -13,7 +13,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "  cdhdashboard run\n"
             "  cdhdashboard run --server.port 8502\n"
             "  cdhdashboard run --server.headless true --browser.gatherUsageStats false\n"
-            "  cdhdashboard run -- --config=config/config.toml --logging_config=config/logging_config.yaml\n"
+            "  cdhdashboard run -- --config=config/config.toml --logging_config=config/logging_config.yaml "
+            "--llm_config=config/llm_config.toml\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -28,7 +29,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "Arguments after `--` are forwarded to `vd_app.py`.\n\n"
             "Application options:\n"
             "  --config PATH                   Load a specific dashboard TOML config.\n"
-            "  --logging_config PATH           Load a specific logging configuration file.\n\n"
+            "  --logging_config PATH           Load a specific logging configuration file.\n"
+            "  --llm_config PATH               Load a specific LLM configuration file.\n\n"
             "Common Streamlit options:\n"
             "  --server.port PORT              Run on a custom port.\n"
             "  --server.address ADDRESS        Bind to a specific host.\n"
@@ -49,6 +51,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store",
         default="",
         help="Logging config file to forward to vd_app.py as `--logging_config`.",
+    )
+    run_parser.add_argument(
+        "--llm_config",
+        action="store",
+        default="",
+        help="LLM config file to forward to vd_app.py as `--llm_config`.",
     )
     run_parser.add_argument(
         "args",
@@ -75,6 +83,12 @@ def _build_run_app_parser() -> argparse.ArgumentParser:
         action="store",
         default="",
         help="Logging config file to forward to vd_app.py as `--logging_config`.",
+    )
+    parser.add_argument(
+        "--llm_config",
+        action="store",
+        default="",
+        help="LLM config file to forward to vd_app.py as `--llm_config`.",
     )
     return parser
 
@@ -108,12 +122,15 @@ def main():
 
     config_path = script_app_opts.config or streamlit_app_opts.config
     logging_config_path = script_app_opts.logging_config or streamlit_app_opts.logging_config
+    llm_config_path = script_app_opts.llm_config or streamlit_app_opts.llm_config
 
     forwarded_script_args = list(script_args)
     if config_path:
         forwarded_script_args = ["--config", config_path, *forwarded_script_args]
     if logging_config_path:
         forwarded_script_args = ["--logging_config", logging_config_path, *forwarded_script_args]
+    if llm_config_path:
+        forwarded_script_args = ["--llm_config", llm_config_path, *forwarded_script_args]
 
     run(streamlit_args=streamlit_args, script_args=forwarded_script_args)
 

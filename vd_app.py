@@ -48,11 +48,14 @@ parser.add_argument('--config', action='store', default="",
                     help="Config file")
 parser.add_argument('--logging_config', action='store', default="",
                     help="Logging config file")
+parser.add_argument('--llm_config', action='store', default="",
+                    help="LLM config file")
 
 try:
     args = parser.parse_args()
     st.session_state['app_config'] = args.config
     st.session_state['logging_config'] = args.logging_config
+    st.session_state['llm_config'] = args.llm_config
 except SystemExit as e:
     pass
 

@@ -8,7 +8,7 @@ import streamlit as st
 from value_dashboard.ai.litellm_client import LiteLLMClient
 
 LLM_CONFIG_ENV_VAR = "VALUE_DASHBOARD_LLM_CONFIG"
-DEFAULT_LLM_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "llm.local.toml"
+DEFAULT_LLM_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "llm_config.toml"
 DEFAULT_LLM_SETTINGS: dict[str, Any] = {
     "model": "gpt-5.5",
     "api_key_env_var": "OPENAI_API_KEY",
@@ -63,8 +63,12 @@ def _coerce_bool(value: Any) -> bool:
 
 def _load_litellm_config(config_path: str | None = None) -> dict[str, Any]:
     """Load local LiteLLM settings from TOML."""
+    session_config_path = st.session_state.get("llm_config", "")
     resolved_config_path = Path(
-        config_path or os.environ.get(LLM_CONFIG_ENV_VAR) or DEFAULT_LLM_CONFIG_PATH
+        config_path
+        or session_config_path
+        or os.environ.get(LLM_CONFIG_ENV_VAR)
+        or DEFAULT_LLM_CONFIG_PATH
     ).expanduser()
     try:
         with open(resolved_config_path, mode="rb") as handle:
