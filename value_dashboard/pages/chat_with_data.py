@@ -98,15 +98,8 @@ if "data_loaded" not in st.session_state:
 
 # Sidebar for API Key settings
 with st.sidebar:
-    model: str = "gpt-5.5"
-    reasoning_effort = "low"  # "minimal" | "low" | "medium" | "high"
-    verbosity = "low"  # "low" | "medium" | "high"
     llm = render_litellm_sidebar(
         key_prefix="chat_with_data",
-        default_model=model,
-        reasoning_effort=reasoning_effort,
-        verbosity=verbosity,
-        missing_key_message="Please configure API key.",
     )
     if llm:
         metrics_data = ih_load_data() if st.session_state.get('data_loaded', default=False) else {}

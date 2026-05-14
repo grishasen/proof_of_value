@@ -86,11 +86,13 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
    This installs `litellm` for AI-assisted config generation and chat with data.
 
-4. **Prepare a custom config if needed**:
+4. **Prepare a custom dashboard config if needed**:
    ```bash
    cp value_dashboard/config/config_template.toml value_dashboard/config/config.toml
    vi value_dashboard/config/config.toml
    ```
+
+   AI provider settings are configured separately in `value_dashboard/config/llm.local.toml`.
 
 5. **Run the application**:
    ```bash
@@ -500,11 +502,18 @@ functionality of the dashboard.
 The `[chat_with_data]` section configures LLM context for questions about the loaded data and visualizations beyond the
 reports configured for the dashboard. The page requires the optional AI dependencies.
 
+Provider, model, and LiteLLM endpoint settings are read from `value_dashboard/config/llm.local.toml`. Override the path
+with `VALUE_DASHBOARD_LLM_CONFIG` if you want to keep a separate local file.
+
 Use the `OPENAI_API_KEY` environment variable to provide credentials, or paste the key directly in the UI form:
 
 ```bash
 export OPENAI_API_KEY="<<your_openai_api_key>>"
 ```
+
+For local models, edit `value_dashboard/config/llm.local.toml`, for example set `model = "ollama_chat/llama3.1"`,
+`api_base = "http://localhost:11434"`, `api_key_required = false`, and set `reasoning_effort = ""` /
+`verbosity = ""`.
 
 #### Properties in section
 

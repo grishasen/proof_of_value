@@ -53,9 +53,6 @@ BACKGROUND_HELP = (
 )
 CONFIG_STUDIO_PRESERVE_KEYS = {
     "config_studio_api_key",
-    "config_studio_model",
-    "config_studio_reasoning_effort",
-    "config_studio_verbosity",
 }
 AI_REPAIRABLE_SECTIONS = ("metrics", "reports", "variants")
 STEP_OPTIONS = [
@@ -1821,11 +1818,6 @@ def main():
         )
         llm = render_litellm_sidebar(
             key_prefix="config_studio",
-            default_model="gpt-5.5",
-            reasoning_effort="low",
-            verbosity="medium",
-            missing_key_message="Please configure LLM API key.",
-            require_api_key=False,
         )
     if 'file_expanded' not in st.session_state:
         st.session_state['file_expanded'] = True
