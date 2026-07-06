@@ -2,3 +2,4 @@
 /value_dashboard/config/config.toml
 /db/pov_data.duckdb
 /cache/
+/build/
